@@ -11,6 +11,7 @@
 #include "components/numeric/numericcomponent.h"
 CanvasItem* ComponentFactory::create(const QString& type, QWidget *parent)
 {
+    // 根据组件类型字符串创建对应控件；未匹配时返回空指针。
     if (type == "plot"){
     return new PlotComponent(parent);
     }

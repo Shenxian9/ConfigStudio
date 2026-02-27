@@ -7,8 +7,10 @@
 CanvasView::CanvasView(QWidget *parent)
     : QWidget(parent)
 {
+    // 允许从组件面板拖拽控件到画布。
     setAcceptDrops(true);
 
+    // 关闭系统默认背景，交给 paintEvent 统一绘制。
     setAttribute(Qt::WA_NoSystemBackground, false);
     m_canvasViewOriginalSize = size();
 
@@ -32,6 +34,7 @@ void CanvasView::dragEnterEvent(QDragEnterEvent *event)
 
 void CanvasView::dropEvent(QDropEvent *event)
 {
+    // 从拖拽数据中读取组件类型并创建对应画布项。
     QString type = event->mimeData()->text();
     CanvasItem *item = ComponentFactory::create(type, this);
     if (!item) return;
@@ -39,6 +42,7 @@ void CanvasView::dropEvent(QDropEvent *event)
     // ⭐ 注入绑定管理器
     item->setBindingManager(m_bindingMgr);
 
+    // 将组件放到鼠标释放位置并显示。
     item->move(event->pos());
     item->show();
 
@@ -51,6 +55,7 @@ void CanvasView::dropEvent(QDropEvent *event)
     //     }
     // }
 
+    // 维护单选状态：新选中项会取消旧选中项。
     connect(item, &CanvasItem::selected, this, [=](CanvasItem* it){
         if (m_selected && m_selected != it)
             m_selected->setSelected(false);
@@ -59,6 +64,7 @@ void CanvasView::dropEvent(QDropEvent *event)
         emit itemSelected(it);
     });
 
+    // 组件被删除时同步清空画布当前选中状态。
     connect(item, &QObject::destroyed, this, [this, item]() {
         if (m_selected == item) {
             m_selected = nullptr;
@@ -99,6 +105,7 @@ void CanvasView::mousePressEvent(QMouseEvent *event)
 
 void CanvasView::clearSelection()
 {
+    // 对外提供统一的取消选中入口。
     if (m_selected) {
         m_selected->setSelected(false);
         m_selected = nullptr;
