@@ -6,6 +6,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     // 由 Qt Designer 生成的界面初始化入口。
+    // 该调用会创建 .ui 中定义的控件层级并完成信号槽自动连接。
     ui->setupUi(this);
 }
 
