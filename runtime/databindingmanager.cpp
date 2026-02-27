@@ -1,8 +1,12 @@
 #include "databindingmanager.h"
+#include <QDebug>
+#include <algorithm>
 
 DataBindingManager::DataBindingManager(VariableModel* model, QObject* parent)
     : QObject(parent), m_model(model)
 {
+    Q_ASSERT(model);
+
     bool ok = connect(model, &VariableModel::variableValueChanged,
                       this, &DataBindingManager::onVariableChanged);
 
@@ -13,18 +17,36 @@ DataBindingManager::DataBindingManager(VariableModel* model, QObject* parent)
 
 void DataBindingManager::bind(const QString& varId, CanvasItem* item, const QString& property)
 {
+    if (!item)
+        return;
+
+    auto& list = m_bindings[varId];
+    const auto alreadyBound = std::any_of(list.cbegin(), list.cend(),
+                                          [&](const Binding& b) {
+                                              return b.item == item && b.property == property;
+                                          });
+    if (alreadyBound)
+        return;
+
     Binding b;
     b.item = item;
     b.property = property;
 
-    m_bindings[varId].append(b);
+    list.append(b);
 
     // ⭐ 控件销毁时自动移除
     connect(item, &QObject::destroyed, this, [this, varId, item]() {
-        auto& list = m_bindings[varId];
-        list.erase(std::remove_if(list.begin(), list.end(),
-                                  [item](const Binding& b){ return b.item == item; }),
-                   list.end());
+        auto it = m_bindings.find(varId);
+        if (it == m_bindings.end())
+            return;
+
+        auto& itemBindings = it.value();
+        itemBindings.erase(std::remove_if(itemBindings.begin(), itemBindings.end(),
+                                          [item](const Binding& b) { return b.item == item; }),
+                           itemBindings.end());
+
+        if (itemBindings.isEmpty())
+            m_bindings.erase(it);
     });
 }
 
@@ -45,10 +67,11 @@ void DataBindingManager::unbind(const QString& varId, CanvasItem* item, const QS
 
 void DataBindingManager::onVariableChanged(const QString& varId, const QVariant& value)
 {
-    if (!m_bindings.contains(varId))
+    auto it = m_bindings.find(varId);
+    if (it == m_bindings.end())
         return;
 
-    auto& list = m_bindings[varId];
+    auto& list = it.value();
 
     for (int i = list.size() - 1; i >= 0; --i) {
         Binding& b = list[i];
@@ -61,6 +84,8 @@ void DataBindingManager::onVariableChanged(const QString& varId, const QVariant&
 
         b.item->setPropertyValue(b.property, value);
     }
-}
 
+    if (list.isEmpty())
+        m_bindings.erase(it);
+}
 
