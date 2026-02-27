@@ -1,0 +1,4 @@
+#ifndef SWITCHCONFIG_H
+#define SWITCHCONFIG_H
+
+#endif // SWITCHCONFIG_H

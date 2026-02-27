@@ -1,0 +1,4 @@
+#ifndef GEOMETRYUTILS_H
+#define GEOMETRYUTILS_H
+
+#endif // GEOMETRYUTILS_H

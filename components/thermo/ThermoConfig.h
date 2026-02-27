@@ -1,0 +1,4 @@
+#ifndef THERMOCONFIG_H
+#define THERMOCONFIG_H
+
+#endif // THERMOCONFIG_H

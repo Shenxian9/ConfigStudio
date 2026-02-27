@@ -1,0 +1,4 @@
+#ifndef WHEELCONFIG_H
+#define WHEELCONFIG_H
+
+#endif // WHEELCONFIG_H

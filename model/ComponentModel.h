@@ -1,0 +1,4 @@
+#ifndef COMPONENTMODEL_H
+#define COMPONENTMODEL_H
+
+#endif // COMPONENTMODEL_H

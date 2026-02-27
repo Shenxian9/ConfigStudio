@@ -1,0 +1,4 @@
+#ifndef NUMERICCONFIG_H
+#define NUMERICCONFIG_H
+
+#endif // NUMERICCONFIG_H

@@ -1,0 +1,19 @@
+# Qt
+*.pro.user
+*.pro.user.*
+*.qmake.stash
+
+# Build directories
+build-*
+debug/
+release/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# OS
+.DS_Store
+Thumbs.db

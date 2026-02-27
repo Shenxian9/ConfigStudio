@@ -1,0 +1,4 @@
+#ifndef SLIDERCONFIG_H
+#define SLIDERCONFIG_H
+
+#endif // SLIDERCONFIG_H

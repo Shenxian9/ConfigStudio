@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/dial.png</file>
+        <file>icons/bar.png</file>
+        <file>icons/delete.png</file>
+        <file>icons/exit.png</file>
+        <file>icons/fullscreen.png</file>
+        <file>icons/histogram.png</file>
+        <file>icons/plot.png</file>
+        <file>icons/slider.png</file>
+        <file>icons/switch.png</file>
+        <file>icons/text.png</file>
+        <file>icons/wheel.png</file>
+        <file>icons/numeric.png</file>
+        <file>icons/indicator.png</file>
+    </qresource>
+</RCC>
