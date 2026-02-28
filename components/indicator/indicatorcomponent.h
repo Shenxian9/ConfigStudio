@@ -3,6 +3,7 @@
 
 #pragma once
 #include "canvas/canvasitem.h"
+#include <QColor>
 #include <QLabel>
 #include <QTimer>
 
@@ -20,14 +21,31 @@ public:
     void paintEvent(QPaintEvent *event) override;
 
 private:
-    QLabel *m_title;
+    void setValue(double value);
+    void refreshBlinkState();
 
-    bool   m_on   = true;
+private:
+    QLabel *m_title;
+    QLabel *m_valueLabel;
+
+    bool   m_on = true;
     bool   m_blink = true;
+    bool   m_blinkWhenAbove = true;
+    bool   m_blinkState = true;
+
+    double m_value = 0.0;
+    double m_min = 0.0;
+    double m_max = 100.0;
+    double m_threshold = 50.0;
+
+    int    m_blinkIntervalMs = 500;
+
     QColor m_color = Qt::green;
+    QColor m_offColor = QColor(80, 80, 80);
+
+    QString m_varId;
 
     QTimer m_blinkTimer;
-    bool   m_blinkState = true;
 };
 
 #endif
