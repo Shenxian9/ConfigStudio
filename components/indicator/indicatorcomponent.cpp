@@ -50,7 +50,7 @@ QVariantMap IndicatorComponent::properties() const
     map["blink"] = m_blink;
     map["mode"] = m_blinkMode;
     map["threshold"] = m_threshold;
-    map["blinkIntervalMs"] = m_blinkIntervalMs;
+    map["Interval/Ms"] = m_blinkIntervalMs;
     map["value"] = m_value;
     map["min"] = m_min;
     map["max"] = m_max;
@@ -87,7 +87,7 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_threshold = v.toDouble();
         refreshBlinkState();
     }
-    else if (key == "blinkIntervalMs") {
+    else if (key == "Interval/Ms" || key == "blinkIntervalMs") {
         m_blinkIntervalMs = qMax(50, v.toInt());
         m_blinkTimer.setInterval(m_blinkIntervalMs);
         refreshBlinkState();

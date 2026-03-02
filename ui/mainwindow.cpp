@@ -213,7 +213,7 @@ void MainWindow::showProperties(CanvasItem *item)
     QVariantMap props = item->properties();
     QStringList keys = props.keys();
     const QStringList priorityKeys = {
-        "title", "text", "value", "varId", "mode", "on", "blink", "threshold",
+        "title", "text", "value", "varId", "mode", "on", "blink", "threshold", "Interval/Ms",
         "min", "max", "color", "fontSize", "bold", "align"
     };
     std::sort(keys.begin(), keys.end(), [&priorityKeys](const QString &a, const QString &b) {

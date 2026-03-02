@@ -41,7 +41,7 @@ private:
     double m_max = 100.0;
     double m_threshold = 50.0;
 
-    int    m_blinkIntervalMs = 500;
+    int    m_blinkIntervalMs = 100;
 
     QColor m_color = Qt::green;
     QColor m_offColor = QColor(80, 80, 80);
