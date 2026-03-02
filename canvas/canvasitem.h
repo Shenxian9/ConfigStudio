@@ -22,6 +22,8 @@ public:
     bool isSelected() const { return m_selected; }
 
     void setBindingManager(DataBindingManager* mgr) { m_bindingMgr = mgr; }
+    void setEditLocked(bool locked) { m_editLocked = locked; if (locked) { m_dragging = false; m_resizing = false; } update(); }
+    bool isEditLocked() const { return m_editLocked; }
 
 
 signals:
@@ -44,6 +46,7 @@ private:
     const int handleSize = 30;
     bool m_resizing = false;
     bool m_dragging = false;
+    bool m_editLocked = false;
 
     QRect m_startRect;
 

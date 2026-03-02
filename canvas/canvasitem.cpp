@@ -9,6 +9,11 @@ CanvasItem::CanvasItem(QWidget *parent)
 
 void CanvasItem::mousePressEvent(QMouseEvent *event)
 {
+    if (m_editLocked) {
+        QWidget::mousePressEvent(event);
+        return;
+    }
+
     if (event->button() != Qt::LeftButton)
         return;
 
@@ -32,6 +37,11 @@ void CanvasItem::mousePressEvent(QMouseEvent *event)
 
 void CanvasItem::mouseMoveEvent(QMouseEvent *event)
 {
+    if (m_editLocked) {
+        QWidget::mouseMoveEvent(event);
+        return;
+    }
+
     QPoint delta = event->globalPos() - m_dragStart;
 
     if (m_resizing) {
@@ -79,7 +89,9 @@ bool CanvasItem::isInResizeHandle(const QPoint& pos) const
 }
 void CanvasItem::mouseReleaseEvent(QMouseEvent *event)
 {
-    m_resizing = false;
-    m_dragging = false;
+    if (!m_editLocked) {
+        m_resizing = false;
+        m_dragging = false;
+    }
     QWidget::mouseReleaseEvent(event);
 }

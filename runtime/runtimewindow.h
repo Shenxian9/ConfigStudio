@@ -49,7 +49,6 @@ private:
     QSizePolicy m_originalPolicy;
 
      QMap<CanvasItem*, QRect> m_originalItemGeometries;
-     QMap<CanvasItem*, bool> m_originalTransparentForMouseEvents;
 
       QVector<int> m_originalStretchs; // 保存父布局所有 widget 的 stretch
 

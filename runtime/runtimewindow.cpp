@@ -40,17 +40,15 @@ void RuntimeWindow::setCanvas(CanvasView* canvas)
 
     // 保存 CanvasItem 原始 geometry
     m_originalItemGeometries.clear();
-    m_originalTransparentForMouseEvents.clear();
     for (auto item : m_canvas->findChildren<CanvasItem*>()) {
         m_originalItemGeometries[item] = item->geometry();
-        m_originalTransparentForMouseEvents[item] = item->testAttribute(Qt::WA_TransparentForMouseEvents);
     }
 
     // 运行态只观察，不允许拖拽/缩放/选中
     m_canvas->clearSelection();
     for (auto item : m_canvas->findChildren<CanvasItem*>()) {
         item->setSelected(false);
-        item->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+        item->setEditLocked(true);
     }
 
     // 移动到 RuntimeWindow
@@ -111,14 +109,8 @@ void RuntimeWindow::on_buttonOfQuit_clicked()
                 icon->updatePixmap();
             }
         }
-
-        // 恢复交互属性
-        if (m_originalTransparentForMouseEvents.contains(item)) {
-            item->setAttribute(Qt::WA_TransparentForMouseEvents,
-                               m_originalTransparentForMouseEvents.value(item));
-        } else {
-            item->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-        }
+        // 恢复设计态编辑能力
+        item->setEditLocked(false);
     }
 
 
