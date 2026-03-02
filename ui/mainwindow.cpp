@@ -5,6 +5,7 @@
 #include <QPointer>
 #include <QLoggingCategory>
 #include <QDateTime>
+#include <QColor>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
 
@@ -21,6 +22,36 @@ void propDiagLog(const QString &msg)
 }
 
 constexpr int kPropertyValueTypeRole = Qt::UserRole + 1;
+
+QString normalizedColorName(const QString &raw)
+{
+    const QString v = raw.trimmed().toLower();
+    if (v == "red" || v == "green" || v == "blue")
+        return v;
+
+    const QColor c(v);
+    if (!c.isValid())
+        return "red";
+
+    if (c == QColor(Qt::red)) return "red";
+    if (c == QColor(Qt::green)) return "green";
+    if (c == QColor(Qt::blue)) return "blue";
+
+    return "red";
+}
+
+QString nextColorName(const QString &current)
+{
+    const QString c = normalizedColorName(current);
+    if (c == "red") return "green";
+    if (c == "green") return "blue";
+    return "red";
+}
+
+bool isColorPropertyKey(const QString &key)
+{
+    return key == "color" || key == "offColor";
+}
 }
 
 void setLabelIcon(QLabel* label, const QString& path)
@@ -185,7 +216,11 @@ void MainWindow::showProperties(CanvasItem *item)
         const QVariant propValue = it.value();
         ui->propertyTable->insertRow(row);
         QTableWidgetItem *keyItem = new QTableWidgetItem(key);
-        QTableWidgetItem *valueItem = new QTableWidgetItem(propValue.toString());
+        QString valueText = propValue.toString();
+        if (isColorPropertyKey(key)) {
+            valueText = normalizedColorName(valueText);
+        }
+        QTableWidgetItem *valueItem = new QTableWidgetItem(valueText);
 
         keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
@@ -196,6 +231,11 @@ void MainWindow::showProperties(CanvasItem *item)
         if (propValue.type() == QVariant::Bool) {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             valueItem->setToolTip("Tap to toggle true / false");
+        }
+
+        if (isColorPropertyKey(key)) {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle red / green / blue");
         }
 
         if (key == "blinkMode") {
@@ -377,6 +417,30 @@ void MainWindow::editPropertyCell(int row, int col)
     const QString currentValue = valueCell->text().trimmed().toLower();
     const bool looksLikeBoolText = (currentValue == "true" || currentValue == "false" ||
                                     currentValue == "1" || currentValue == "0");
+
+    if (isColorPropertyKey(key)) {
+        const QString nextColor = nextColorName(currentValue);
+        propDiagLog(QString("editPropertyCell color toggle %1 -> %2 row=%3")
+                    .arg(currentValue, nextColor).arg(row));
+
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(nextColor);
+            }
+        }
+
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem) {
+            propDiagLog(QString("apply setPropertyValue(color) target=%1 key=%2 val=%3")
+                        .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16)
+                        .arg(key, nextColor));
+            targetItem->setPropertyValue(key, nextColor);
+        }
+        return;
+    }
 
     if (valueType == QVariant::Bool || looksLikeBoolText) {
         const bool currentBool = (currentValue == "true" || currentValue == "1");
