@@ -8,7 +8,6 @@
 #include <QHeaderView>
 #include <QTableWidget>
 #include <QVBoxLayout>
-#include <QPushButton>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -117,6 +116,7 @@ void PlotComponent::showHistoryDialog()
 {
     QDialog dlg(this);
     dlg.setWindowTitle(QString("Plot History (N=%1)").arg(m_maxPoints));
+    dlg.setWindowFlags(dlg.windowFlags() | Qt::Popup);
     dlg.resize(420, 320);
 
     QVBoxLayout *layout = new QVBoxLayout(&dlg);
@@ -140,11 +140,6 @@ void PlotComponent::showHistoryDialog()
     }
 
     layout->addWidget(table);
-
-    QPushButton *closeBtn = new QPushButton("Close", &dlg);
-    closeBtn->setMinimumHeight(40);
-    layout->addWidget(closeBtn);
-    QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
 
     dlg.exec();
 }
