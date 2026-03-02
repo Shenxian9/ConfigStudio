@@ -50,7 +50,7 @@ QString nextColorName(const QString &current)
 
 bool isColorPropertyKey(const QString &key)
 {
-    return key == "color" || key == "offColor";
+    return key == "color";
 }
 }
 
