@@ -8,6 +8,7 @@
 #include <QHeaderView>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <QPushButton>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -139,6 +140,12 @@ void PlotComponent::showHistoryDialog()
     }
 
     layout->addWidget(table);
+
+    QPushButton *closeBtn = new QPushButton("Close", &dlg);
+    closeBtn->setMinimumHeight(40);
+    layout->addWidget(closeBtn);
+    QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+
     dlg.exec();
 }
 
