@@ -30,6 +30,8 @@ QVariantMap PlotComponent::properties() const
 {
     QVariantMap map;
     map["title"] = m_plot->title().text();
+    map["xAxisTitle"] = m_plot->axisTitle(QwtPlot::xBottom).text();
+    map["yAxisTitle"] = m_plot->axisTitle(QwtPlot::yLeft).text();
     map["xMin"] = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     map["xMax"] = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     map["varId"] = m_varId;   // ⭐ 添加 varId 属性
@@ -44,6 +46,14 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "title") {
         m_plot->setTitle(v.toString());
+    }
+    else if (key == "xAxisTitle") {
+        m_plot->setAxisTitle(QwtPlot::xBottom, v.toString());
+        m_plot->replot();
+    }
+    else if (key == "yAxisTitle") {
+        m_plot->setAxisTitle(QwtPlot::yLeft, v.toString());
+        m_plot->replot();
     }
     else if (key == "varId") {
         QString newVarId = v.toString();

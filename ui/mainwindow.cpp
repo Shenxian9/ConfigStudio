@@ -1,5 +1,60 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+
+#include <QSignalBlocker>
+#include <QPointer>
+#include <QLoggingCategory>
+#include <QDateTime>
+#include <QColor>
+#include <algorithm>
+
+Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
+
+namespace {
+bool propertyDiagEnabled()
+{
+    return qEnvironmentVariableIsSet("CONFIGSTUDIO_PROP_DIAG");
+}
+
+void propDiagLog(const QString &msg)
+{
+    if (!propertyDiagEnabled()) return;
+    qCInfo(propDiag).noquote() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << msg;
+}
+
+constexpr int kPropertyValueTypeRole = Qt::UserRole + 1;
+
+QString normalizedColorName(const QString &raw)
+{
+    const QString v = raw.trimmed().toLower();
+    if (v == "red" || v == "green" || v == "blue")
+        return v;
+
+    const QColor c(v);
+    if (!c.isValid())
+        return "red";
+
+    if (c == QColor(Qt::red)) return "red";
+    if (c == QColor(Qt::green)) return "green";
+    if (c == QColor(Qt::blue)) return "blue";
+
+    return "red";
+}
+
+QString nextColorName(const QString &current)
+{
+    const QString c = normalizedColorName(current);
+    if (c == "red") return "green";
+    if (c == "green") return "blue";
+    return "red";
+}
+
+bool isColorPropertyKey(const QString &key)
+{
+    return key == "color";
+}
+}
+
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -18,6 +73,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    propDiagLog(QString("MainWindow init, platform=%1").arg(QGuiApplication::platformName()));
     QScreen *screen = QApplication::primaryScreen();
     QSize size = screen->size();
 
@@ -61,6 +117,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->propertyTable, &QTableWidget::cellChanged,
             this, &MainWindow::onPropertyChanged);
+
+    connect(ui->propertyTable, &QTableWidget::cellClicked,
+            this, &MainWindow::editPropertyCell);
 
     connect(ui->deleteButton, &QPushButton::clicked,
             this, &MainWindow::on_deleteButton_clicked);
@@ -138,6 +197,9 @@ void MainWindow::showProperties(CanvasItem *item)
 {
     if (!item) return;
 
+    propDiagLog(QString("showProperties enter item=%1 type=%2").arg(reinterpret_cast<quintptr>(item), 0, 16).arg(item->type()));
+    QSignalBlocker blocker(ui->propertyTable);
+
     ui->propertyTable->clear();
     ui->propertyTable->setRowCount(0);
     ui->propertyTable->setColumnCount(2);
@@ -149,16 +211,64 @@ void MainWindow::showProperties(CanvasItem *item)
     ui->propertyTable->setFont(font);
 
     QVariantMap props = item->properties();
+    QStringList keys = props.keys();
+    const QStringList priorityKeys = {
+        "title", "text", "value", "varId", "mode", "on", "blink", "threshold", "Interval/Ms",
+        "min", "max", "color", "fontSize", "bold", "align"
+    };
+    std::sort(keys.begin(), keys.end(), [&priorityKeys](const QString &a, const QString &b) {
+        const int ia = priorityKeys.indexOf(a);
+        const int ib = priorityKeys.indexOf(b);
+        if (ia >= 0 && ib >= 0) return ia < ib;
+        if (ia >= 0) return true;
+        if (ib >= 0) return false;
+        return a < b;
+    });
+
     int row = 0;
-    for (auto it = props.begin(); it != props.end(); ++it) {
+    for (const QString &key : keys) {
+        const QVariant propValue = props.value(key);
         ui->propertyTable->insertRow(row);
-        QTableWidgetItem *keyItem = new QTableWidgetItem(it.key());
-        QTableWidgetItem *valueItem = new QTableWidgetItem(it.value().toString());
+        QTableWidgetItem *keyItem = new QTableWidgetItem(key);
+        QString valueText = propValue.toString();
+        if (isColorPropertyKey(key)) {
+            valueText = normalizedColorName(valueText);
+        }
+        QTableWidgetItem *valueItem = new QTableWidgetItem(valueText);
 
         keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        valueItem->setData(kPropertyValueTypeRole, propValue.type());
 
         ui->propertyTable->setItem(row, 0, keyItem);
+
+        bool isToggleCell = false;
+
+        if (propValue.type() == QVariant::Bool) {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle true / false");
+            isToggleCell = true;
+        }
+
+        if (isColorPropertyKey(key)) {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle red / green / blue");
+            isToggleCell = true;
+        }
+
+        if (key == "mode") {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle above / below");
+            isToggleCell = true;
+        }
+
+        if (isToggleCell) {
+            valueItem->setBackground(QColor(232, 244, 255));
+            QFont vf = valueItem->font();
+            vf.setBold(true);
+            valueItem->setFont(vf);
+        }
+
         ui->propertyTable->setItem(row, 1, valueItem);
 
         // 设置行高
@@ -178,6 +288,7 @@ void MainWindow::showProperties(CanvasItem *item)
     ui->propertyTable->setShowGrid(true);
 
     ui->propertyTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    propDiagLog(QString("showProperties done rows=%1").arg(ui->propertyTable->rowCount()));
 }
 
 
@@ -187,6 +298,7 @@ void MainWindow::onItemSelected(CanvasItem *item)
     if (m_currentItem && m_currentItem != item)
         m_currentItem->setSelected(false);
 
+    propDiagLog(QString("onItemSelected item=%1").arg(reinterpret_cast<quintptr>(item), 0, 16));
     m_currentItem = item;
     item->setSelected(true);
 
@@ -200,8 +312,17 @@ void MainWindow::onPropertyChanged(int row, int col)
     if (!m_currentItem || col != 1)
         return;
 
-    QString key = ui->propertyTable->item(row, 0)->text();
-    QString val = ui->propertyTable->item(row, 1)->text();
+    QTableWidgetItem *keyCell = ui->propertyTable->item(row, 0);
+    QTableWidgetItem *valCell = ui->propertyTable->item(row, 1);
+    if (!keyCell || !valCell) {
+        propDiagLog(QString("onPropertyChanged skipped invalid cell row=%1 col=%2").arg(row).arg(col));
+        return;
+    }
+
+    const QString key = keyCell->text();
+    const QString val = valCell->text();
+    propDiagLog(QString("onPropertyChanged row=%1 key=%2 val=%3 item=%4")
+                .arg(row).arg(key).arg(val).arg(reinterpret_cast<quintptr>(m_currentItem), 0, 16));
 
     m_currentItem->setPropertyValue(key, val);
 }
@@ -309,31 +430,94 @@ void MainWindow::on_pushOfDatasrc_clicked()
 
 void MainWindow::editPropertyCell(int row, int col)
 {
-    if (col != 1) return;
+    propDiagLog(QString("editPropertyCell click row=%1 col=%2 currentItem=%3")
+                .arg(row).arg(col).arg(reinterpret_cast<quintptr>(m_currentItem), 0, 16));
+    if (col != 1 || !m_currentItem) return;
 
-    QString key = ui->propertyTable->item(row, 0)->text();
-    QString value = ui->propertyTable->item(row, 1)->text();
+    QTableWidgetItem *keyCell = ui->propertyTable->item(row, 0);
+    QTableWidgetItem *valueCell = ui->propertyTable->item(row, 1);
+    if (!keyCell || !valueCell) return;
 
-    QDialog dlg(this);
-    dlg.setWindowTitle("Edit Property");
+    const QString key = keyCell->text();
+    const int valueType = valueCell->data(kPropertyValueTypeRole).toInt();
+    const QString currentValue = valueCell->text().trimmed().toLower();
+    const bool looksLikeBoolText = (currentValue == "true" || currentValue == "false" ||
+                                    currentValue == "1" || currentValue == "0");
 
-    QVBoxLayout *lay = new QVBoxLayout(&dlg);
+    if (isColorPropertyKey(key)) {
+        const QString nextColor = nextColorName(currentValue);
+        propDiagLog(QString("editPropertyCell color toggle %1 -> %2 row=%3")
+                    .arg(currentValue, nextColor).arg(row));
 
-    QLineEdit *edit = new QLineEdit(value);
-    edit->setAttribute(Qt::WA_InputMethodEnabled);   // ⭐关键
-    lay->addWidget(edit);
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(nextColor);
+            }
+        }
 
-    QPushButton *ok = new QPushButton("OK");
-    lay->addWidget(ok);
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem) {
+            propDiagLog(QString("apply setPropertyValue(color) target=%1 key=%2 val=%3")
+                        .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16)
+                        .arg(key, nextColor));
+            targetItem->setPropertyValue(key, nextColor);
+        }
+        return;
+    }
 
-    connect(ok, &QPushButton::clicked, &dlg, &QDialog::accept);
+    if (valueType == QVariant::Bool || looksLikeBoolText) {
+        const bool currentBool = (currentValue == "true" || currentValue == "1");
+        const QString nextBoolText = currentBool ? "false" : "true";
+        propDiagLog(QString("editPropertyCell bool toggle key=%1 %2 -> %3 row=%4")
+                    .arg(key, currentValue, nextBoolText).arg(row));
 
-    if (dlg.exec() == QDialog::Accepted) {
-        QString newVal = edit->text();
-        ui->propertyTable->item(row, 1)->setText(newVal);
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(nextBoolText);
+            }
+        }
 
-        if (m_currentItem)
-            m_currentItem->setPropertyValue(key, newVal);
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem) {
+            propDiagLog(QString("apply setPropertyValue(bool) target=%1 key=%2 val=%3")
+                        .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16)
+                        .arg(key, nextBoolText));
+            targetItem->setPropertyValue(key, !currentBool);
+        }
+        return;
+    }
+
+    if (key != "mode") {
+        return;
+    }
+
+    const QString modeValue = valueCell->text().trimmed().toLower();
+    const QString nextMode = (modeValue == "below") ? "above" : "below";
+    propDiagLog(QString("editPropertyCell mode toggle %1 -> %2 row=%3")
+                .arg(modeValue, nextMode).arg(row));
+
+    if (row >= 0 && row < ui->propertyTable->rowCount()) {
+        QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+        QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+        if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+            QSignalBlocker blocker(ui->propertyTable);
+            latestValueCell->setText(nextMode);
+        }
+    }
+
+    QPointer<CanvasItem> targetItem = m_currentItem;
+    if (targetItem) {
+        propDiagLog(QString("apply setPropertyValue target=%1 mode=%2")
+                    .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16).arg(nextMode));
+        targetItem->setPropertyValue(key, nextMode);
+    } else {
+        propDiagLog("skip setPropertyValue: target item destroyed");
     }
 }
 
@@ -343,4 +527,3 @@ void MainWindow::on_pushOfDesign_clicked()
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
 }
-

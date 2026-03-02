@@ -2,7 +2,25 @@
 
 #include <QPainter>
 #include <QtGlobal>
+#include <QLoggingCategory>
+#include <QDateTime>
 #include "runtime/databindingmanager.h"
+
+
+Q_LOGGING_CATEGORY(indicatorDiag, "configstudio.indicator")
+
+namespace {
+bool indicatorDiagEnabled()
+{
+    return qEnvironmentVariableIsSet("CONFIGSTUDIO_PROP_DIAG");
+}
+
+void indicatorLog(const QString &msg)
+{
+    if (!indicatorDiagEnabled()) return;
+    qCInfo(indicatorDiag).noquote() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << msg;
+}
+}
 
 IndicatorComponent::IndicatorComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -30,22 +48,22 @@ QVariantMap IndicatorComponent::properties() const
     map["title"] = m_title->text();
     map["on"] = m_on;
     map["blink"] = m_blink;
-    map["blinkMode"] = m_blinkMode;
-    // 兼容旧属性：true 等价于 above，false 等价于 below。
-    map["blinkWhenAbove"] = (m_blinkMode == "above");
+    map["mode"] = m_blinkMode;
     map["threshold"] = m_threshold;
-    map["blinkIntervalMs"] = m_blinkIntervalMs;
+    map["Interval/Ms"] = m_blinkIntervalMs;
     map["value"] = m_value;
     map["min"] = m_min;
     map["max"] = m_max;
     map["varId"] = m_varId;
     map["color"] = m_color.name();
-    map["offColor"] = m_offColor.name();
     return map;
 }
 
 void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
 {
+    indicatorLog(QString("setPropertyValue key=%1 val=%2 this=%3")
+                 .arg(key).arg(v.toString())
+                 .arg(reinterpret_cast<quintptr>(this), 0, 16));
     if (key == "title") {
         m_title->setText(v.toString());
     }
@@ -57,13 +75,9 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_blink = v.toBool();
         refreshBlinkState();
     }
-    else if (key == "blinkWhenAbove") {
-        // 兼容旧配置项：true=above，false=below。
-        m_blinkMode = v.toBool() ? "above" : "below";
-        refreshBlinkState();
-    }
-    else if (key == "blinkMode") {
+    else if (key == "mode" || key == "blinkMode") {
         const QString mode = v.toString().trimmed().toLower();
+        indicatorLog(QString("mode request=%1 current=%2").arg(mode).arg(m_blinkMode));
         if (mode == "above" || mode == "below") {
             m_blinkMode = mode;
             refreshBlinkState();
@@ -73,7 +87,7 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_threshold = v.toDouble();
         refreshBlinkState();
     }
-    else if (key == "blinkIntervalMs") {
+    else if (key == "Interval/Ms" || key == "blinkIntervalMs") {
         m_blinkIntervalMs = qMax(50, v.toInt());
         m_blinkTimer.setInterval(m_blinkIntervalMs);
         refreshBlinkState();
@@ -105,7 +119,16 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         }
     }
     else if (key == "color") {
-        m_color = QColor(v.toString());
+        const QString colorName = v.toString().trimmed().toLower();
+        if (colorName == "red") {
+            m_color = QColor(255, 0, 0);
+        } else if (colorName == "green") {
+            m_color = QColor(0, 255, 0);
+        } else if (colorName == "blue") {
+            m_color = QColor(0, 0, 255);
+        } else {
+            m_color = QColor(v.toString());
+        }
     }
     else if (key == "offColor") {
         m_offColor = QColor(v.toString());
