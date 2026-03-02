@@ -45,8 +45,8 @@ INCLUDEPATH += $$PWD/commands
 include($$PWD/commands/commands.pri)
 INCLUDEPATH += $$PWD/utils
 include($$PWD/utils/utils.pri)
-INCLUDEPATH += $$PWD/virtualkey
-include($$PWD/virtualkey/virtualkey.pri)
+# INCLUDEPATH += $$PWD/virtualkey
+# include($$PWD/virtualkey/virtualkey.pri)
 
 
 INCLUDEPATH += $$PWD/fullscreen
@@ -62,6 +62,6 @@ RESOURCES += resources/resources.qrc
 unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-DISTFILES += \
-    Keyboard.qml
+# DISTFILES += \
+#     Keyboard.qml
 
