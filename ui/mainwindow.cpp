@@ -242,19 +242,31 @@ void MainWindow::showProperties(CanvasItem *item)
 
         ui->propertyTable->setItem(row, 0, keyItem);
 
+        bool isToggleCell = false;
+
         if (propValue.type() == QVariant::Bool) {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             valueItem->setToolTip("Tap to toggle true / false");
+            isToggleCell = true;
         }
 
         if (isColorPropertyKey(key)) {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             valueItem->setToolTip("Tap to toggle red / green / blue");
+            isToggleCell = true;
         }
 
         if (key == "mode") {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             valueItem->setToolTip("Tap to toggle above / below");
+            isToggleCell = true;
+        }
+
+        if (isToggleCell) {
+            valueItem->setBackground(QColor(232, 244, 255));
+            QFont vf = valueItem->font();
+            vf.setBold(true);
+            valueItem->setFont(vf);
         }
 
         ui->propertyTable->setItem(row, 1, valueItem);

@@ -43,7 +43,7 @@ private:
 
     int    m_blinkIntervalMs = 100;
 
-    QColor m_color = Qt::green;
+    QColor m_color = QColor(128, 128, 128);
     QColor m_offColor = QColor(80, 80, 80);
 
     QString m_varId;

@@ -119,7 +119,16 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         }
     }
     else if (key == "color") {
-        m_color = QColor(v.toString());
+        const QString colorName = v.toString().trimmed().toLower();
+        if (colorName == "red") {
+            m_color = QColor(255, 0, 0);
+        } else if (colorName == "green") {
+            m_color = QColor(0, 255, 0);
+        } else if (colorName == "blue") {
+            m_color = QColor(0, 0, 255);
+        } else {
+            m_color = QColor(v.toString());
+        }
     }
     else if (key == "offColor") {
         m_offColor = QColor(v.toString());
