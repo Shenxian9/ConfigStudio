@@ -18,6 +18,8 @@ public:
     QString type() const override { return "plot"; }
 
     void resizeEvent(QResizeEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void appendValue(double value);
 
 private:
@@ -29,6 +31,8 @@ private:
 
 
     int m_maxPoints = 50; // 最多显示100个点
+
+    void showHistoryDialog();
 };
 
 

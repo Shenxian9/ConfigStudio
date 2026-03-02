@@ -4,6 +4,11 @@
 
 #include <qwt_plot_curve.h>
 
+#include <QDialog>
+#include <QHeaderView>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
 {
@@ -14,6 +19,7 @@ PlotComponent::PlotComponent(QWidget *parent)
     m_plot->setAxisTitle(QwtPlot::xBottom, "X");
     m_plot->setAxisTitle(QwtPlot::yLeft, "Y");
     m_plot->setGeometry(rect());
+    m_plot->installEventFilter(this);
 
     // 创建曲线对象
     m_curve = new QwtPlotCurve("Curve");
@@ -86,6 +92,55 @@ void PlotComponent::resizeEvent(QResizeEvent* event)
         m_plot->setGeometry(rect());
 }
 
+
+void PlotComponent::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        showHistoryDialog();
+        event->accept();
+        return;
+    }
+    CanvasItem::mouseDoubleClickEvent(event);
+}
+
+bool PlotComponent::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_plot && event->type() == QEvent::MouseButtonDblClick) {
+        showHistoryDialog();
+        return true;
+    }
+    return CanvasItem::eventFilter(watched, event);
+}
+
+void PlotComponent::showHistoryDialog()
+{
+    QDialog dlg(this);
+    dlg.setWindowTitle(QString("Plot History (N=%1)").arg(m_maxPoints));
+    dlg.resize(420, 320);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dlg);
+    QTableWidget *table = new QTableWidget(&dlg);
+    table->setColumnCount(3);
+    table->setHorizontalHeaderLabels({"#", "X", "Y"});
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->verticalHeader()->setVisible(false);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+    const int count = qMin(m_maxPoints, m_xData.size());
+    table->setRowCount(count);
+
+    const int start = m_xData.size() - count;
+    for (int row = 0; row < count; ++row) {
+        const int idx = start + row;
+        table->setItem(row, 0, new QTableWidgetItem(QString::number(row + 1)));
+        table->setItem(row, 1, new QTableWidgetItem(QString::number(m_xData[idx], 'f', 2)));
+        table->setItem(row, 2, new QTableWidgetItem(QString::number(m_yData[idx], 'f', 2)));
+    }
+
+    layout->addWidget(table);
+    dlg.exec();
+}
 
 void PlotComponent::appendValue(double value)
 {
