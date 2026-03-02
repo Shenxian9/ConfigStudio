@@ -335,7 +335,7 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    const QString value = valueCell->text();
+    const QString currentValue = valueCell->text();
     QPointer<CanvasItem> targetItem = m_currentItem;
 
     QDialog dlg(this);
@@ -351,33 +351,38 @@ void MainWindow::editPropertyCell(int row, int col)
     lay->addWidget(above);
     lay->addWidget(below);
 
-    connect(above, &QPushButton::clicked, &dlg, [&](){
-        {
-            QSignalBlocker blocker(ui->propertyTable);
-            valueCell->setText("above");
-        }
-        if (targetItem)
-            targetItem->setPropertyValue(key, "above");
+    QString selectedMode;
+    connect(above, &QPushButton::clicked, &dlg, [&selectedMode, &dlg](){
+        selectedMode = "above";
         dlg.accept();
     });
 
-    connect(below, &QPushButton::clicked, &dlg, [&](){
-        {
-            QSignalBlocker blocker(ui->propertyTable);
-            valueCell->setText("below");
-        }
-        if (targetItem)
-            targetItem->setPropertyValue(key, "below");
+    connect(below, &QPushButton::clicked, &dlg, [&selectedMode, &dlg](){
+        selectedMode = "below";
         dlg.accept();
     });
 
-    if (value == "above") {
+    if (currentValue == "above") {
         above->setFocus();
     } else {
         below->setFocus();
     }
 
-    dlg.exec();
+    if (dlg.exec() != QDialog::Accepted || selectedMode.isEmpty()) {
+        return;
+    }
+
+    if (row >= 0 && row < ui->propertyTable->rowCount()) {
+        QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+        QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+        if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+            QSignalBlocker blocker(ui->propertyTable);
+            latestValueCell->setText(selectedMode);
+        }
+    }
+
+    if (targetItem)
+        targetItem->setPropertyValue(key, selectedMode);
 }
 
 void MainWindow::on_pushOfDesign_clicked()
