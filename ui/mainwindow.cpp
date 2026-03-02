@@ -374,9 +374,11 @@ void MainWindow::editPropertyCell(int row, int col)
 
     const QString key = keyCell->text();
     const int valueType = valueCell->data(kPropertyValueTypeRole).toInt();
+    const QString currentValue = valueCell->text().trimmed().toLower();
+    const bool looksLikeBoolText = (currentValue == "true" || currentValue == "false" ||
+                                    currentValue == "1" || currentValue == "0");
 
-    if (valueType == QVariant::Bool) {
-        const QString currentValue = valueCell->text().trimmed().toLower();
+    if (valueType == QVariant::Bool || looksLikeBoolText) {
         const bool currentBool = (currentValue == "true" || currentValue == "1");
         const QString nextBoolText = currentBool ? "false" : "true";
         propDiagLog(QString("editPropertyCell bool toggle key=%1 %2 -> %3 row=%4")
@@ -405,10 +407,10 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    const QString currentValue = valueCell->text().trimmed().toLower();
-    const QString nextMode = (currentValue == "below") ? "above" : "below";
+    const QString blinkModeValue = valueCell->text().trimmed().toLower();
+    const QString nextMode = (blinkModeValue == "below") ? "above" : "below";
     propDiagLog(QString("editPropertyCell blinkMode toggle %1 -> %2 row=%3")
-                .arg(currentValue, nextMode).arg(row));
+                .arg(blinkModeValue, nextMode).arg(row));
 
     if (row >= 0 && row < ui->propertyTable->rowCount()) {
         QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
