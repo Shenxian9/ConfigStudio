@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include <QSignalBlocker>
+#include <QPointer>
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -330,63 +331,53 @@ void MainWindow::editPropertyCell(int row, int col)
     if (!keyCell || !valueCell) return;
 
     const QString key = keyCell->text();
-    const QString value = valueCell->text();
-
-    if (key == "blinkMode") {
-        QDialog dlg(this);
-        dlg.setWindowTitle("选择闪烁模式");
-
-        QVBoxLayout *lay = new QVBoxLayout(&dlg);
-        QPushButton *above = new QPushButton("above", &dlg);
-        QPushButton *below = new QPushButton("below", &dlg);
-
-        above->setMinimumHeight(44);
-        below->setMinimumHeight(44);
-
-        lay->addWidget(above);
-        lay->addWidget(below);
-
-        connect(above, &QPushButton::clicked, &dlg, [&](){
-            valueCell->setText("above");
-            m_currentItem->setPropertyValue(key, "above");
-            dlg.accept();
-        });
-
-        connect(below, &QPushButton::clicked, &dlg, [&](){
-            valueCell->setText("below");
-            m_currentItem->setPropertyValue(key, "below");
-            dlg.accept();
-        });
-
-        if (value == "above") {
-            above->setFocus();
-        } else {
-            below->setFocus();
-        }
-
-        dlg.exec();
+    if (key != "blinkMode") {
         return;
     }
 
+    const QString value = valueCell->text();
+    QPointer<CanvasItem> targetItem = m_currentItem;
+
     QDialog dlg(this);
-    dlg.setWindowTitle("Edit Property");
+    dlg.setWindowTitle("选择闪烁模式");
 
     QVBoxLayout *lay = new QVBoxLayout(&dlg);
+    QPushButton *above = new QPushButton("above", &dlg);
+    QPushButton *below = new QPushButton("below", &dlg);
 
-    QLineEdit *edit = new QLineEdit(value);
-    edit->setAttribute(Qt::WA_InputMethodEnabled);
-    lay->addWidget(edit);
+    above->setMinimumHeight(44);
+    below->setMinimumHeight(44);
 
-    QPushButton *ok = new QPushButton("OK");
-    lay->addWidget(ok);
+    lay->addWidget(above);
+    lay->addWidget(below);
 
-    connect(ok, &QPushButton::clicked, &dlg, &QDialog::accept);
+    connect(above, &QPushButton::clicked, &dlg, [&](){
+        {
+            QSignalBlocker blocker(ui->propertyTable);
+            valueCell->setText("above");
+        }
+        if (targetItem)
+            targetItem->setPropertyValue(key, "above");
+        dlg.accept();
+    });
 
-    if (dlg.exec() == QDialog::Accepted) {
-        const QString newVal = edit->text();
-        valueCell->setText(newVal);
-        m_currentItem->setPropertyValue(key, newVal);
+    connect(below, &QPushButton::clicked, &dlg, [&](){
+        {
+            QSignalBlocker blocker(ui->propertyTable);
+            valueCell->setText("below");
+        }
+        if (targetItem)
+            targetItem->setPropertyValue(key, "below");
+        dlg.accept();
+    });
+
+    if (value == "above") {
+        above->setFocus();
+    } else {
+        below->setFocus();
     }
+
+    dlg.exec();
 }
 
 void MainWindow::on_pushOfDesign_clicked()
