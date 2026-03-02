@@ -58,7 +58,6 @@ QVariantMap IndicatorComponent::properties() const
     map["max"] = m_max;
     map["varId"] = m_varId;
     map["color"] = m_color.name();
-    map["offColor"] = m_offColor.name();
     return map;
 }
 

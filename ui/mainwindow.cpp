@@ -213,9 +213,6 @@ void MainWindow::showProperties(CanvasItem *item)
     int row = 0;
     for (auto it = props.begin(); it != props.end(); ++it) {
         const QString key = it.key();
-        if (key == "offColor") {
-            continue;
-        }
         const QVariant propValue = it.value();
         ui->propertyTable->insertRow(row);
         QTableWidgetItem *keyItem = new QTableWidgetItem(key);
