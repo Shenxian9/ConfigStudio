@@ -6,6 +6,7 @@
 #include "canvas/canvasview.h"
 #include <qwt_plot.h>
 #include <qwt_plot_curve.h>
+#include <QTableWidget>
 
 class PlotComponent : public CanvasItem {
     Q_OBJECT
@@ -32,7 +33,12 @@ private:
 
     int m_maxPoints = 50; // 最多显示100个点
 
+    QWidget *m_historyPanel = nullptr;
+    QTableWidget *m_historyTable = nullptr;
+
     void showHistoryDialog();
+    void ensureHistoryPanel();
+    void refreshHistoryTable();
 };
 
 

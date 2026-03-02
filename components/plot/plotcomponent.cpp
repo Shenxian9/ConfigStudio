@@ -4,14 +4,11 @@
 
 #include <qwt_plot_curve.h>
 
-#include <QDialog>
 #include <QHeaderView>
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <QPushButton>
-#include <QGuiApplication>
-#include <QInputMethod>
-#include <QTimer>
+#include <QFrame>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -118,56 +115,66 @@ bool PlotComponent::eventFilter(QObject *watched, QEvent *event)
 
 void PlotComponent::showHistoryDialog()
 {
-    QInputMethod *im = QGuiApplication::inputMethod();
-    if (im) {
-        im->commit();
-        im->hide();
-        im->reset();
+    ensureHistoryPanel();
+    refreshHistoryTable();
+
+    if (m_historyPanel) {
+        const int margin = 12;
+        const int panelW = qMax(320, width() - margin * 2);
+        const int panelH = qMax(220, height() - margin * 2);
+        m_historyPanel->setGeometry((width() - panelW) / 2,
+                                    (height() - panelH) / 2,
+                                    panelW,
+                                    panelH);
+        m_historyPanel->show();
+        m_historyPanel->raise();
     }
+}
 
-    QDialog dlg(this);
-    dlg.setWindowTitle(QString("Plot History (N=%1)").arg(m_maxPoints));
-    dlg.resize(420, 320);
-    dlg.setAttribute(Qt::WA_InputMethodEnabled, false);
+void PlotComponent::ensureHistoryPanel()
+{
+    if (m_historyPanel)
+        return;
 
-    QVBoxLayout *layout = new QVBoxLayout(&dlg);
-    QTableWidget *table = new QTableWidget(&dlg);
-    table->setColumnCount(3);
-    table->setHorizontalHeaderLabels({"#", "X", "Y"});
-    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    table->verticalHeader()->setVisible(false);
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setAttribute(Qt::WA_InputMethodEnabled, false);
+    QFrame *panel = new QFrame(this);
+    panel->setFrameShape(QFrame::StyledPanel);
+    panel->setStyleSheet("QFrame { background: white; border: 2px solid #7aa7d9; border-radius: 8px; }");
+
+    QVBoxLayout *layout = new QVBoxLayout(panel);
+    m_historyTable = new QTableWidget(panel);
+    m_historyTable->setColumnCount(3);
+    m_historyTable->setHorizontalHeaderLabels({"#", "X", "Y"});
+    m_historyTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    m_historyTable->verticalHeader()->setVisible(false);
+    m_historyTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_historyTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    layout->addWidget(m_historyTable);
+
+    QPushButton *closeBtn = new QPushButton("Close", panel);
+    closeBtn->setMinimumHeight(40);
+    closeBtn->setFocusPolicy(Qt::NoFocus);
+    layout->addWidget(closeBtn);
+    QObject::connect(closeBtn, &QPushButton::clicked, panel, &QWidget::hide);
+
+    panel->hide();
+    m_historyPanel = panel;
+}
+
+void PlotComponent::refreshHistoryTable()
+{
+    if (!m_historyTable)
+        return;
 
     const int count = qMin(m_maxPoints, m_xData.size());
-    table->setRowCount(count);
+    m_historyTable->setRowCount(count);
 
     const int start = m_xData.size() - count;
     for (int row = 0; row < count; ++row) {
         const int idx = start + row;
-        table->setItem(row, 0, new QTableWidgetItem(QString::number(row + 1)));
-        table->setItem(row, 1, new QTableWidgetItem(QString::number(m_xData[idx], 'f', 2)));
-        table->setItem(row, 2, new QTableWidgetItem(QString::number(m_yData[idx], 'f', 2)));
+        m_historyTable->setItem(row, 0, new QTableWidgetItem(QString::number(row + 1)));
+        m_historyTable->setItem(row, 1, new QTableWidgetItem(QString::number(m_xData[idx], 'f', 2)));
+        m_historyTable->setItem(row, 2, new QTableWidgetItem(QString::number(m_yData[idx], 'f', 2)));
     }
-
-    layout->addWidget(table);
-
-    QPushButton *closeBtn = new QPushButton("Close", &dlg);
-    closeBtn->setMinimumHeight(40);
-    closeBtn->setFocusPolicy(Qt::NoFocus);
-    layout->addWidget(closeBtn);
-    QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
-
-    dlg.exec();
-
-    QTimer::singleShot(0, this, []() {
-        QInputMethod *im = QGuiApplication::inputMethod();
-        if (im) {
-            im->hide();
-            im->reset();
-        }
-    });
 }
 
 void PlotComponent::appendValue(double value)
