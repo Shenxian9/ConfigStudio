@@ -367,61 +367,26 @@ void MainWindow::editPropertyCell(int row, int col)
     if (key != "blinkMode") {
         return;
     }
-    propDiagLog(QString("editPropertyCell blinkMode current=%1 row=%2").arg(valueCell->text()).arg(row));
 
-    const QString currentValue = valueCell->text();
-    QPointer<CanvasItem> targetItem = m_currentItem;
-
-    QDialog dlg(this);
-    dlg.setWindowTitle("选择闪烁模式");
-
-    QVBoxLayout *lay = new QVBoxLayout(&dlg);
-    QPushButton *above = new QPushButton("above", &dlg);
-    QPushButton *below = new QPushButton("below", &dlg);
-
-    above->setMinimumHeight(44);
-    below->setMinimumHeight(44);
-
-    lay->addWidget(above);
-    lay->addWidget(below);
-
-    QString selectedMode;
-    connect(above, &QPushButton::clicked, &dlg, [&selectedMode, &dlg](){
-        selectedMode = "above";
-        dlg.accept();
-    });
-
-    connect(below, &QPushButton::clicked, &dlg, [&selectedMode, &dlg](){
-        selectedMode = "below";
-        dlg.accept();
-    });
-
-    if (currentValue == "above") {
-        above->setFocus();
-    } else {
-        below->setFocus();
-    }
-
-    const int dlgRet = dlg.exec();
-    propDiagLog(QString("blinkMode dialog ret=%1 selected=%2").arg(dlgRet).arg(selectedMode));
-    if (dlgRet != QDialog::Accepted || selectedMode.isEmpty()) {
-        return;
-    }
+    const QString currentValue = valueCell->text().trimmed().toLower();
+    const QString nextMode = (currentValue == "below") ? "above" : "below";
+    propDiagLog(QString("editPropertyCell blinkMode toggle %1 -> %2 row=%3")
+                .arg(currentValue, nextMode).arg(row));
 
     if (row >= 0 && row < ui->propertyTable->rowCount()) {
         QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
         QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
         if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
             QSignalBlocker blocker(ui->propertyTable);
-            propDiagLog(QString("apply table text row=%1 mode=%2").arg(row).arg(selectedMode));
-            latestValueCell->setText(selectedMode);
+            latestValueCell->setText(nextMode);
         }
     }
 
+    QPointer<CanvasItem> targetItem = m_currentItem;
     if (targetItem) {
         propDiagLog(QString("apply setPropertyValue target=%1 mode=%2")
-                    .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16).arg(selectedMode));
-        targetItem->setPropertyValue(key, selectedMode);
+                    .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16).arg(nextMode));
+        targetItem->setPropertyValue(key, nextMode);
     } else {
         propDiagLog("skip setPropertyValue: target item destroyed");
     }
