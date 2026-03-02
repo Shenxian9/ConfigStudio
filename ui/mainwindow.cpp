@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QSignalBlocker>
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -61,6 +62,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->propertyTable, &QTableWidget::cellChanged,
             this, &MainWindow::onPropertyChanged);
+
+    connect(ui->propertyTable, &QTableWidget::cellDoubleClicked,
+            this, &MainWindow::editPropertyCell);
 
     connect(ui->deleteButton, &QPushButton::clicked,
             this, &MainWindow::on_deleteButton_clicked);
@@ -160,6 +164,30 @@ void MainWindow::showProperties(CanvasItem *item)
 
         ui->propertyTable->setItem(row, 0, keyItem);
         ui->propertyTable->setItem(row, 1, valueItem);
+
+        // 触控友好：blinkMode 使用下拉选择，避免手工输入。
+        if (it.key() == "blinkMode") {
+            QComboBox *modeBox = new QComboBox(ui->propertyTable);
+            modeBox->addItem("above");
+            modeBox->addItem("below");
+
+            const int modeIndex = modeBox->findText(it.value().toString());
+            modeBox->setCurrentIndex(modeIndex >= 0 ? modeIndex : 0);
+            modeBox->setMinimumHeight(34);
+
+            ui->propertyTable->setCellWidget(row, 1, modeBox);
+
+            connect(modeBox, &QComboBox::currentTextChanged, this, [this, item, row](const QString& text){
+                if (!item)
+                    return;
+
+                QSignalBlocker blocker(ui->propertyTable);
+                if (auto *valueItem = ui->propertyTable->item(row, 1))
+                    valueItem->setText(text);
+
+                item->setPropertyValue("blinkMode", text);
+            });
+        }
 
         // 设置行高
         ui->propertyTable->setRowHeight(row, 36);  // 调整为触控友好
@@ -313,6 +341,10 @@ void MainWindow::editPropertyCell(int row, int col)
 
     QString key = ui->propertyTable->item(row, 0)->text();
     QString value = ui->propertyTable->item(row, 1)->text();
+
+    // blinkMode 已提供下拉框编辑，不再弹出文本输入框。
+    if (key == "blinkMode")
+        return;
 
     QDialog dlg(this);
     dlg.setWindowTitle("Edit Property");
