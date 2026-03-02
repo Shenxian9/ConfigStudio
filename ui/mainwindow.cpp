@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QSignalBlocker>
+#include <QPointer>
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -180,22 +181,32 @@ void MainWindow::showProperties(CanvasItem *item)
 
             ui->propertyTable->setCellWidget(row, 1, modeBox);
 
-            connect(modeBox, &QComboBox::currentTextChanged, this, [this, item, row](const QString& text){
+            connect(modeBox, &QComboBox::activated, this, [this, item, row, modeBox](int){
                 if (!item)
                     return;
 
-                if (m_currentItem != item)
-                    return;
+                const QString text = modeBox->currentText();
+                QPointer<CanvasItem> safeItem(item);
 
-                m_isUpdatingPropertyTable = true;
-                {
-                    QSignalBlocker blocker(ui->propertyTable);
-                    if (auto *valueItem = ui->propertyTable->item(row, 1))
-                        valueItem->setText(text);
-                }
-                m_isUpdatingPropertyTable = false;
+                // Wayland 下在 popup 关闭生命周期中同步改 UI/模型风险较高，
+                // 延迟到事件循环下一拍，确保 popup 先完成销毁。
+                QTimer::singleShot(0, this, [this, safeItem, row, text]() {
+                    if (!safeItem)
+                        return;
 
-                item->setPropertyValue("blinkMode", text);
+                    if (m_currentItem != safeItem)
+                        return;
+
+                    m_isUpdatingPropertyTable = true;
+                    {
+                        QSignalBlocker blocker(ui->propertyTable);
+                        if (auto *valueItem = ui->propertyTable->item(row, 1))
+                            valueItem->setText(text);
+                    }
+                    m_isUpdatingPropertyTable = false;
+
+                    safeItem->setPropertyValue("blinkMode", text);
+                });
             });
         }
 
