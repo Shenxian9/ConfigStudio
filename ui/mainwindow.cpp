@@ -1,5 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+
+#include <QComboBox>
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -151,15 +153,37 @@ void MainWindow::showProperties(CanvasItem *item)
     QVariantMap props = item->properties();
     int row = 0;
     for (auto it = props.begin(); it != props.end(); ++it) {
+        const QString key = it.key();
         ui->propertyTable->insertRow(row);
-        QTableWidgetItem *keyItem = new QTableWidgetItem(it.key());
+        QTableWidgetItem *keyItem = new QTableWidgetItem(key);
         QTableWidgetItem *valueItem = new QTableWidgetItem(it.value().toString());
 
         keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
 
         ui->propertyTable->setItem(row, 0, keyItem);
-        ui->propertyTable->setItem(row, 1, valueItem);
+
+        if (key == "blinkMode") {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            ui->propertyTable->setItem(row, 1, valueItem);
+
+            QComboBox *blinkModeCombo = new QComboBox(ui->propertyTable);
+            blinkModeCombo->addItem("above");
+            blinkModeCombo->addItem("below");
+            blinkModeCombo->setCurrentText(it.value().toString());
+            blinkModeCombo->setMinimumHeight(36);
+
+            connect(blinkModeCombo, &QComboBox::currentTextChanged, this,
+                    [this, valueItem, key](const QString &mode) {
+                        valueItem->setText(mode);
+                        if (m_currentItem)
+                            m_currentItem->setPropertyValue(key, mode);
+                    });
+
+            ui->propertyTable->setCellWidget(row, 1, blinkModeCombo);
+        } else {
+            ui->propertyTable->setItem(row, 1, valueItem);
+        }
 
         // 设置行高
         ui->propertyTable->setRowHeight(row, 36);  // 调整为触控友好
@@ -343,4 +367,3 @@ void MainWindow::on_pushOfDesign_clicked()
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
 }
-
