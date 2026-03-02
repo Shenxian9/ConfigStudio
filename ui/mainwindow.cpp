@@ -6,6 +6,7 @@
 #include <QLoggingCategory>
 #include <QDateTime>
 #include <QColor>
+#include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
 
@@ -210,10 +211,23 @@ void MainWindow::showProperties(CanvasItem *item)
     ui->propertyTable->setFont(font);
 
     QVariantMap props = item->properties();
+    QStringList keys = props.keys();
+    const QStringList priorityKeys = {
+        "title", "text", "value", "varId", "mode", "on", "blink", "threshold",
+        "min", "max", "color", "fontSize", "bold", "align"
+    };
+    std::sort(keys.begin(), keys.end(), [&priorityKeys](const QString &a, const QString &b) {
+        const int ia = priorityKeys.indexOf(a);
+        const int ib = priorityKeys.indexOf(b);
+        if (ia >= 0 && ib >= 0) return ia < ib;
+        if (ia >= 0) return true;
+        if (ib >= 0) return false;
+        return a < b;
+    });
+
     int row = 0;
-    for (auto it = props.begin(); it != props.end(); ++it) {
-        const QString key = it.key();
-        const QVariant propValue = it.value();
+    for (const QString &key : keys) {
+        const QVariant propValue = props.value(key);
         ui->propertyTable->insertRow(row);
         QTableWidgetItem *keyItem = new QTableWidgetItem(key);
         QString valueText = propValue.toString();
@@ -238,7 +252,7 @@ void MainWindow::showProperties(CanvasItem *item)
             valueItem->setToolTip("Tap to toggle red / green / blue");
         }
 
-        if (key == "blinkMode") {
+        if (key == "mode") {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             valueItem->setToolTip("Tap to toggle above / below");
         }
@@ -467,14 +481,14 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    if (key != "blinkMode") {
+    if (key != "mode") {
         return;
     }
 
-    const QString blinkModeValue = valueCell->text().trimmed().toLower();
-    const QString nextMode = (blinkModeValue == "below") ? "above" : "below";
-    propDiagLog(QString("editPropertyCell blinkMode toggle %1 -> %2 row=%3")
-                .arg(blinkModeValue, nextMode).arg(row));
+    const QString modeValue = valueCell->text().trimmed().toLower();
+    const QString nextMode = (modeValue == "below") ? "above" : "below";
+    propDiagLog(QString("editPropertyCell mode toggle %1 -> %2 row=%3")
+                .arg(modeValue, nextMode).arg(row));
 
     if (row >= 0 && row < ui->propertyTable->rowCount()) {
         QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);

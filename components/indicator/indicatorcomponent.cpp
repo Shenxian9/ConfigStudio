@@ -48,9 +48,7 @@ QVariantMap IndicatorComponent::properties() const
     map["title"] = m_title->text();
     map["on"] = m_on;
     map["blink"] = m_blink;
-    map["blinkMode"] = m_blinkMode;
-    // 兼容旧属性：true 等价于 above，false 等价于 below。
-    map["blinkWhenAbove"] = (m_blinkMode == "above");
+    map["mode"] = m_blinkMode;
     map["threshold"] = m_threshold;
     map["blinkIntervalMs"] = m_blinkIntervalMs;
     map["value"] = m_value;
@@ -77,14 +75,9 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_blink = v.toBool();
         refreshBlinkState();
     }
-    else if (key == "blinkWhenAbove") {
-        // 兼容旧配置项：true=above，false=below。
-        m_blinkMode = v.toBool() ? "above" : "below";
-        refreshBlinkState();
-    }
-    else if (key == "blinkMode") {
+    else if (key == "mode" || key == "blinkMode") {
         const QString mode = v.toString().trimmed().toLower();
-        indicatorLog(QString("blinkMode request=%1 current=%2").arg(mode).arg(m_blinkMode));
+        indicatorLog(QString("mode request=%1 current=%2").arg(mode).arg(m_blinkMode));
         if (mode == "above" || mode == "below") {
             m_blinkMode = mode;
             refreshBlinkState();
