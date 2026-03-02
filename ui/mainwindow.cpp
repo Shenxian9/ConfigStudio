@@ -142,6 +142,9 @@ void MainWindow::showProperties(CanvasItem *item)
 {
     if (!item) return;
 
+    m_isUpdatingPropertyTable = true;
+    QSignalBlocker tableBlocker(ui->propertyTable);
+
     ui->propertyTable->clear();
     ui->propertyTable->setRowCount(0);
     ui->propertyTable->setColumnCount(2);
@@ -181,9 +184,16 @@ void MainWindow::showProperties(CanvasItem *item)
                 if (!item)
                     return;
 
-                QSignalBlocker blocker(ui->propertyTable);
-                if (auto *valueItem = ui->propertyTable->item(row, 1))
-                    valueItem->setText(text);
+                if (m_currentItem != item)
+                    return;
+
+                m_isUpdatingPropertyTable = true;
+                {
+                    QSignalBlocker blocker(ui->propertyTable);
+                    if (auto *valueItem = ui->propertyTable->item(row, 1))
+                        valueItem->setText(text);
+                }
+                m_isUpdatingPropertyTable = false;
 
                 item->setPropertyValue("blinkMode", text);
             });
@@ -206,6 +216,7 @@ void MainWindow::showProperties(CanvasItem *item)
     ui->propertyTable->setShowGrid(true);
 
     ui->propertyTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_isUpdatingPropertyTable = false;
 }
 
 
@@ -225,11 +236,16 @@ void MainWindow::onItemSelected(CanvasItem *item)
 
 void MainWindow::onPropertyChanged(int row, int col)
 {
-    if (!m_currentItem || col != 1)
+    if (m_isUpdatingPropertyTable || !m_currentItem || col != 1)
         return;
 
-    QString key = ui->propertyTable->item(row, 0)->text();
-    QString val = ui->propertyTable->item(row, 1)->text();
+    auto *keyItem = ui->propertyTable->item(row, 0);
+    auto *valueItem = ui->propertyTable->item(row, 1);
+    if (!keyItem || !valueItem)
+        return;
+
+    QString key = keyItem->text();
+    QString val = valueItem->text();
 
     m_currentItem->setPropertyValue(key, val);
 }
@@ -264,14 +280,16 @@ void MainWindow::onCanvasEmptyClicked()
     ui->canvasView->clearSelection();
 
     // 2. 清空右侧属性表
-    ui->propertyTable->clear();
-    ui->propertyTable->setRowCount(0);
+    clearProperties();
 }
 
 void MainWindow::clearProperties()
 {
+    m_isUpdatingPropertyTable = true;
+    QSignalBlocker tableBlocker(ui->propertyTable);
     ui->propertyTable->clear();
     ui->propertyTable->setRowCount(0);
+    m_isUpdatingPropertyTable = false;
 }
 
 void MainWindow::on_buttonOfFullscreen_clicked()
@@ -339,8 +357,13 @@ void MainWindow::editPropertyCell(int row, int col)
 {
     if (col != 1) return;
 
-    QString key = ui->propertyTable->item(row, 0)->text();
-    QString value = ui->propertyTable->item(row, 1)->text();
+    auto *keyItem = ui->propertyTable->item(row, 0);
+    auto *valueItem = ui->propertyTable->item(row, 1);
+    if (!keyItem || !valueItem)
+        return;
+
+    QString key = keyItem->text();
+    QString value = valueItem->text();
 
     // blinkMode 已提供下拉框编辑，不再弹出文本输入框。
     if (key == "blinkMode")
@@ -362,7 +385,12 @@ void MainWindow::editPropertyCell(int row, int col)
 
     if (dlg.exec() == QDialog::Accepted) {
         QString newVal = edit->text();
-        ui->propertyTable->item(row, 1)->setText(newVal);
+        m_isUpdatingPropertyTable = true;
+        {
+            QSignalBlocker blocker(ui->propertyTable);
+            valueItem->setText(newVal);
+        }
+        m_isUpdatingPropertyTable = false;
 
         if (m_currentItem)
             m_currentItem->setPropertyValue(key, newVal);
@@ -375,4 +403,3 @@ void MainWindow::on_pushOfDesign_clicked()
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
 }
-

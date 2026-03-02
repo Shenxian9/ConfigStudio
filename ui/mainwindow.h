@@ -98,10 +98,10 @@ private:
     DataBindingManager* m_bindingMgr;
 
     QQuickWidget *m_keyboard = nullptr;
+    bool m_isUpdatingPropertyTable = false;
 
 };
 
 
 
 #endif // MAINWINDOW_H
-
