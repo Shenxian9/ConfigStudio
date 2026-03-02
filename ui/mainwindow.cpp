@@ -181,7 +181,7 @@ void MainWindow::showProperties(CanvasItem *item)
 
             ui->propertyTable->setCellWidget(row, 1, modeBox);
 
-            connect(modeBox, &QComboBox::activated, this, [this, item, row, modeBox](int){
+            connect(modeBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), this, [this, item, row, modeBox](int){
                 if (!item)
                     return;
 
