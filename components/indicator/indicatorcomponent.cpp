@@ -2,7 +2,25 @@
 
 #include <QPainter>
 #include <QtGlobal>
+#include <QLoggingCategory>
+#include <QDateTime>
 #include "runtime/databindingmanager.h"
+
+
+Q_LOGGING_CATEGORY(indicatorDiag, "configstudio.indicator")
+
+namespace {
+bool indicatorDiagEnabled()
+{
+    return qEnvironmentVariableIsSet("CONFIGSTUDIO_PROP_DIAG");
+}
+
+void indicatorLog(const QString &msg)
+{
+    if (!indicatorDiagEnabled()) return;
+    qCInfo(indicatorDiag).noquote() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << msg;
+}
+}
 
 IndicatorComponent::IndicatorComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -46,6 +64,9 @@ QVariantMap IndicatorComponent::properties() const
 
 void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
 {
+    indicatorLog(QString("setPropertyValue key=%1 val=%2 this=%3")
+                 .arg(key).arg(v.toString())
+                 .arg(reinterpret_cast<quintptr>(this), 0, 16));
     if (key == "title") {
         m_title->setText(v.toString());
     }
@@ -64,6 +85,7 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "blinkMode") {
         const QString mode = v.toString().trimmed().toLower();
+        indicatorLog(QString("blinkMode request=%1 current=%2").arg(mode).arg(m_blinkMode));
         if (mode == "above" || mode == "below") {
             m_blinkMode = mode;
             refreshBlinkState();

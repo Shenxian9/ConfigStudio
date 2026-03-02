@@ -3,6 +3,24 @@
 
 #include <QSignalBlocker>
 #include <QPointer>
+#include <QLoggingCategory>
+#include <QDateTime>
+
+Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
+
+namespace {
+bool propertyDiagEnabled()
+{
+    return qEnvironmentVariableIsSet("CONFIGSTUDIO_PROP_DIAG");
+}
+
+void propDiagLog(const QString &msg)
+{
+    if (!propertyDiagEnabled()) return;
+    qCInfo(propDiag).noquote() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << msg;
+}
+}
+
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -21,6 +39,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    propDiagLog(QString("MainWindow init, platform=%1").arg(QGuiApplication::platformName()));
     QScreen *screen = QApplication::primaryScreen();
     QSize size = screen->size();
 
@@ -144,6 +163,7 @@ void MainWindow::showProperties(CanvasItem *item)
 {
     if (!item) return;
 
+    propDiagLog(QString("showProperties enter item=%1 type=%2").arg(reinterpret_cast<quintptr>(item), 0, 16).arg(item->type()));
     QSignalBlocker blocker(ui->propertyTable);
 
     ui->propertyTable->clear();
@@ -193,6 +213,7 @@ void MainWindow::showProperties(CanvasItem *item)
     ui->propertyTable->setShowGrid(true);
 
     ui->propertyTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    propDiagLog(QString("showProperties done rows=%1").arg(ui->propertyTable->rowCount()));
 }
 
 
@@ -202,6 +223,7 @@ void MainWindow::onItemSelected(CanvasItem *item)
     if (m_currentItem && m_currentItem != item)
         m_currentItem->setSelected(false);
 
+    propDiagLog(QString("onItemSelected item=%1").arg(reinterpret_cast<quintptr>(item), 0, 16));
     m_currentItem = item;
     item->setSelected(true);
 
@@ -215,8 +237,17 @@ void MainWindow::onPropertyChanged(int row, int col)
     if (!m_currentItem || col != 1)
         return;
 
-    QString key = ui->propertyTable->item(row, 0)->text();
-    QString val = ui->propertyTable->item(row, 1)->text();
+    QTableWidgetItem *keyCell = ui->propertyTable->item(row, 0);
+    QTableWidgetItem *valCell = ui->propertyTable->item(row, 1);
+    if (!keyCell || !valCell) {
+        propDiagLog(QString("onPropertyChanged skipped invalid cell row=%1 col=%2").arg(row).arg(col));
+        return;
+    }
+
+    const QString key = keyCell->text();
+    const QString val = valCell->text();
+    propDiagLog(QString("onPropertyChanged row=%1 key=%2 val=%3 item=%4")
+                .arg(row).arg(key).arg(val).arg(reinterpret_cast<quintptr>(m_currentItem), 0, 16));
 
     m_currentItem->setPropertyValue(key, val);
 }
@@ -324,6 +355,8 @@ void MainWindow::on_pushOfDatasrc_clicked()
 
 void MainWindow::editPropertyCell(int row, int col)
 {
+    propDiagLog(QString("editPropertyCell click row=%1 col=%2 currentItem=%3")
+                .arg(row).arg(col).arg(reinterpret_cast<quintptr>(m_currentItem), 0, 16));
     if (col != 1 || !m_currentItem) return;
 
     QTableWidgetItem *keyCell = ui->propertyTable->item(row, 0);
@@ -334,6 +367,7 @@ void MainWindow::editPropertyCell(int row, int col)
     if (key != "blinkMode") {
         return;
     }
+    propDiagLog(QString("editPropertyCell blinkMode current=%1 row=%2").arg(valueCell->text()).arg(row));
 
     const QString currentValue = valueCell->text();
     QPointer<CanvasItem> targetItem = m_currentItem;
@@ -368,7 +402,9 @@ void MainWindow::editPropertyCell(int row, int col)
         below->setFocus();
     }
 
-    if (dlg.exec() != QDialog::Accepted || selectedMode.isEmpty()) {
+    const int dlgRet = dlg.exec();
+    propDiagLog(QString("blinkMode dialog ret=%1 selected=%2").arg(dlgRet).arg(selectedMode));
+    if (dlgRet != QDialog::Accepted || selectedMode.isEmpty()) {
         return;
     }
 
@@ -377,12 +413,18 @@ void MainWindow::editPropertyCell(int row, int col)
         QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
         if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
             QSignalBlocker blocker(ui->propertyTable);
+            propDiagLog(QString("apply table text row=%1 mode=%2").arg(row).arg(selectedMode));
             latestValueCell->setText(selectedMode);
         }
     }
 
-    if (targetItem)
+    if (targetItem) {
+        propDiagLog(QString("apply setPropertyValue target=%1 mode=%2")
+                    .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16).arg(selectedMode));
         targetItem->setPropertyValue(key, selectedMode);
+    } else {
+        propDiagLog("skip setPropertyValue: target item destroyed");
+    }
 }
 
 void MainWindow::on_pushOfDesign_clicked()
