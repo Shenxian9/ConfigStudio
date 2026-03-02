@@ -19,6 +19,8 @@ void propDiagLog(const QString &msg)
     if (!propertyDiagEnabled()) return;
     qCInfo(propDiag).noquote() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << msg;
 }
+
+constexpr int kPropertyValueTypeRole = Qt::UserRole + 1;
 }
 
 void setLabelIcon(QLabel* label, const QString& path)
@@ -180,18 +182,25 @@ void MainWindow::showProperties(CanvasItem *item)
     int row = 0;
     for (auto it = props.begin(); it != props.end(); ++it) {
         const QString key = it.key();
+        const QVariant propValue = it.value();
         ui->propertyTable->insertRow(row);
         QTableWidgetItem *keyItem = new QTableWidgetItem(key);
-        QTableWidgetItem *valueItem = new QTableWidgetItem(it.value().toString());
+        QTableWidgetItem *valueItem = new QTableWidgetItem(propValue.toString());
 
         keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        valueItem->setData(kPropertyValueTypeRole, propValue.type());
 
         ui->propertyTable->setItem(row, 0, keyItem);
 
+        if (propValue.type() == QVariant::Bool) {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle true / false");
+        }
+
         if (key == "blinkMode") {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-            valueItem->setToolTip("Tap to choose: above / below");
+            valueItem->setToolTip("Tap to toggle above / below");
         }
 
         ui->propertyTable->setItem(row, 1, valueItem);
@@ -364,6 +373,34 @@ void MainWindow::editPropertyCell(int row, int col)
     if (!keyCell || !valueCell) return;
 
     const QString key = keyCell->text();
+    const int valueType = valueCell->data(kPropertyValueTypeRole).toInt();
+
+    if (valueType == QVariant::Bool) {
+        const QString currentValue = valueCell->text().trimmed().toLower();
+        const bool currentBool = (currentValue == "true" || currentValue == "1");
+        const QString nextBoolText = currentBool ? "false" : "true";
+        propDiagLog(QString("editPropertyCell bool toggle key=%1 %2 -> %3 row=%4")
+                    .arg(key, currentValue, nextBoolText).arg(row));
+
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(nextBoolText);
+            }
+        }
+
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem) {
+            propDiagLog(QString("apply setPropertyValue(bool) target=%1 key=%2 val=%3")
+                        .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16)
+                        .arg(key, nextBoolText));
+            targetItem->setPropertyValue(key, !currentBool);
+        }
+        return;
+    }
+
     if (key != "blinkMode") {
         return;
     }
