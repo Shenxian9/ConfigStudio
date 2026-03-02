@@ -8,6 +8,10 @@
 #include <QHeaderView>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <QPushButton>
+#include <QGuiApplication>
+#include <QInputMethod>
+#include <QTimer>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -114,10 +118,17 @@ bool PlotComponent::eventFilter(QObject *watched, QEvent *event)
 
 void PlotComponent::showHistoryDialog()
 {
+    QInputMethod *im = QGuiApplication::inputMethod();
+    if (im) {
+        im->commit();
+        im->hide();
+        im->reset();
+    }
+
     QDialog dlg(this);
     dlg.setWindowTitle(QString("Plot History (N=%1)").arg(m_maxPoints));
-    dlg.setWindowFlags(dlg.windowFlags() | Qt::Popup);
     dlg.resize(420, 320);
+    dlg.setAttribute(Qt::WA_InputMethodEnabled, false);
 
     QVBoxLayout *layout = new QVBoxLayout(&dlg);
     QTableWidget *table = new QTableWidget(&dlg);
@@ -127,6 +138,7 @@ void PlotComponent::showHistoryDialog()
     table->verticalHeader()->setVisible(false);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setAttribute(Qt::WA_InputMethodEnabled, false);
 
     const int count = qMin(m_maxPoints, m_xData.size());
     table->setRowCount(count);
@@ -141,7 +153,21 @@ void PlotComponent::showHistoryDialog()
 
     layout->addWidget(table);
 
+    QPushButton *closeBtn = new QPushButton("Close", &dlg);
+    closeBtn->setMinimumHeight(40);
+    closeBtn->setFocusPolicy(Qt::NoFocus);
+    layout->addWidget(closeBtn);
+    QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+
     dlg.exec();
+
+    QTimer::singleShot(0, this, []() {
+        QInputMethod *im = QGuiApplication::inputMethod();
+        if (im) {
+            im->hide();
+            im->reset();
+        }
+    });
 }
 
 void PlotComponent::appendValue(double value)
