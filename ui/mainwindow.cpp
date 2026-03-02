@@ -1,7 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QSignalBlocker>
-#include <QPointer>
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -169,45 +168,10 @@ void MainWindow::showProperties(CanvasItem *item)
         ui->propertyTable->setItem(row, 0, keyItem);
         ui->propertyTable->setItem(row, 1, valueItem);
 
-        // 触控友好：blinkMode 使用下拉选择，避免手工输入。
+        // Wayland 稳定性：blinkMode 不再使用下拉 popup，
+        // 避免 xdg_popup 关闭阶段触发协议级崩溃。
         if (it.key() == "blinkMode") {
-            QComboBox *modeBox = new QComboBox(ui->propertyTable);
-            modeBox->addItem("above");
-            modeBox->addItem("below");
-
-            const int modeIndex = modeBox->findText(it.value().toString());
-            modeBox->setCurrentIndex(modeIndex >= 0 ? modeIndex : 0);
-            modeBox->setMinimumHeight(34);
-
-            ui->propertyTable->setCellWidget(row, 1, modeBox);
-
-            connect(modeBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::activated), this, [this, item, row, modeBox](int){
-                if (!item)
-                    return;
-
-                const QString text = modeBox->currentText();
-                QPointer<CanvasItem> safeItem(item);
-
-                // Wayland 下在 popup 关闭生命周期中同步改 UI/模型风险较高，
-                // 延迟到事件循环下一拍，确保 popup 先完成销毁。
-                QTimer::singleShot(0, this, [this, safeItem, row, text]() {
-                    if (!safeItem)
-                        return;
-
-                    if (m_currentItem != safeItem)
-                        return;
-
-                    m_isUpdatingPropertyTable = true;
-                    {
-                        QSignalBlocker blocker(ui->propertyTable);
-                        if (auto *valueItem = ui->propertyTable->item(row, 1))
-                            valueItem->setText(text);
-                    }
-                    m_isUpdatingPropertyTable = false;
-
-                    safeItem->setPropertyValue("blinkMode", text);
-                });
-            });
+            valueItem->setToolTip("双击在 above / below 之间切换");
         }
 
         // 设置行高
@@ -376,9 +340,21 @@ void MainWindow::editPropertyCell(int row, int col)
     QString key = keyItem->text();
     QString value = valueItem->text();
 
-    // blinkMode 已提供下拉框编辑，不再弹出文本输入框。
-    if (key == "blinkMode")
+    // Wayland 稳定性：blinkMode 改为无 popup 的双击切换。
+    if (key == "blinkMode") {
+        const QString newVal = (value == "above") ? "below" : "above";
+
+        m_isUpdatingPropertyTable = true;
+        {
+            QSignalBlocker blocker(ui->propertyTable);
+            valueItem->setText(newVal);
+        }
+        m_isUpdatingPropertyTable = false;
+
+        if (m_currentItem)
+            m_currentItem->setPropertyValue(key, newVal);
         return;
+    }
 
     QDialog dlg(this);
     dlg.setWindowTitle("Edit Property");

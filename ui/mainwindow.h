@@ -18,7 +18,6 @@
 #include <QPushButton>
 #include <QHeaderView>
 #include <QQuickWidget>
-#include <QComboBox>
 
 #include "componentpalette.h"
 #include "palettebinder.h"
