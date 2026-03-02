@@ -1,29 +1,46 @@
 #include "indicatorcomponent.h"
+
 #include <QPainter>
+#include <QtGlobal>
+#include "runtime/databindingmanager.h"
 
 IndicatorComponent::IndicatorComponent(QWidget *parent)
     : CanvasItem(parent)
 {
-    resize(80, 80);
+    resize(100, 100);
 
     m_title = new QLabel("LED", this);
     m_title->setAlignment(Qt::AlignCenter);
 
-    // 闪烁定时器
-    m_blinkTimer.setInterval(500);
+    m_valueLabel = new QLabel("0.0", this);
+    m_valueLabel->setAlignment(Qt::AlignCenter);
+
+    m_blinkTimer.setInterval(m_blinkIntervalMs);
     connect(&m_blinkTimer, &QTimer::timeout, this, [this]() {
         m_blinkState = !m_blinkState;
         update();
     });
+
+    refreshBlinkState();
 }
 
 QVariantMap IndicatorComponent::properties() const
 {
     QVariantMap map;
     map["title"] = m_title->text();
-    map["on"]    = m_on;
+    map["on"] = m_on;
     map["blink"] = m_blink;
+    map["blinkMode"] = m_blinkMode;
+    // 兼容旧属性：true 等价于 above，false 等价于 below。
+    map["blinkWhenAbove"] = (m_blinkMode == "above");
+    map["threshold"] = m_threshold;
+    map["blinkIntervalMs"] = m_blinkIntervalMs;
+    map["value"] = m_value;
+    map["min"] = m_min;
+    map["max"] = m_max;
+    map["varId"] = m_varId;
     map["color"] = m_color.name();
+    map["offColor"] = m_offColor.name();
     return map;
 }
 
@@ -34,66 +51,143 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "on") {
         m_on = v.toBool();
-        update();
+        refreshBlinkState();
     }
     else if (key == "blink") {
         m_blink = v.toBool();
-        if (m_blink)
-            m_blinkTimer.start();
-        else {
-            m_blinkTimer.stop();
-            m_blinkState = true;
+        refreshBlinkState();
+    }
+    else if (key == "blinkWhenAbove") {
+        // 兼容旧配置项：true=above，false=below。
+        m_blinkMode = v.toBool() ? "above" : "below";
+        refreshBlinkState();
+    }
+    else if (key == "blinkMode") {
+        const QString mode = v.toString().trimmed().toLower();
+        if (mode == "above" || mode == "below") {
+            m_blinkMode = mode;
+            refreshBlinkState();
         }
-        update();
+    }
+    else if (key == "threshold") {
+        m_threshold = v.toDouble();
+        refreshBlinkState();
+    }
+    else if (key == "blinkIntervalMs") {
+        m_blinkIntervalMs = qMax(50, v.toInt());
+        m_blinkTimer.setInterval(m_blinkIntervalMs);
+        refreshBlinkState();
+    }
+    else if (key == "value") {
+        setValue(v.toDouble());
+    }
+    else if (key == "min") {
+        m_min = v.toDouble();
+    }
+    else if (key == "max") {
+        m_max = v.toDouble();
+    }
+    else if (key == "varId") {
+        QString newVarId = v.toString();
+
+        if (newVarId == m_varId)
+            return;
+
+        if (!m_varId.isEmpty() && m_bindingMgr) {
+            m_bindingMgr->unbind(m_varId, this, "value");
+        }
+
+        m_varId = newVarId;
+
+        if (m_bindingMgr && !m_varId.isEmpty()) {
+            m_bindingMgr->bind(m_varId, this, "value");
+            qDebug() << "Indicator bound to variable" << m_varId;
+        }
     }
     else if (key == "color") {
         m_color = QColor(v.toString());
-        update();
     }
+    else if (key == "offColor") {
+        m_offColor = QColor(v.toString());
+    }
+
+    update();
+}
+
+void IndicatorComponent::setValue(double value)
+{
+    m_value = qBound(m_min, value, m_max);
+    m_valueLabel->setText(QString::number(m_value, 'f', 1));
+    refreshBlinkState();
+}
+
+bool IndicatorComponent::isBlinkConditionMet() const
+{
+    if (m_blinkMode == "below")
+        return m_value < m_threshold;
+
+    // 默认按 above 处理，保证异常值时行为可预测。
+    return m_value > m_threshold;
+}
+
+void IndicatorComponent::refreshBlinkState()
+{
+    const bool shouldBlink = m_on && m_blink && isBlinkConditionMet();
+
+    if (shouldBlink) {
+        if (!m_blinkTimer.isActive())
+            m_blinkTimer.start();
+    } else {
+        m_blinkTimer.stop();
+        m_blinkState = true;
+    }
+
+    update();
 }
 
 void IndicatorComponent::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
 
-    int w = width();
-    int h = height();
+    const int w = width();
+    const int h = height();
 
-    m_title->setGeometry(0, 0, w, h / 2);
+    const int titleH = 22;
+    const int valueH = 20;
+
+    m_title->setGeometry(0, 0, w, titleH);
+    m_valueLabel->setGeometry(0, h - valueH, w, valueH);
 }
 
 void IndicatorComponent::paintEvent(QPaintEvent *event)
 {
     CanvasItem::paintEvent(event);
 
-    int w = width();
-    int h = height();
+    const int w = width();
+    const int h = height();
 
-    QRect ledArea(0, h / 2, w, h / 2);
+    const int titleH = 22;
+    const int valueH = 20;
+    QRect ledArea(0, titleH, w, h - titleH - valueH);
 
-    int size = qMin(ledArea.width(), ledArea.height()) * 0.6;
-    QPoint center = ledArea.center();
+    const int size = qMin(ledArea.width(), ledArea.height()) * 0.65;
+    const QPoint center = ledArea.center();
 
-    QRect ledRect(
-        center.x() - size / 2,
-        center.y() - size / 2,
-        size,
-        size
-        );
+    QRect ledRect(center.x() - size / 2,
+                  center.y() - size / 2,
+                  size,
+                  size);
 
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    bool visible = m_on && (!m_blink || m_blinkState);
+    const bool visible = m_on && (!m_blinkTimer.isActive() || m_blinkState);
+    const QColor fill = visible ? m_color : m_offColor;
 
-    QColor fill = visible ? m_color : QColor(80, 80, 80);
-
-    // 外圈
     p.setPen(Qt::NoPen);
     p.setBrush(fill.darker(150));
     p.drawEllipse(ledRect.adjusted(-2, -2, 2, 2));
 
-    // 内圈
     p.setBrush(fill);
     p.drawEllipse(ledRect);
 }
