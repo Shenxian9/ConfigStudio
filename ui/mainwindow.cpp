@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include <QComboBox>
+#include <QSignalBlocker>
 void setLabelIcon(QLabel* label, const QString& path)
 {
     QPixmap pix(path);
@@ -63,6 +63,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->propertyTable, &QTableWidget::cellChanged,
             this, &MainWindow::onPropertyChanged);
+
+    connect(ui->propertyTable, &QTableWidget::cellClicked,
+            this, &MainWindow::editPropertyCell);
 
     connect(ui->deleteButton, &QPushButton::clicked,
             this, &MainWindow::on_deleteButton_clicked);
@@ -140,6 +143,8 @@ void MainWindow::showProperties(CanvasItem *item)
 {
     if (!item) return;
 
+    QSignalBlocker blocker(ui->propertyTable);
+
     ui->propertyTable->clear();
     ui->propertyTable->setRowCount(0);
     ui->propertyTable->setColumnCount(2);
@@ -165,25 +170,10 @@ void MainWindow::showProperties(CanvasItem *item)
 
         if (key == "blinkMode") {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-            ui->propertyTable->setItem(row, 1, valueItem);
-
-            QComboBox *blinkModeCombo = new QComboBox(ui->propertyTable);
-            blinkModeCombo->addItem("above");
-            blinkModeCombo->addItem("below");
-            blinkModeCombo->setCurrentText(it.value().toString());
-            blinkModeCombo->setMinimumHeight(36);
-
-            connect(blinkModeCombo, &QComboBox::currentTextChanged, this,
-                    [this, valueItem, key](const QString &mode) {
-                        valueItem->setText(mode);
-                        if (m_currentItem)
-                            m_currentItem->setPropertyValue(key, mode);
-                    });
-
-            ui->propertyTable->setCellWidget(row, 1, blinkModeCombo);
-        } else {
-            ui->propertyTable->setItem(row, 1, valueItem);
+            valueItem->setToolTip("Tap to choose: above / below");
         }
+
+        ui->propertyTable->setItem(row, 1, valueItem);
 
         // 设置行高
         ui->propertyTable->setRowHeight(row, 36);  // 调整为触控友好
@@ -333,10 +323,50 @@ void MainWindow::on_pushOfDatasrc_clicked()
 
 void MainWindow::editPropertyCell(int row, int col)
 {
-    if (col != 1) return;
+    if (col != 1 || !m_currentItem) return;
 
-    QString key = ui->propertyTable->item(row, 0)->text();
-    QString value = ui->propertyTable->item(row, 1)->text();
+    QTableWidgetItem *keyCell = ui->propertyTable->item(row, 0);
+    QTableWidgetItem *valueCell = ui->propertyTable->item(row, 1);
+    if (!keyCell || !valueCell) return;
+
+    const QString key = keyCell->text();
+    const QString value = valueCell->text();
+
+    if (key == "blinkMode") {
+        QDialog dlg(this);
+        dlg.setWindowTitle("选择闪烁模式");
+
+        QVBoxLayout *lay = new QVBoxLayout(&dlg);
+        QPushButton *above = new QPushButton("above", &dlg);
+        QPushButton *below = new QPushButton("below", &dlg);
+
+        above->setMinimumHeight(44);
+        below->setMinimumHeight(44);
+
+        lay->addWidget(above);
+        lay->addWidget(below);
+
+        connect(above, &QPushButton::clicked, &dlg, [&](){
+            valueCell->setText("above");
+            m_currentItem->setPropertyValue(key, "above");
+            dlg.accept();
+        });
+
+        connect(below, &QPushButton::clicked, &dlg, [&](){
+            valueCell->setText("below");
+            m_currentItem->setPropertyValue(key, "below");
+            dlg.accept();
+        });
+
+        if (value == "above") {
+            above->setFocus();
+        } else {
+            below->setFocus();
+        }
+
+        dlg.exec();
+        return;
+    }
 
     QDialog dlg(this);
     dlg.setWindowTitle("Edit Property");
@@ -344,7 +374,7 @@ void MainWindow::editPropertyCell(int row, int col)
     QVBoxLayout *lay = new QVBoxLayout(&dlg);
 
     QLineEdit *edit = new QLineEdit(value);
-    edit->setAttribute(Qt::WA_InputMethodEnabled);   // ⭐关键
+    edit->setAttribute(Qt::WA_InputMethodEnabled);
     lay->addWidget(edit);
 
     QPushButton *ok = new QPushButton("OK");
@@ -353,11 +383,9 @@ void MainWindow::editPropertyCell(int row, int col)
     connect(ok, &QPushButton::clicked, &dlg, &QDialog::accept);
 
     if (dlg.exec() == QDialog::Accepted) {
-        QString newVal = edit->text();
-        ui->propertyTable->item(row, 1)->setText(newVal);
-
-        if (m_currentItem)
-            m_currentItem->setPropertyValue(key, newVal);
+        const QString newVal = edit->text();
+        valueCell->setText(newVal);
+        m_currentItem->setPropertyValue(key, newVal);
     }
 }
 
