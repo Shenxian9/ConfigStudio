@@ -27,31 +27,33 @@ constexpr int kPropertyValueTypeRole = Qt::UserRole + 1;
 QString normalizedColorName(const QString &raw)
 {
     const QString v = raw.trimmed().toLower();
-    if (v == "red" || v == "green" || v == "blue")
+    if (v == "gray" || v == "grey" || v == "red" || v == "green" || v == "blue")
         return v;
 
     const QColor c(v);
     if (!c.isValid())
-        return "red";
+        return "gray";
 
-    if (c == QColor(Qt::red)) return "red";
-    if (c == QColor(Qt::green)) return "green";
-    if (c == QColor(Qt::blue)) return "blue";
+    if (c == QColor(128, 128, 128)) return "gray";
+    if (c == QColor(255, 0, 0)) return "red";
+    if (c == QColor(0, 255, 0)) return "green";
+    if (c == QColor(0, 0, 255)) return "blue";
 
-    return "red";
+    return "gray";
 }
 
 QString nextColorName(const QString &current)
 {
     const QString c = normalizedColorName(current);
+    if (c == "gray") return "red";
     if (c == "red") return "green";
     if (c == "green") return "blue";
-    return "red";
+    return "gray";
 }
 
 bool isColorPropertyKey(const QString &key)
 {
-    return key == "color";
+    return key == "color" || key == "offColor";
 }
 }
 
@@ -252,7 +254,7 @@ void MainWindow::showProperties(CanvasItem *item)
 
         if (isColorPropertyKey(key)) {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-            valueItem->setToolTip("Tap to toggle red / green / blue");
+            valueItem->setToolTip("Tap to toggle gray / red / green / blue");
             isToggleCell = true;
         }
 

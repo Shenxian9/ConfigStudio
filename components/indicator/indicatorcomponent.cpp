@@ -56,6 +56,7 @@ QVariantMap IndicatorComponent::properties() const
     map["max"] = m_max;
     map["varId"] = m_varId;
     map["color"] = m_color.name();
+    map["offColor"] = m_offColor.name();
     return map;
 }
 
@@ -118,20 +119,27 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
             qDebug() << "Indicator bound to variable" << m_varId;
         }
     }
-    else if (key == "color") {
+    else if (key == "color" || key == "offColor") {
         const QString colorName = v.toString().trimmed().toLower();
-        if (colorName == "red") {
-            m_color = QColor(255, 0, 0);
+        QColor target;
+        if (colorName == "gray" || colorName == "grey") {
+            target = QColor(128, 128, 128);
+        } else if (colorName == "red") {
+            target = QColor(255, 0, 0);
         } else if (colorName == "green") {
-            m_color = QColor(0, 255, 0);
+            target = QColor(0, 255, 0);
         } else if (colorName == "blue") {
-            m_color = QColor(0, 0, 255);
+            target = QColor(0, 0, 255);
         } else {
-            m_color = QColor(v.toString());
+            target = QColor(v.toString());
         }
-    }
-    else if (key == "offColor") {
-        m_offColor = QColor(v.toString());
+
+        if (target.isValid()) {
+            if (key == "color")
+                m_color = target;
+            else
+                m_offColor = target;
+        }
     }
 
     update();
