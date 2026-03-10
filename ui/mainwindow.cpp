@@ -525,7 +525,7 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    // 其余属性走输入弹窗（键盘输入）
+    // 其余属性走输入面板（嵌入式，避免 Wayland 顶层弹窗/IME 生命周期崩溃）
     QInputMethod *im = QGuiApplication::inputMethod();
     if (im) {
         im->commit();
@@ -533,60 +533,95 @@ void MainWindow::editPropertyCell(int row, int col)
         im->reset();
     }
 
-    QPointer<CanvasItem> targetItem = m_currentItem;
-    const QString oldText = valueCell->text();
+    if (!m_propertyInputPanel) {
+        QFrame *panel = new QFrame(this);
+        panel->setFrameShape(QFrame::StyledPanel);
+        panel->setStyleSheet("QFrame { background: white; border: 2px solid #7aa7d9; border-radius: 8px; }");
 
-    QDialog *dlg = new QDialog(this);
-    dlg->setAttribute(Qt::WA_DeleteOnClose, true);
-    dlg->setWindowTitle(QString("Edit %1").arg(key));
-    dlg->setModal(false);
-    dlg->setWindowModality(Qt::NonModal);
+        QVBoxLayout *layout = new QVBoxLayout(panel);
+        m_propertyInputEdit = new QLineEdit(panel);
+        m_propertyInputEdit->setAttribute(Qt::WA_InputMethodEnabled, true);
+        layout->addWidget(m_propertyInputEdit);
 
-    QVBoxLayout *layout = new QVBoxLayout(dlg);
-    QLineEdit *edit = new QLineEdit(oldText, dlg);
-    edit->setAttribute(Qt::WA_InputMethodEnabled, true);
-    layout->addWidget(edit);
+        QPushButton *okBtn = new QPushButton("OK", panel);
+        QPushButton *cancelBtn = new QPushButton("Cancel", panel);
+        okBtn->setMinimumHeight(40);
+        cancelBtn->setMinimumHeight(40);
+        layout->addWidget(okBtn);
+        layout->addWidget(cancelBtn);
 
-    QPushButton *okBtn = new QPushButton("OK", dlg);
-    QPushButton *cancelBtn = new QPushButton("Cancel", dlg);
-    okBtn->setMinimumHeight(40);
-    cancelBtn->setMinimumHeight(40);
-    layout->addWidget(okBtn);
-    layout->addWidget(cancelBtn);
+        QObject::connect(okBtn, &QPushButton::clicked, this, [this]() {
+            if (!m_propertyInputEdit)
+                return;
 
-    QObject::connect(okBtn, &QPushButton::clicked, dlg, &QDialog::accept);
-    QObject::connect(cancelBtn, &QPushButton::clicked, dlg, &QDialog::reject);
+            const QString newVal = m_propertyInputEdit->text();
+            const int row = m_pendingPropertyRow;
+            const QString key = m_pendingPropertyKey;
+            QPointer<CanvasItem> targetItem = m_pendingPropertyItem;
 
-    QObject::connect(dlg, &QDialog::accepted, this,
-                     [this, row, key, edit, targetItem]() {
-        const QString newVal = edit->text();
-        QMetaObject::invokeMethod(this, [this, row, key, newVal, targetItem]() {
-            if (row >= 0 && row < ui->propertyTable->rowCount()) {
-                QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
-                QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
-                if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
-                    QSignalBlocker blocker(ui->propertyTable);
-                    latestValueCell->setText(newVal);
+            if (m_propertyInputPanel)
+                m_propertyInputPanel->hide();
+
+            QMetaObject::invokeMethod(this, [this, row, key, newVal, targetItem]() {
+                if (row >= 0 && row < ui->propertyTable->rowCount()) {
+                    QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+                    QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+                    if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                        QSignalBlocker blocker(ui->propertyTable);
+                        latestValueCell->setText(newVal);
+                    }
                 }
-            }
-            if (targetItem)
-                targetItem->setPropertyValue(key, newVal);
-        }, Qt::QueuedConnection);
-    });
+                if (targetItem)
+                    targetItem->setPropertyValue(key, newVal);
+            }, Qt::QueuedConnection);
 
-    QObject::connect(dlg, &QDialog::finished, this, []() {
-        QTimer::singleShot(0, []() {
-            QInputMethod *inputMethod = QGuiApplication::inputMethod();
-            if (inputMethod) {
-                inputMethod->hide();
-                inputMethod->reset();
-            }
+            QTimer::singleShot(0, []() {
+                QInputMethod *inputMethod = QGuiApplication::inputMethod();
+                if (inputMethod) {
+                    inputMethod->hide();
+                    inputMethod->reset();
+                }
+            });
         });
-    });
 
-    dlg->open();
-    QTimer::singleShot(0, dlg, [edit]() {
-        edit->setFocus(Qt::OtherFocusReason);
+        QObject::connect(cancelBtn, &QPushButton::clicked, this, [this]() {
+            if (m_propertyInputPanel)
+                m_propertyInputPanel->hide();
+            QTimer::singleShot(0, []() {
+                QInputMethod *inputMethod = QGuiApplication::inputMethod();
+                if (inputMethod) {
+                    inputMethod->hide();
+                    inputMethod->reset();
+                }
+            });
+        });
+
+        panel->hide();
+        m_propertyInputPanel = panel;
+    }
+
+    m_pendingPropertyItem = m_currentItem;
+    m_pendingPropertyKey = key;
+    m_pendingPropertyRow = row;
+
+    if (m_propertyInputEdit)
+        m_propertyInputEdit->setText(valueCell->text());
+
+    if (m_propertyInputPanel) {
+        const int panelW = qMax(320, width() / 2);
+        const int panelH = 180;
+        m_propertyInputPanel->setGeometry((width() - panelW) / 2,
+                                          (height() - panelH) / 2,
+                                          panelW,
+                                          panelH);
+        m_propertyInputPanel->show();
+        m_propertyInputPanel->raise();
+    }
+
+    QTimer::singleShot(0, this, [this]() {
+        if (!m_propertyInputEdit)
+            return;
+        m_propertyInputEdit->setFocus(Qt::OtherFocusReason);
         QInputMethod *inputMethod = QGuiApplication::inputMethod();
         if (inputMethod)
             inputMethod->show();

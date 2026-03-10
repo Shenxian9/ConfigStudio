@@ -18,6 +18,8 @@
 #include <QPushButton>
 #include <QHeaderView>
 #include <QQuickWidget>
+#include <QFrame>
+#include <QPointer>
 
 #include "componentpalette.h"
 #include "palettebinder.h"
@@ -97,6 +99,12 @@ private:
     DataBindingManager* m_bindingMgr;
 
     QQuickWidget *m_keyboard = nullptr;
+
+    QWidget *m_propertyInputPanel = nullptr;
+    QLineEdit *m_propertyInputEdit = nullptr;
+    QPointer<CanvasItem> m_pendingPropertyItem;
+    QString m_pendingPropertyKey;
+    int m_pendingPropertyRow = -1;
 
 };
 
