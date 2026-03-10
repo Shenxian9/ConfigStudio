@@ -447,8 +447,6 @@ void MainWindow::editPropertyCell(int row, int col)
     const QString key = keyCell->text();
     const int valueType = valueCell->data(kPropertyValueTypeRole).toInt();
     const QString currentValue = valueCell->text().trimmed().toLower();
-    const bool looksLikeBoolText = (currentValue == "true" || currentValue == "false" ||
-                                    currentValue == "1" || currentValue == "0");
 
     if (isColorPropertyKey(key)) {
         const QString nextColor = nextColorName(currentValue);
@@ -474,7 +472,7 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    if (valueType == QVariant::Bool || looksLikeBoolText) {
+    if (valueType == QVariant::Bool) {
         const bool currentBool = (currentValue == "true" || currentValue == "1");
         const QString nextBoolText = currentBool ? "false" : "true";
         propDiagLog(QString("editPropertyCell bool toggle key=%1 %2 -> %3 row=%4")
