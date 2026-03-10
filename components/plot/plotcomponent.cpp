@@ -9,6 +9,7 @@
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QFrame>
+#include <QScroller>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -150,6 +151,16 @@ void PlotComponent::ensureHistoryPanel()
     m_historyTable->verticalHeader()->setVisible(false);
     m_historyTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_historyTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_historyTable->setSelectionMode(QAbstractItemView::NoSelection);
+    m_historyTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_historyTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+
+    QFont tableFont = m_historyTable->font();
+    tableFont.setPointSize(16);
+    m_historyTable->setFont(tableFont);
+    m_historyTable->verticalHeader()->setDefaultSectionSize(44);
+
+    QScroller::grabGesture(m_historyTable->viewport(), QScroller::LeftMouseButtonGesture);
     layout->addWidget(m_historyTable);
 
     QPushButton *closeBtn = new QPushButton("Close", panel);
