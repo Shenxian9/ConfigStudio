@@ -143,7 +143,9 @@ void PlotComponent::ensureHistoryPanel()
     QVBoxLayout *layout = new QVBoxLayout(panel);
     m_historyTable = new QTableWidget(panel);
     m_historyTable->setColumnCount(3);
-    m_historyTable->setHorizontalHeaderLabels({"#", "X", "Y"});
+    const QString xHeader = m_plot ? m_plot->axisTitle(QwtPlot::xBottom).text() : QString("X");
+    const QString yHeader = m_plot ? m_plot->axisTitle(QwtPlot::yLeft).text() : QString("Y");
+    m_historyTable->setHorizontalHeaderLabels({"#", xHeader, yHeader});
     m_historyTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_historyTable->verticalHeader()->setVisible(false);
     m_historyTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -164,6 +166,10 @@ void PlotComponent::refreshHistoryTable()
 {
     if (!m_historyTable)
         return;
+
+    const QString xHeader = m_plot ? m_plot->axisTitle(QwtPlot::xBottom).text() : QString("X");
+    const QString yHeader = m_plot ? m_plot->axisTitle(QwtPlot::yLeft).text() : QString("Y");
+    m_historyTable->setHorizontalHeaderLabels({"#", xHeader, yHeader});
 
     const int count = qMin(m_maxPoints, m_xData.size());
     m_historyTable->setRowCount(count);
