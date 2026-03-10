@@ -13,7 +13,6 @@
 #include <QRegularExpression>
 #include <QtGlobal>
 #include <QPen>
-#include <QMessageBox>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -115,11 +114,10 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
             if (!newVarId.isEmpty()) {
                 for (int i = 0; i < m_varIds.size(); ++i) {
                     if (i != idx && m_varIds.value(i) == newVarId) {
-                        QMessageBox::warning(this,
-                                             tr("Binding Conflict"),
-                                             tr("Variable ID '%1' is already bound to curve %2. Please choose a different varId.")
-                                                 .arg(newVarId)
-                                                 .arg(i + 1));
+                        showBindingConflict(
+                            tr("Variable ID '%1' is already bound to curve %2. Please choose a different varId.")
+                                .arg(newVarId)
+                                .arg(i + 1));
                         return;
                     }
                 }
@@ -298,6 +296,59 @@ void PlotComponent::refreshHistoryTable()
         m_historyTable->setItem(row, 1, new QTableWidgetItem(QString::number(m_xData[idx], 'f', 2)));
         m_historyTable->setItem(row, 2, new QTableWidgetItem(QString::number(y, 'f', 2)));
     }
+}
+
+void PlotComponent::ensureBindingConflictPanel()
+{
+    if (m_bindingConflictPanel)
+        return;
+
+    QFrame *panel = new QFrame(this);
+    panel->setFrameShape(QFrame::StyledPanel);
+    panel->setStyleSheet("QFrame { background: white; border: 2px solid #d97a7a; border-radius: 8px; }");
+
+    QVBoxLayout *layout = new QVBoxLayout(panel);
+    QLabel *title = new QLabel(tr("Binding Conflict"), panel);
+    QFont titleFont = title->font();
+    titleFont.setBold(true);
+    titleFont.setPointSize(14);
+    title->setFont(titleFont);
+    layout->addWidget(title);
+
+    m_bindingConflictLabel = new QLabel(panel);
+    m_bindingConflictLabel->setWordWrap(true);
+    QFont msgFont = m_bindingConflictLabel->font();
+    msgFont.setPointSize(12);
+    m_bindingConflictLabel->setFont(msgFont);
+    layout->addWidget(m_bindingConflictLabel);
+
+    QPushButton *okBtn = new QPushButton("OK", panel);
+    okBtn->setMinimumHeight(38);
+    okBtn->setFocusPolicy(Qt::NoFocus);
+    layout->addWidget(okBtn);
+    QObject::connect(okBtn, &QPushButton::clicked, panel, &QWidget::hide);
+
+    panel->hide();
+    m_bindingConflictPanel = panel;
+}
+
+void PlotComponent::showBindingConflict(const QString &message)
+{
+    ensureBindingConflictPanel();
+    if (!m_bindingConflictPanel || !m_bindingConflictLabel)
+        return;
+
+    m_bindingConflictLabel->setText(message);
+
+    const int margin = 14;
+    const int panelW = qMax(320, width() - margin * 2);
+    const int panelH = 160;
+    m_bindingConflictPanel->setGeometry((width() - panelW) / 2,
+                                        qMax(10, (height() - panelH) / 2 - height() / 8),
+                                        panelW,
+                                        panelH);
+    m_bindingConflictPanel->show();
+    m_bindingConflictPanel->raise();
 }
 
 void PlotComponent::appendValue(double value, int seriesIndex)

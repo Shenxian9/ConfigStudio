@@ -8,6 +8,7 @@
 #include <qwt_plot_curve.h>
 #include <QTableWidget>
 #include <QStringList>
+#include <QLabel>
 
 class PlotComponent : public CanvasItem {
     Q_OBJECT
@@ -36,10 +37,14 @@ private:
 
     QWidget *m_historyPanel = nullptr;
     QTableWidget *m_historyTable = nullptr;
+    QWidget *m_bindingConflictPanel = nullptr;
+    QLabel *m_bindingConflictLabel = nullptr;
 
     void showHistoryDialog();
     void ensureHistoryPanel();
     void refreshHistoryTable();
+    void ensureBindingConflictPanel();
+    void showBindingConflict(const QString &message);
     void rebuildCurves();
     void rebindAllSeries();
 };
