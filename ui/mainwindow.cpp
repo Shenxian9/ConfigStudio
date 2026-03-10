@@ -541,6 +541,10 @@ void MainWindow::editPropertyCell(int row, int col)
         QVBoxLayout *layout = new QVBoxLayout(panel);
         m_propertyInputEdit = new QLineEdit(panel);
         m_propertyInputEdit->setAttribute(Qt::WA_InputMethodEnabled, true);
+        QFont inputFont = m_propertyInputEdit->font();
+        inputFont.setPointSize(18);
+        m_propertyInputEdit->setFont(inputFont);
+        m_propertyInputEdit->setMinimumHeight(52);
         layout->addWidget(m_propertyInputEdit);
 
         QPushButton *okBtn = new QPushButton("OK", panel);
@@ -609,9 +613,11 @@ void MainWindow::editPropertyCell(int row, int col)
 
     if (m_propertyInputPanel) {
         const int panelW = qMax(320, width() / 2);
-        const int panelH = 180;
-        m_propertyInputPanel->setGeometry((width() - panelW) / 2,
-                                          (height() - panelH) / 2,
+        const int panelH = 220;
+        const int panelX = (width() - panelW) / 2;
+        const int panelY = qMax(16, (height() - panelH) / 2 - height() / 6);
+        m_propertyInputPanel->setGeometry(panelX,
+                                          panelY,
                                           panelW,
                                           panelH);
         m_propertyInputPanel->show();
