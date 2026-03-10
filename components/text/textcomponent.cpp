@@ -1,5 +1,6 @@
 #include "textcomponent.h"
 #include <QPalette>
+#include <QFontMetrics>
 
 TextComponent::TextComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -20,12 +21,7 @@ QVariantMap TextComponent::properties() const
     map["text"]     = m_label->text();
     map["fontSize"] = m_label->font().pointSize();
     const QFont f = m_label->font();
-    if (f.italic())
-        map["font"] = "italic";
-    else if (f.bold())
-        map["font"] = "bold";
-    else
-        map["font"] = "normal";
+    map["font"] = f.italic() ? "italic" : "normal";
     map["textColor"] = m_label->palette().color(QPalette::WindowText).name();
 
     Qt::Alignment a = m_label->alignment();
@@ -49,16 +45,11 @@ void TextComponent::setPropertyValue(const QString& key, const QVariant& v)
     else if (key == "font" || key == "bold") {
         QFont f = m_label->font();
         const QString style = v.toString().trimmed().toLower();
-        if (style == "bold") {
-            f.setBold(true);
-            f.setItalic(false);
-        } else if (style == "italic") {
-            f.setBold(false);
+        f.setBold(false);
+        if (style == "italic") {
             f.setItalic(true);
         } else {
-            // 兼容旧 bool：true->bold, false->normal
-            const bool isBold = (style == "true" || style == "1") || v.toBool();
-            f.setBold(isBold);
+            // 兼容旧 bool/bold 输入：统一降级为 normal，避免无效“bold”状态
             f.setItalic(false);
         }
         m_label->setFont(f);
@@ -87,7 +78,20 @@ void TextComponent::resizeEvent(QResizeEvent *event)
 
     m_label->setGeometry(rect());
 
+    const int availW = qMax(1, width() - 8);
+    const int availH = qMax(1, height() - 8);
+
     QFont f = m_label->font();
-    f.setPointSize(qMax(1, height() - 6));
+    int pointSize = qMax(1, int(availH * 0.72));
+    f.setPointSize(pointSize);
+
+    const QString text = m_label->text().isEmpty() ? QStringLiteral(" ") : m_label->text();
+    while (pointSize > 1) {
+        QFontMetrics fm(f);
+        if (fm.horizontalAdvance(text) <= availW && fm.height() <= availH)
+            break;
+        --pointSize;
+        f.setPointSize(pointSize);
+    }
     m_label->setFont(f);
 }
