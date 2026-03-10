@@ -151,6 +151,13 @@ void PlotComponent::rebuildCurves()
     else if (m_ySeries.size() > m_curveCount)
         m_ySeries = m_ySeries.mid(0, m_curveCount);
 
+    for (int i = 0; i < m_ySeries.size(); ++i) {
+        while (m_ySeries[i].size() < m_xData.size())
+            m_ySeries[i].append(qQNaN());
+        while (m_ySeries[i].size() > m_xData.size())
+            m_ySeries[i].remove(0);
+    }
+
     static const QVector<QColor> palette = {
         QColor(255, 0, 0), QColor(0, 180, 0), QColor(0, 90, 255),
         QColor(255, 140, 0), QColor(160, 32, 240), QColor(0, 180, 180)
@@ -287,15 +294,29 @@ void PlotComponent::appendValue(double value, int seriesIndex)
     if (m_ySeries.size() < m_curveCount)
         m_ySeries.resize(m_curveCount);
 
-    const double nextX = m_xData.isEmpty() ? 0.0 : (m_xData.last() + 1.0);
-    m_xData.append(nextX);
-
-    for (int i = 0; i < m_curveCount; ++i) {
-        if (i == seriesIndex)
-            m_ySeries[i].append(value);
-        else
+    auto appendNewXPoint = [this]() {
+        const double nextX = m_xData.isEmpty() ? 0.0 : (m_xData.last() + 1.0);
+        m_xData.append(nextX);
+        for (int i = 0; i < m_ySeries.size(); ++i)
             m_ySeries[i].append(qQNaN());
+    };
+
+    if (m_xData.isEmpty()) {
+        appendNewXPoint();
+    } else {
+        while (m_ySeries[seriesIndex].size() < m_xData.size())
+            m_ySeries[seriesIndex].append(qQNaN());
+
+        // 如果当前系列在“最新 X”位置已有值，则开启一个新的 X 点，
+        // 否则把新值写到当前最新 X 位置，保证多源数据横坐标对齐。
+        if (!m_ySeries[seriesIndex].isEmpty() && !qIsNaN(m_ySeries[seriesIndex].last()))
+            appendNewXPoint();
     }
+
+    if (m_ySeries[seriesIndex].size() < m_xData.size())
+        m_ySeries[seriesIndex].resize(m_xData.size());
+
+    m_ySeries[seriesIndex][m_xData.size() - 1] = value;
 
     while (m_xData.size() > m_maxPoints) {
         m_xData.remove(0);
