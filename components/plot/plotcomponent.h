@@ -27,7 +27,7 @@ public:
 private:
     QwtPlot *m_plot;
     QVector<QwtPlotCurve*> m_curves;
-    QVector<double> m_xData;
+    QVector<QVector<double>> m_xSeries;
     QVector<QVector<double>> m_ySeries;
     QStringList m_varIds;   // 每条曲线绑定一个变量ID
 
