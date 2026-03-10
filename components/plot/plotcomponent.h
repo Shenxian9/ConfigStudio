@@ -7,6 +7,7 @@
 #include <qwt_plot.h>
 #include <qwt_plot_curve.h>
 #include <QTableWidget>
+#include <QStringList>
 
 class PlotComponent : public CanvasItem {
     Q_OBJECT
@@ -21,17 +22,17 @@ public:
     void resizeEvent(QResizeEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
-    void appendValue(double value);
+    void appendValue(double value, int seriesIndex = 0);
 
 private:
     QwtPlot *m_plot;
-    QwtPlotCurve *m_curve;
+    QVector<QwtPlotCurve*> m_curves;
     QVector<double> m_xData;
-    QVector<double> m_yData;
-    QString m_varId;   // 当前绑定的变量ID
+    QVector<QVector<double>> m_ySeries;
+    QStringList m_varIds;   // 每条曲线绑定一个变量ID
 
-
-    int m_maxPoints = 50; // 最多显示100个点
+    int m_curveCount = 1;
+    int m_maxPoints = 50; // 最多显示点数
 
     QWidget *m_historyPanel = nullptr;
     QTableWidget *m_historyTable = nullptr;
@@ -39,6 +40,8 @@ private:
     void showHistoryDialog();
     void ensureHistoryPanel();
     void refreshHistoryTable();
+    void rebuildCurves();
+    void rebindAllSeries();
 };
 
 

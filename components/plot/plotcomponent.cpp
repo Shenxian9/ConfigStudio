@@ -10,6 +10,9 @@
 #include <QPushButton>
 #include <QFrame>
 #include <QScroller>
+#include <QRegularExpression>
+#include <QtGlobal>
+#include <QPen>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -23,14 +26,13 @@ PlotComponent::PlotComponent(QWidget *parent)
     m_plot->setGeometry(rect());
     m_plot->installEventFilter(this);
 
-    // 创建曲线对象
-    m_curve = new QwtPlotCurve("Curve");
-    m_curve->setRenderHint(QwtPlotItem::RenderAntialiased, true);
-    m_curve->attach(m_plot);
+    m_varIds.clear();
+    for (int i = 0; i < m_curveCount; ++i)
+        m_varIds.append(QString());
+    rebuildCurves();
 
     // 初始化空数据
     m_xData.reserve(m_maxPoints);
-    m_yData.reserve(m_maxPoints);
 
 }
 
@@ -42,15 +44,19 @@ QVariantMap PlotComponent::properties() const
     map["yAxisTitle"] = m_plot->axisTitle(QwtPlot::yLeft).text();
     map["xMin"] = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     map["xMax"] = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
-    map["varId"] = m_varId;   // ⭐ 添加 varId 属性
+    map["curveCount"] = m_curveCount;
     map["maxPoints"] = m_maxPoints;
+    if (m_curveCount > 0)
+        map["varId"] = m_varIds.value(0);
+    for (int i = 0; i < m_curveCount; ++i)
+        map[QString("varId%1").arg(i + 1)] = m_varIds.value(i);
     return map;
 }
 
 void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
 {
     if (key == "value") {
-        appendValue(v.toDouble());  // 流式更新
+        appendValue(v.toDouble(), 0);
     }
     else if (key == "title") {
         m_plot->setTitle(v.toString());
@@ -63,27 +69,65 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_plot->setAxisTitle(QwtPlot::yLeft, v.toString());
         m_plot->replot();
     }
-    else if (key == "varId") {
-        QString newVarId = v.toString();
-        if (newVarId == m_varId)
-            return; // 相同 id 不重复绑定
+    else if (key == "curveCount") {
+        int n = qMax(1, v.toInt());
+        if (n == m_curveCount)
+            return;
 
-        // ⭐ 如果之前绑定过，先解绑
-        if (!m_varId.isEmpty() && m_bindingMgr) {
-            m_bindingMgr->unbind(m_varId, this, "value");
+        // 先解绑旧绑定
+        for (int i = 0; i < m_varIds.size(); ++i) {
+            if (!m_varIds[i].isEmpty() && m_bindingMgr)
+                m_bindingMgr->unbind(m_varIds[i], this, QString("value%1").arg(i + 1));
         }
 
-        m_varId = newVarId;
+        m_curveCount = n;
+        while (m_varIds.size() < m_curveCount)
+            m_varIds.append(QString());
+        while (m_varIds.size() > m_curveCount)
+            m_varIds.removeLast();
 
-        if (m_bindingMgr && !m_varId.isEmpty()) {
-            m_bindingMgr->bind(m_varId, this, "value");
-            qDebug() << "PlotComponent bound to variable" << m_varId;
-        }
+        rebuildCurves();
+        rebindAllSeries();
     }
-    else if (key == "maxPoints") {      // ⭐ 新增处理
+    else if (key == "maxPoints") {
         int mp = v.toInt();
         if (mp > 0)
             m_maxPoints = mp;
+    }
+    else if (key == "varId") {
+        setPropertyValue("varId1", v);
+    }
+    else {
+        QRegularExpression varIdRe("^varId(\\d+)$");
+        QRegularExpressionMatch vm = varIdRe.match(key);
+        if (vm.hasMatch()) {
+            const int idx = vm.captured(1).toInt() - 1;
+            if (idx < 0 || idx >= m_curveCount)
+                return;
+
+            const QString newVarId = v.toString();
+            const QString oldVarId = m_varIds.value(idx);
+            const QString propName = QString("value%1").arg(idx + 1);
+
+            if (newVarId == oldVarId)
+                return;
+
+            if (!oldVarId.isEmpty() && m_bindingMgr)
+                m_bindingMgr->unbind(oldVarId, this, propName);
+
+            m_varIds[idx] = newVarId;
+            if (!newVarId.isEmpty() && m_bindingMgr)
+                m_bindingMgr->bind(newVarId, this, propName);
+            return;
+        }
+
+        QRegularExpression valueRe("^value(\\d+)$");
+        QRegularExpressionMatch m = valueRe.match(key);
+        if (m.hasMatch()) {
+            const int idx = m.captured(1).toInt() - 1;
+            appendValue(v.toDouble(), idx);
+            return;
+        }
     }
 }
 
@@ -92,6 +136,45 @@ void PlotComponent::resizeEvent(QResizeEvent* event)
 {
     if (m_plot)
         m_plot->setGeometry(rect());
+}
+
+void PlotComponent::rebuildCurves()
+{
+    for (auto *c : m_curves) {
+        if (!c) continue;
+        c->detach();
+        delete c;
+    }
+    m_curves.clear();
+
+    if (m_ySeries.size() < m_curveCount)
+        m_ySeries.resize(m_curveCount);
+    else if (m_ySeries.size() > m_curveCount)
+        m_ySeries = m_ySeries.mid(0, m_curveCount);
+
+    static const QVector<QColor> palette = {
+        QColor(255, 0, 0), QColor(0, 180, 0), QColor(0, 90, 255),
+        QColor(255, 140, 0), QColor(160, 32, 240), QColor(0, 180, 180)
+    };
+
+    for (int i = 0; i < m_curveCount; ++i) {
+        QwtPlotCurve *curve = new QwtPlotCurve(QString("Curve %1").arg(i + 1));
+        curve->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+        curve->setPen(QPen(palette[i % palette.size()], 2));
+        curve->attach(m_plot);
+        m_curves.append(curve);
+    }
+
+    m_plot->replot();
+}
+
+void PlotComponent::rebindAllSeries()
+{
+    for (int i = 0; i < m_curveCount; ++i) {
+        const QString varId = m_varIds.value(i);
+        if (!varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->bind(varId, this, QString("value%1").arg(i + 1));
+    }
 }
 
 
@@ -189,25 +272,44 @@ void PlotComponent::refreshHistoryTable()
     for (int row = 0; row < count; ++row) {
         const int idx = start + row;
         m_historyTable->setItem(row, 0, new QTableWidgetItem(QString::number(row + 1)));
+        const double y = (m_ySeries.isEmpty() || idx >= m_ySeries[0].size()) ? 0.0 : m_ySeries[0][idx];
         m_historyTable->setItem(row, 1, new QTableWidgetItem(QString::number(m_xData[idx], 'f', 2)));
-        m_historyTable->setItem(row, 2, new QTableWidgetItem(QString::number(m_yData[idx], 'f', 2)));
+        m_historyTable->setItem(row, 2, new QTableWidgetItem(QString::number(y, 'f', 2)));
     }
 }
 
-void PlotComponent::appendValue(double value)
+void PlotComponent::appendValue(double value, int seriesIndex)
 {
+    if (seriesIndex < 0 || seriesIndex >= m_curveCount)
+        return;
+
     double x = m_xData.isEmpty() ? 0 : m_xData.last() + 1;
-
     m_xData.append(x);
-    m_yData.append(value);
 
-    // ⭐ 保持不超过最大点数
-    while (m_xData.size() > m_maxPoints) {
-        m_xData.remove(0);
-        m_yData.remove(0);
+    if (m_ySeries.size() < m_curveCount)
+        m_ySeries.resize(m_curveCount);
+
+    for (int i = 0; i < m_curveCount; ++i) {
+        double y = (i == seriesIndex) ? value : qQNaN();
+        if (!m_ySeries[i].isEmpty() && i != seriesIndex)
+            y = m_ySeries[i].last();
+        m_ySeries[i].append(y);
     }
 
-    m_curve->setSamples(m_xData, m_yData);
+    while (m_xData.size() > m_maxPoints) {
+        m_xData.remove(0);
+        for (int i = 0; i < m_ySeries.size(); ++i) {
+            if (!m_ySeries[i].isEmpty())
+                m_ySeries[i].remove(0);
+        }
+    }
+
+    for (int i = 0; i < m_curves.size(); ++i) {
+        if (m_curves[i])
+            m_curves[i]->setSamples(m_xData, m_ySeries.value(i));
+    }
+
     m_plot->replot();
-    m_plot->setAxisScale(QwtPlot::xBottom, m_xData.first(), m_xData.last());
+    if (!m_xData.isEmpty())
+        m_plot->setAxisScale(QwtPlot::xBottom, m_xData.first(), m_xData.last());
 }

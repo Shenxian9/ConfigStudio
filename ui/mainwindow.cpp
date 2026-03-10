@@ -573,8 +573,11 @@ void MainWindow::editPropertyCell(int row, int col)
                         latestValueCell->setText(newVal);
                     }
                 }
-                if (targetItem)
+                if (targetItem) {
                     targetItem->setPropertyValue(key, newVal);
+                    if (key == "curveCount")
+                        showProperties(targetItem);
+                }
             }, Qt::QueuedConnection);
 
             QTimer::singleShot(0, []() {
