@@ -6,6 +6,7 @@
 #include <QLoggingCategory>
 #include <QDateTime>
 #include <QColor>
+#include <QInputMethod>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -119,6 +120,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->propertyTable, &QTableWidget::cellChanged,
             this, &MainWindow::onPropertyChanged);
+
+    // 属性表本体不走输入法，文本输入统一通过弹窗处理（Wayland/IME 更稳定）
+    ui->propertyTable->setAttribute(Qt::WA_InputMethodEnabled, false);
 
     connect(ui->propertyTable, &QTableWidget::cellClicked,
             this, &MainWindow::editPropertyCell);
@@ -495,32 +499,90 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    if (key != "mode") {
+    if (key == "mode") {
+        const QString modeValue = valueCell->text().trimmed().toLower();
+        const QString nextMode = (modeValue == "below") ? "above" : "below";
+        propDiagLog(QString("editPropertyCell mode toggle %1 -> %2 row=%3")
+                    .arg(modeValue, nextMode).arg(row));
+
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(nextMode);
+            }
+        }
+
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem) {
+            propDiagLog(QString("apply setPropertyValue target=%1 mode=%2")
+                        .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16).arg(nextMode));
+            targetItem->setPropertyValue(key, nextMode);
+        } else {
+            propDiagLog("skip setPropertyValue: target item destroyed");
+        }
         return;
     }
 
-    const QString modeValue = valueCell->text().trimmed().toLower();
-    const QString nextMode = (modeValue == "below") ? "above" : "below";
-    propDiagLog(QString("editPropertyCell mode toggle %1 -> %2 row=%3")
-                .arg(modeValue, nextMode).arg(row));
+    // 其余属性走输入弹窗（键盘输入）
+    QInputMethod *im = QGuiApplication::inputMethod();
+    if (im) {
+        im->commit();
+        im->hide();
+        im->reset();
+    }
 
-    if (row >= 0 && row < ui->propertyTable->rowCount()) {
-        QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
-        QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
-        if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
-            QSignalBlocker blocker(ui->propertyTable);
-            latestValueCell->setText(nextMode);
+    QDialog dlg(this);
+    dlg.setWindowTitle(QString("Edit %1").arg(key));
+    dlg.setModal(true);
+
+    QVBoxLayout *layout = new QVBoxLayout(&dlg);
+    QLineEdit *edit = new QLineEdit(valueCell->text(), &dlg);
+    edit->setAttribute(Qt::WA_InputMethodEnabled, true);
+    layout->addWidget(edit);
+
+    QPushButton *okBtn = new QPushButton("OK", &dlg);
+    QPushButton *cancelBtn = new QPushButton("Cancel", &dlg);
+    okBtn->setMinimumHeight(40);
+    cancelBtn->setMinimumHeight(40);
+    layout->addWidget(okBtn);
+    layout->addWidget(cancelBtn);
+
+    QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+    QTimer::singleShot(0, &dlg, [edit]() {
+        edit->setFocus(Qt::OtherFocusReason);
+        QInputMethod *inputMethod = QGuiApplication::inputMethod();
+        if (inputMethod)
+            inputMethod->show();
+    });
+
+    if (dlg.exec() == QDialog::Accepted) {
+        const QString newVal = edit->text();
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(newVal);
+            }
         }
+
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem)
+            targetItem->setPropertyValue(key, newVal);
     }
 
-    QPointer<CanvasItem> targetItem = m_currentItem;
-    if (targetItem) {
-        propDiagLog(QString("apply setPropertyValue target=%1 mode=%2")
-                    .arg(reinterpret_cast<quintptr>(targetItem.data()), 0, 16).arg(nextMode));
-        targetItem->setPropertyValue(key, nextMode);
-    } else {
-        propDiagLog("skip setPropertyValue: target item destroyed");
-    }
+    // 对话框关闭后延迟重置输入法，避免 Wayland 焦点切换崩溃
+    QTimer::singleShot(0, this, []() {
+        QInputMethod *inputMethod = QGuiApplication::inputMethod();
+        if (inputMethod) {
+            inputMethod->hide();
+            inputMethod->reset();
+        }
+    });
 }
 
 void MainWindow::on_pushOfDesign_clicked()
