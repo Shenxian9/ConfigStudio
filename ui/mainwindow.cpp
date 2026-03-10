@@ -533,55 +533,63 @@ void MainWindow::editPropertyCell(int row, int col)
         im->reset();
     }
 
-    QDialog dlg(this);
-    dlg.setWindowTitle(QString("Edit %1").arg(key));
-    dlg.setModal(true);
+    QPointer<CanvasItem> targetItem = m_currentItem;
+    const QString oldText = valueCell->text();
 
-    QVBoxLayout *layout = new QVBoxLayout(&dlg);
-    QLineEdit *edit = new QLineEdit(valueCell->text(), &dlg);
+    QDialog *dlg = new QDialog(this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose, true);
+    dlg->setWindowTitle(QString("Edit %1").arg(key));
+    dlg->setModal(false);
+    dlg->setWindowModality(Qt::NonModal);
+
+    QVBoxLayout *layout = new QVBoxLayout(dlg);
+    QLineEdit *edit = new QLineEdit(oldText, dlg);
     edit->setAttribute(Qt::WA_InputMethodEnabled, true);
     layout->addWidget(edit);
 
-    QPushButton *okBtn = new QPushButton("OK", &dlg);
-    QPushButton *cancelBtn = new QPushButton("Cancel", &dlg);
+    QPushButton *okBtn = new QPushButton("OK", dlg);
+    QPushButton *cancelBtn = new QPushButton("Cancel", dlg);
     okBtn->setMinimumHeight(40);
     cancelBtn->setMinimumHeight(40);
     layout->addWidget(okBtn);
     layout->addWidget(cancelBtn);
 
-    QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
-    QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+    QObject::connect(okBtn, &QPushButton::clicked, dlg, &QDialog::accept);
+    QObject::connect(cancelBtn, &QPushButton::clicked, dlg, &QDialog::reject);
 
-    QTimer::singleShot(0, &dlg, [edit]() {
+    QObject::connect(dlg, &QDialog::accepted, this,
+                     [this, row, key, edit, targetItem]() {
+        const QString newVal = edit->text();
+        QMetaObject::invokeMethod(this, [this, row, key, newVal, targetItem]() {
+            if (row >= 0 && row < ui->propertyTable->rowCount()) {
+                QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+                QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+                if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                    QSignalBlocker blocker(ui->propertyTable);
+                    latestValueCell->setText(newVal);
+                }
+            }
+            if (targetItem)
+                targetItem->setPropertyValue(key, newVal);
+        }, Qt::QueuedConnection);
+    });
+
+    QObject::connect(dlg, &QDialog::finished, this, []() {
+        QTimer::singleShot(0, []() {
+            QInputMethod *inputMethod = QGuiApplication::inputMethod();
+            if (inputMethod) {
+                inputMethod->hide();
+                inputMethod->reset();
+            }
+        });
+    });
+
+    dlg->open();
+    QTimer::singleShot(0, dlg, [edit]() {
         edit->setFocus(Qt::OtherFocusReason);
         QInputMethod *inputMethod = QGuiApplication::inputMethod();
         if (inputMethod)
             inputMethod->show();
-    });
-
-    if (dlg.exec() == QDialog::Accepted) {
-        const QString newVal = edit->text();
-        if (row >= 0 && row < ui->propertyTable->rowCount()) {
-            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
-            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
-            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
-                QSignalBlocker blocker(ui->propertyTable);
-                latestValueCell->setText(newVal);
-            }
-        }
-
-        QPointer<CanvasItem> targetItem = m_currentItem;
-        if (targetItem)
-            targetItem->setPropertyValue(key, newVal);
-    }
-
-    // 对话框关闭后延迟重置输入法，避免 Wayland 焦点切换崩溃
-    QTimer::singleShot(0, this, []() {
-        QInputMethod *inputMethod = QGuiApplication::inputMethod();
-        if (inputMethod) {
-            inputMethod->hide();
-            inputMethod->reset();
-        }
     });
 }
 
