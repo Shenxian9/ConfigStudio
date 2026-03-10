@@ -21,11 +21,11 @@ QVariantMap TextComponent::properties() const
     map["fontSize"] = m_label->font().pointSize();
     const QFont f = m_label->font();
     if (f.italic())
-        map["bold"] = "italic";
+        map["font"] = "italic";
     else if (f.bold())
-        map["bold"] = "bold";
+        map["font"] = "bold";
     else
-        map["bold"] = "normal";
+        map["font"] = "normal";
     map["textColor"] = m_label->palette().color(QPalette::WindowText).name();
 
     Qt::Alignment a = m_label->alignment();
@@ -46,7 +46,7 @@ void TextComponent::setPropertyValue(const QString& key, const QVariant& v)
         f.setPointSize(qMax(1, v.toInt()));
         m_label->setFont(f);
     }
-    else if (key == "bold") {
+    else if (key == "font" || key == "bold") {
         QFont f = m_label->font();
         const QString style = v.toString().trimmed().toLower();
         if (style == "bold") {
@@ -86,4 +86,8 @@ void TextComponent::resizeEvent(QResizeEvent *event)
         return;
 
     m_label->setGeometry(rect());
+
+    QFont f = m_label->font();
+    f.setPointSize(qMax(1, height() - 6));
+    m_label->setFont(f);
 }

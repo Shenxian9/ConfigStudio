@@ -256,7 +256,7 @@ void MainWindow::showProperties(CanvasItem *item)
     QStringList keys = props.keys();
     const QStringList priorityKeys = {
         "title", "text", "value", "varId", "mode", "on", "blink", "threshold", "Interval/Ms",
-        "min", "max", "textColor", "onColor", "offColor", "color", "fontSize", "bold", "align"
+        "min", "max", "textColor", "onColor", "offColor", "color", "fontSize", "font", "align", "bold"
     };
     std::sort(keys.begin(), keys.end(), [&priorityKeys](const QString &a, const QString &b) {
         const int ia = priorityKeys.indexOf(a);
@@ -304,6 +304,18 @@ void MainWindow::showProperties(CanvasItem *item)
         if (key == "mode") {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             valueItem->setToolTip("Tap to toggle above / below");
+            isToggleCell = true;
+        }
+
+        if (key == "font") {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle normal / bold / italic");
+            isToggleCell = true;
+        }
+
+        if (key == "align") {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle left / right / center");
             isToggleCell = true;
         }
 
@@ -513,7 +525,7 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    if (key == "bold") {
+    if (key == "font" || key == "bold") {
         const QString cur = valueCell->text().trimmed().toLower();
         QString nextStyle = "normal";
         if (cur == "normal" || cur == "false" || cur == "0")
@@ -532,7 +544,7 @@ void MainWindow::editPropertyCell(int row, int col)
 
         QPointer<CanvasItem> targetItem = m_currentItem;
         if (targetItem)
-            targetItem->setPropertyValue(key, nextStyle);
+            targetItem->setPropertyValue(key == "bold" ? "font" : key, nextStyle);
         return;
     }
 
