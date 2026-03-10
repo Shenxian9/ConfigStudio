@@ -55,7 +55,7 @@ QVariantMap IndicatorComponent::properties() const
     map["min"] = m_min;
     map["max"] = m_max;
     map["varId"] = m_varId;
-    map["color"] = m_color.name();
+    map["onColor"] = m_color.name();
     map["offColor"] = m_offColor.name();
     return map;
 }
@@ -69,11 +69,13 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_title->setText(v.toString());
     }
     else if (key == "on") {
-        m_on = v.toBool();
+        const QString s = v.toString().trimmed().toLower();
+        m_on = (s == "1" || s == "true" || s == "on" || (s.isEmpty() && v.toBool()));
         refreshBlinkState();
     }
     else if (key == "blink") {
-        m_blink = v.toBool();
+        const QString s = v.toString().trimmed().toLower();
+        m_blink = (s == "1" || s == "true" || s == "on" || (s.isEmpty() && v.toBool()));
         refreshBlinkState();
     }
     else if (key == "mode" || key == "blinkMode") {
@@ -119,7 +121,7 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
             qDebug() << "Indicator bound to variable" << m_varId;
         }
     }
-    else if (key == "color" || key == "offColor") {
+    else if (key == "onColor" || key == "color" || key == "offColor") {
         const QString colorName = v.toString().trimmed().toLower();
         QColor target;
         if (colorName == "gray" || colorName == "grey") {
@@ -135,7 +137,7 @@ void IndicatorComponent::setPropertyValue(const QString& key, const QVariant& v)
         }
 
         if (target.isValid()) {
-            if (key == "color")
+            if (key == "onColor" || key == "color")
                 m_color = target;
             else
                 m_offColor = target;

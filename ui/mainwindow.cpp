@@ -54,7 +54,7 @@ QString nextColorName(const QString &current)
 
 bool isColorPropertyKey(const QString &key)
 {
-    return key == "color" || key == "offColor";
+    return key == "onColor" || key == "color" || key == "offColor";
 }
 }
 
@@ -220,7 +220,7 @@ void MainWindow::showProperties(CanvasItem *item)
     QStringList keys = props.keys();
     const QStringList priorityKeys = {
         "title", "text", "value", "varId", "mode", "on", "blink", "threshold", "Interval/Ms",
-        "min", "max", "color", "fontSize", "bold", "align"
+        "min", "max", "onColor", "offColor", "color", "fontSize", "bold", "align"
     };
     std::sort(keys.begin(), keys.end(), [&priorityKeys](const QString &a, const QString &b) {
         const int ia = priorityKeys.indexOf(a);
