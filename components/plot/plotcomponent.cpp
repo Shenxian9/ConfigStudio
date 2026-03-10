@@ -13,6 +13,7 @@
 #include <QRegularExpression>
 #include <QtGlobal>
 #include <QPen>
+#include <QMessageBox>
 
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -104,12 +105,25 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
             if (idx < 0 || idx >= m_curveCount)
                 return;
 
-            const QString newVarId = v.toString();
+            const QString newVarId = v.toString().trimmed();
             const QString oldVarId = m_varIds.value(idx);
             const QString propName = QString("value%1").arg(idx + 1);
 
             if (newVarId == oldVarId)
                 return;
+
+            if (!newVarId.isEmpty()) {
+                for (int i = 0; i < m_varIds.size(); ++i) {
+                    if (i != idx && m_varIds.value(i) == newVarId) {
+                        QMessageBox::warning(this,
+                                             tr("Binding Conflict"),
+                                             tr("Variable ID '%1' is already bound to curve %2. Please choose a different varId.")
+                                                 .arg(newVarId)
+                                                 .arg(i + 1));
+                        return;
+                    }
+                }
+            }
 
             if (!oldVarId.isEmpty() && m_bindingMgr)
                 m_bindingMgr->unbind(oldVarId, this, propName);
