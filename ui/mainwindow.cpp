@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QColor>
 #include <QInputMethod>
+#include <QSet>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -55,6 +56,30 @@ QString nextColorName(const QString &current)
 bool isColorPropertyKey(const QString &key)
 {
     return key == "onColor" || key == "color" || key == "offColor";
+}
+
+bool isLikelyBoolPropertyKey(const QString &key)
+{
+    const QString k = key.trimmed().toLower();
+    static const QSet<QString> boolKeys = {
+        "on", "blink", "bold", "checked", "enabled", "visible", "readonly"
+    };
+    return boolKeys.contains(k);
+}
+
+bool parseBoolText(const QString &text, bool *ok)
+{
+    const QString s = text.trimmed().toLower();
+    if (s == "true" || s == "1" || s == "on") {
+        if (ok) *ok = true;
+        return true;
+    }
+    if (s == "false" || s == "0" || s == "off") {
+        if (ok) *ok = true;
+        return false;
+    }
+    if (ok) *ok = false;
+    return false;
 }
 }
 
@@ -472,8 +497,12 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    if (valueType == QVariant::Bool) {
-        const bool currentBool = (currentValue == "true" || currentValue == "1");
+    bool boolTextOk = false;
+    const bool currentBoolFromText = parseBoolText(currentValue, &boolTextOk);
+    const bool shouldToggleBool = (valueType == QVariant::Bool)
+            || (isLikelyBoolPropertyKey(key) && boolTextOk);
+    if (shouldToggleBool) {
+        const bool currentBool = currentBoolFromText;
         const QString nextBoolText = currentBool ? "false" : "true";
         propDiagLog(QString("editPropertyCell bool toggle key=%1 %2 -> %3 row=%4")
                     .arg(key, currentValue, nextBoolText).arg(row));
