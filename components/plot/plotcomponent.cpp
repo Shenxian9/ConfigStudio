@@ -31,7 +31,9 @@ PlotComponent::PlotComponent(QWidget *parent)
         m_varIds.append(QString());
     rebuildCurves();
 
+    m_xData.reserve(m_maxPoints);
 }
+
 
 QVariantMap PlotComponent::properties() const
 {
@@ -39,9 +41,8 @@ QVariantMap PlotComponent::properties() const
     map["title"] = m_plot->title().text();
     map["xAxisTitle"] = m_plot->axisTitle(QwtPlot::xBottom).text();
     map["yAxisTitle"] = m_plot->axisTitle(QwtPlot::yLeft).text();
-    const QVector<double> firstX = m_xSeries.value(0);
-    map["xMin"] = firstX.isEmpty() ? 0.0 : firstX.first();
-    map["xMax"] = firstX.isEmpty() ? 0.0 : firstX.last();
+    map["xMin"] = m_xData.isEmpty() ? 0.0 : m_xData.first();
+    map["xMax"] = m_xData.isEmpty() ? 0.0 : m_xData.last();
     map["curveCount"] = m_curveCount;
     map["maxPoints"] = m_maxPoints;
     if (m_curveCount > 0)
@@ -145,11 +146,6 @@ void PlotComponent::rebuildCurves()
     }
     m_curves.clear();
 
-    if (m_xSeries.size() < m_curveCount)
-        m_xSeries.resize(m_curveCount);
-    else if (m_xSeries.size() > m_curveCount)
-        m_xSeries = m_xSeries.mid(0, m_curveCount);
-
     if (m_ySeries.size() < m_curveCount)
         m_ySeries.resize(m_curveCount);
     else if (m_ySeries.size() > m_curveCount)
@@ -164,7 +160,7 @@ void PlotComponent::rebuildCurves()
         QwtPlotCurve *curve = new QwtPlotCurve(QString("Curve %1").arg(i + 1));
         curve->setRenderHint(QwtPlotItem::RenderAntialiased, true);
         curve->setPen(QPen(palette[i % palette.size()], 2));
-        curve->setSamples(m_xSeries.value(i), m_ySeries.value(i));
+        curve->setSamples(m_xData, m_ySeries.value(i));
         curve->attach(m_plot);
         m_curves.append(curve);
     }
@@ -269,17 +265,16 @@ void PlotComponent::refreshHistoryTable()
     const QString yHeader = m_plot ? m_plot->axisTitle(QwtPlot::yLeft).text() : QString("Y");
     m_historyTable->setHorizontalHeaderLabels({"#", xHeader, yHeader});
 
-    const QVector<double> xSeries = m_xSeries.value(0);
     const QVector<double> ySeries = m_ySeries.value(0);
-    const int count = qMin(m_maxPoints, qMin(xSeries.size(), ySeries.size()));
+    const int count = qMin(m_maxPoints, qMin(m_xData.size(), ySeries.size()));
     m_historyTable->setRowCount(count);
 
-    const int start = xSeries.size() - count;
+    const int start = m_xData.size() - count;
     for (int row = 0; row < count; ++row) {
         const int idx = start + row;
         m_historyTable->setItem(row, 0, new QTableWidgetItem(QString::number(row + 1)));
         const double y = (idx >= ySeries.size()) ? 0.0 : ySeries[idx];
-        m_historyTable->setItem(row, 1, new QTableWidgetItem(QString::number(xSeries[idx], 'f', 2)));
+        m_historyTable->setItem(row, 1, new QTableWidgetItem(QString::number(m_xData[idx], 'f', 2)));
         m_historyTable->setItem(row, 2, new QTableWidgetItem(QString::number(y, 'f', 2)));
     }
 }
@@ -289,45 +284,34 @@ void PlotComponent::appendValue(double value, int seriesIndex)
     if (seriesIndex < 0 || seriesIndex >= m_curveCount)
         return;
 
-    if (m_xSeries.size() < m_curveCount)
-        m_xSeries.resize(m_curveCount);
     if (m_ySeries.size() < m_curveCount)
         m_ySeries.resize(m_curveCount);
 
-    QVector<double> &x = m_xSeries[seriesIndex];
-    QVector<double> &y = m_ySeries[seriesIndex];
+    const double nextX = m_xData.isEmpty() ? 0.0 : (m_xData.last() + 1.0);
+    m_xData.append(nextX);
 
-    const double nextX = x.isEmpty() ? 0.0 : (x.last() + 1.0);
-    x.append(nextX);
-    y.append(value);
-
-    while (x.size() > m_maxPoints) {
-        x.remove(0);
-        if (!y.isEmpty())
-            y.remove(0);
+    for (int i = 0; i < m_curveCount; ++i) {
+        if (i == seriesIndex)
+            m_ySeries[i].append(value);
+        else
+            m_ySeries[i].append(qQNaN());
     }
 
-    if (m_curves.value(seriesIndex))
-        m_curves[seriesIndex]->setSamples(x, y);
-
-    double globalMinX = 0.0;
-    double globalMaxX = 0.0;
-    bool hasRange = false;
-    for (const QVector<double> &xs : qAsConst(m_xSeries)) {
-        if (xs.isEmpty())
-            continue;
-        if (!hasRange) {
-            globalMinX = xs.first();
-            globalMaxX = xs.last();
-            hasRange = true;
-        } else {
-            globalMinX = qMin(globalMinX, xs.first());
-            globalMaxX = qMax(globalMaxX, xs.last());
+    while (m_xData.size() > m_maxPoints) {
+        m_xData.remove(0);
+        for (int i = 0; i < m_ySeries.size(); ++i) {
+            if (!m_ySeries[i].isEmpty())
+                m_ySeries[i].remove(0);
         }
     }
 
-    if (hasRange)
-        m_plot->setAxisScale(QwtPlot::xBottom, globalMinX, globalMaxX);
+    for (int i = 0; i < m_curves.size(); ++i) {
+        if (m_curves.value(i))
+            m_curves[i]->setSamples(m_xData, m_ySeries.value(i));
+    }
+
+    if (!m_xData.isEmpty())
+        m_plot->setAxisScale(QwtPlot::xBottom, m_xData.first(), m_xData.last());
 
     m_plot->replot();
 }
