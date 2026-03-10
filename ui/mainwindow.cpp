@@ -53,16 +53,27 @@ QString nextColorName(const QString &current)
     return "gray";
 }
 
+QString nextTextColorName(const QString &current)
+{
+    const QString c = current.trimmed().toLower();
+    if (c == "black") return "red";
+    if (c == "red") return "green";
+    if (c == "green") return "blue";
+    if (c == "blue") return "yellow";
+    if (c == "yellow") return "gray";
+    return "black";
+}
+
 bool isColorPropertyKey(const QString &key)
 {
-    return key == "onColor" || key == "color" || key == "offColor";
+    return key == "onColor" || key == "textColor" || key == "textcolor" || key == "color" || key == "offColor";
 }
 
 bool isLikelyBoolPropertyKey(const QString &key)
 {
     const QString k = key.trimmed().toLower();
     static const QSet<QString> boolKeys = {
-        "on", "blink", "bold", "checked", "enabled", "visible", "readonly"
+        "on", "blink", "checked", "enabled", "visible", "readonly"
     };
     return boolKeys.contains(k);
 }
@@ -245,7 +256,7 @@ void MainWindow::showProperties(CanvasItem *item)
     QStringList keys = props.keys();
     const QStringList priorityKeys = {
         "title", "text", "value", "varId", "mode", "on", "blink", "threshold", "Interval/Ms",
-        "min", "max", "onColor", "offColor", "color", "fontSize", "bold", "align"
+        "min", "max", "textColor", "onColor", "offColor", "color", "fontSize", "bold", "align"
     };
     std::sort(keys.begin(), keys.end(), [&priorityKeys](const QString &a, const QString &b) {
         const int ia = priorityKeys.indexOf(a);
@@ -283,7 +294,10 @@ void MainWindow::showProperties(CanvasItem *item)
 
         if (isColorPropertyKey(key)) {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-            valueItem->setToolTip("Tap to toggle gray / red / green / blue");
+            if (key == "textColor" || key == "textcolor")
+                valueItem->setToolTip("Tap to toggle black / red / green / blue / yellow / gray");
+            else
+                valueItem->setToolTip("Tap to toggle gray / red / green / blue");
             isToggleCell = true;
         }
 
@@ -474,7 +488,9 @@ void MainWindow::editPropertyCell(int row, int col)
     const QString currentValue = valueCell->text().trimmed().toLower();
 
     if (isColorPropertyKey(key)) {
-        const QString nextColor = nextColorName(currentValue);
+        const QString nextColor = (key == "textColor" || key == "textcolor")
+                ? nextTextColorName(currentValue)
+                : nextColorName(currentValue);
         propDiagLog(QString("editPropertyCell color toggle %1 -> %2 row=%3")
                     .arg(currentValue, nextColor).arg(row));
 
@@ -494,6 +510,50 @@ void MainWindow::editPropertyCell(int row, int col)
                         .arg(key, nextColor));
             targetItem->setPropertyValue(key, nextColor);
         }
+        return;
+    }
+
+    if (key == "bold") {
+        const QString cur = valueCell->text().trimmed().toLower();
+        QString nextStyle = "normal";
+        if (cur == "normal" || cur == "false" || cur == "0")
+            nextStyle = "bold";
+        else if (cur == "bold" || cur == "true" || cur == "1")
+            nextStyle = "italic";
+
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(nextStyle);
+            }
+        }
+
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem)
+            targetItem->setPropertyValue(key, nextStyle);
+        return;
+    }
+
+    if (key == "align") {
+        const QString cur = valueCell->text().trimmed().toLower();
+        QString nextAlign = "left";
+        if (cur == "left") nextAlign = "right";
+        else if (cur == "right") nextAlign = "center";
+
+        if (row >= 0 && row < ui->propertyTable->rowCount()) {
+            QTableWidgetItem *latestKeyCell = ui->propertyTable->item(row, 0);
+            QTableWidgetItem *latestValueCell = ui->propertyTable->item(row, 1);
+            if (latestKeyCell && latestValueCell && latestKeyCell->text() == key) {
+                QSignalBlocker blocker(ui->propertyTable);
+                latestValueCell->setText(nextAlign);
+            }
+        }
+
+        QPointer<CanvasItem> targetItem = m_currentItem;
+        if (targetItem)
+            targetItem->setPropertyValue(key, nextAlign);
         return;
     }
 
