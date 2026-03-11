@@ -254,7 +254,7 @@ void MainWindow::showProperties(CanvasItem *item)
     QStringList keys = props.keys();
     const QStringList priorityKeys = {
         "title", "text", "value", "varId", "mode", "on", "blink", "threshold", "Interval/Ms",
-        "min", "max", "textColor", "onColor", "offColor", "color", "fontSize", "font", "align"
+        "min", "max", "textColor", "onColor", "offColor", "color", "blackBg", "fontSize", "font", "align"
     };
     std::sort(keys.begin(), keys.end(), [&priorityKeys](const QString &a, const QString &b) {
         const int ia = priorityKeys.indexOf(a);

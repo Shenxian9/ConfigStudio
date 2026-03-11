@@ -12,7 +12,9 @@ NumericComponent::NumericComponent(QWidget *parent)
     m_label->setGeometry(rect());
     QPalette p = m_label->palette();
     p.setColor(QPalette::WindowText, QColor("black"));
+    p.setColor(QPalette::Window, QColor("white"));
     m_label->setPalette(p);
+    m_label->setAutoFillBackground(true);
 
     updateText();
 }
@@ -36,6 +38,7 @@ QVariantMap NumericComponent::properties() const
     const QFont f = m_label->font();
     map["font"] = f.italic() ? "italic" : "normal";
     map["textColor"] = m_label->palette().color(QPalette::WindowText).name();
+    map["blackBg"] = m_blackBg;
 
     Qt::Alignment a = m_label->alignment();
     if (a & Qt::AlignLeft)        map["align"] = "left";
@@ -82,6 +85,12 @@ void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
     else if (key == "textColor" || key == "textcolor" || key == "color") {
         QPalette p = m_label->palette();
         p.setColor(QPalette::WindowText, QColor(v.toString()));
+        m_label->setPalette(p);
+    }
+    else if (key == "blackBg") {
+        m_blackBg = v.toBool();
+        QPalette p = m_label->palette();
+        p.setColor(QPalette::Window, m_blackBg ? QColor("black") : QColor("white"));
         m_label->setPalette(p);
     }
     else if (key == "align") {

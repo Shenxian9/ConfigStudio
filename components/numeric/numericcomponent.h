@@ -27,6 +27,7 @@ private:
     double  m_value   = 0.0;
     int     m_decimals = 1;
     QString m_unit;
+    bool m_blackBg = false;
 
     QString m_varId;
 };

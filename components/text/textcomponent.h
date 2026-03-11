@@ -19,6 +19,7 @@ public:
 
 private:
     QLabel *m_label;
+    bool m_blackBg = false;
 };
 
 #endif
