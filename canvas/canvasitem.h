@@ -7,6 +7,7 @@
 #include <QPoint>
 #include <QStyle>
 #include <QStyleOption>
+#include <QChildEvent>
 class DataBindingManager;
 
 class CanvasItem : public QWidget {
@@ -22,7 +23,7 @@ public:
     bool isSelected() const { return m_selected; }
 
     void setBindingManager(DataBindingManager* mgr) { m_bindingMgr = mgr; }
-    void setEditLocked(bool locked) { m_editLocked = locked; if (locked) { m_dragging = false; m_resizing = false; } update(); }
+    void setEditLocked(bool locked);
     bool isEditLocked() const { return m_editLocked; }
 
 
@@ -36,6 +37,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void childEvent(QChildEvent *event) override;
 
 
     DataBindingManager* m_bindingMgr = nullptr;

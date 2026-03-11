@@ -7,6 +7,38 @@ CanvasItem::CanvasItem(QWidget *parent)
     setAttribute(Qt::WA_DeleteOnClose);
 }
 
+void CanvasItem::setEditLocked(bool locked)
+{
+    m_editLocked = locked;
+    if (locked) {
+        m_dragging = false;
+        m_resizing = false;
+    }
+
+    const QList<QWidget*> widgets = findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly);
+    for (QWidget *w : widgets) {
+        if (!w) continue;
+        w->setAttribute(Qt::WA_TransparentForMouseEvents, !locked);
+    }
+    update();
+}
+
+void CanvasItem::childEvent(QChildEvent *event)
+{
+    QWidget::childEvent(event);
+
+    if (!event || !event->added())
+        return;
+
+    QWidget *w = qobject_cast<QWidget*>(event->child());
+    if (!w)
+        return;
+
+    // 设计态时子控件不消费鼠标事件，便于选中/拖拽组件；
+    // 运行态（editLocked=true）恢复子控件交互。
+    w->setAttribute(Qt::WA_TransparentForMouseEvents, !m_editLocked);
+}
+
 void CanvasItem::mousePressEvent(QMouseEvent *event)
 {
     if (m_editLocked) {
