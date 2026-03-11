@@ -66,8 +66,6 @@ private slots:
 
     void on_pushOfDatasrc_clicked();
 
-    void on_pushButton_clicked();
-
     void on_pushOfDesign_clicked();
 
 private:
@@ -107,8 +105,6 @@ private:
     QPointer<CanvasItem> m_pendingPropertyItem;
     QString m_pendingPropertyKey;
     int m_pendingPropertyRow = -1;
-
-    bool m_canvasDarkMode = false;
 
 };
 

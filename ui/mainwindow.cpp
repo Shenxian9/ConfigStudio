@@ -184,13 +184,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_canvas = ui->canvasView;
 
-    // 画布默认浅色模式（白底），按钮提示可切到 darkmode
-    if (ui->canvasView)
-        ui->canvasView->setStyleSheet("background-color: rgb(255, 255, 255);");
-    if (ui->pushButton)
-        ui->pushButton->setText("darkmode");
-    m_canvasDarkMode = false;
-
     ui->variableView->setModel(m_variableModel);
     ui->variableView->setModel(m_variableModel);
 
@@ -489,22 +482,6 @@ void MainWindow::on_pushOfDatasrc_clicked()
 {
     ui->MainStackedWidget->setCurrentWidget(ui->DataWorkspace);
 }
-
-void MainWindow::on_pushButton_clicked()
-{
-    m_canvasDarkMode = !m_canvasDarkMode;
-
-    if (ui->canvasView) {
-        if (m_canvasDarkMode)
-            ui->canvasView->setStyleSheet("background-color: rgb(160, 160, 160);");
-        else
-            ui->canvasView->setStyleSheet("background-color: rgb(255, 255, 255);");
-    }
-
-    if (ui->pushButton)
-        ui->pushButton->setText(m_canvasDarkMode ? "lightmode" : "darkmode");
-}
-
 
 void MainWindow::editPropertyCell(int row, int col)
 {
