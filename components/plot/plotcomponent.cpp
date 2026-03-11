@@ -222,6 +222,17 @@ void PlotComponent::showHistoryDialog()
     refreshHistoryTable();
 
     if (m_historyPanel) {
+        auto enablePanelInteraction = [](QWidget *root) {
+            if (!root) return;
+            root->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+            const auto children = root->findChildren<QWidget*>();
+            for (QWidget *w : children) {
+                if (w)
+                    w->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+            }
+        };
+        enablePanelInteraction(m_historyPanel);
+
         const int margin = 12;
         const int panelW = qMax(320, width() - margin * 2);
         const int panelH = qMax(220, height() - margin * 2);
@@ -337,6 +348,13 @@ void PlotComponent::showBindingConflict(const QString &message)
     ensureBindingConflictPanel();
     if (!m_bindingConflictPanel || !m_bindingConflictLabel)
         return;
+
+    m_bindingConflictPanel->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    const auto children = m_bindingConflictPanel->findChildren<QWidget*>();
+    for (QWidget *w : children) {
+        if (w)
+            w->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    }
 
     m_bindingConflictLabel->setText(message);
 
