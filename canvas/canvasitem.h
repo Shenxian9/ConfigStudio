@@ -8,6 +8,7 @@
 #include <QStyle>
 #include <QStyleOption>
 #include <QChildEvent>
+#include <QFrame>
 class DataBindingManager;
 
 class CanvasItem : public QWidget {
@@ -19,7 +20,7 @@ public:
     virtual QVariantMap properties() const = 0;
     virtual void setPropertyValue(const QString& key, const QVariant& value) = 0;
 
-    void setSelected(bool sel) { m_selected = sel; update(); }
+    void setSelected(bool sel);
     bool isSelected() const { return m_selected; }
 
     void setBindingManager(DataBindingManager* mgr) { m_bindingMgr = mgr; }
@@ -38,6 +39,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
     void childEvent(QChildEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 
     DataBindingManager* m_bindingMgr = nullptr;
@@ -53,7 +55,10 @@ private:
     QRect m_startRect;
 
     bool isInResizeHandle(const QPoint& pos) const;
+    void updateSelectionOverlay();
 
+    QFrame *m_selectionFrame = nullptr;
+    QWidget *m_resizeHandleOverlay = nullptr;
 
 };
 

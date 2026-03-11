@@ -66,6 +66,15 @@ void TextComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_blackBg = v.toBool();
         QPalette p = m_label->palette();
         p.setColor(QPalette::Window, m_blackBg ? QColor("black") : QColor("white"));
+
+        // 黑底时若文字仍是黑色，自动切到白色保证可读性；
+        // 白底时若文字是白色，自动恢复黑色。
+        const QColor textColor = p.color(QPalette::WindowText);
+        if (m_blackBg && textColor == QColor("black"))
+            p.setColor(QPalette::WindowText, QColor("white"));
+        else if (!m_blackBg && textColor == QColor("white"))
+            p.setColor(QPalette::WindowText, QColor("black"));
+
         m_label->setPalette(p);
     }
     else if (key == "align") {

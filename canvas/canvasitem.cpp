@@ -5,6 +5,50 @@ CanvasItem::CanvasItem(QWidget *parent)
     : QWidget(parent)
 {
     setAttribute(Qt::WA_DeleteOnClose);
+
+    m_selectionFrame = new QFrame(this);
+    m_selectionFrame->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_selectionFrame->setStyleSheet("border: 2px dashed rgb(40,120,255); background: transparent;");
+    m_selectionFrame->hide();
+
+    m_resizeHandleOverlay = new QWidget(this);
+    m_resizeHandleOverlay->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_resizeHandleOverlay->setStyleSheet("background: rgb(40,120,255);");
+    m_resizeHandleOverlay->hide();
+
+    updateSelectionOverlay();
+}
+
+void CanvasItem::setSelected(bool sel)
+{
+    m_selected = sel;
+    updateSelectionOverlay();
+    update();
+}
+
+void CanvasItem::updateSelectionOverlay()
+{
+    if (!m_selectionFrame || !m_resizeHandleOverlay)
+        return;
+
+    if (!m_selected) {
+        m_selectionFrame->hide();
+        m_resizeHandleOverlay->hide();
+        return;
+    }
+
+    QRect frameRect = rect().adjusted(1, 1, -1, -1);
+    if (frameRect.width() < 4 || frameRect.height() < 4)
+        frameRect = rect();
+
+    m_selectionFrame->setGeometry(frameRect);
+    m_selectionFrame->show();
+    m_selectionFrame->raise();
+
+    QRect handle(rect().right() - handleSize, rect().bottom() - handleSize, handleSize, handleSize);
+    m_resizeHandleOverlay->setGeometry(handle);
+    m_resizeHandleOverlay->show();
+    m_resizeHandleOverlay->raise();
 }
 
 void CanvasItem::setEditLocked(bool locked)
@@ -17,9 +61,11 @@ void CanvasItem::setEditLocked(bool locked)
 
     const QList<QWidget*> widgets = findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly);
     for (QWidget *w : widgets) {
-        if (!w) continue;
+        if (!w || w == m_selectionFrame || w == m_resizeHandleOverlay)
+            continue;
         w->setAttribute(Qt::WA_TransparentForMouseEvents, !locked);
     }
+    updateSelectionOverlay();
     update();
 }
 
@@ -31,12 +77,18 @@ void CanvasItem::childEvent(QChildEvent *event)
         return;
 
     QWidget *w = qobject_cast<QWidget*>(event->child());
-    if (!w)
+    if (!w || w == m_selectionFrame || w == m_resizeHandleOverlay)
         return;
 
     // 设计态时子控件不消费鼠标事件，便于选中/拖拽组件；
     // 运行态（editLocked=true）恢复子控件交互。
     w->setAttribute(Qt::WA_TransparentForMouseEvents, !m_editLocked);
+}
+
+void CanvasItem::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    updateSelectionOverlay();
 }
 
 void CanvasItem::mousePressEvent(QMouseEvent *event)
@@ -62,10 +114,8 @@ void CanvasItem::mousePressEvent(QMouseEvent *event)
         m_startRect = geometry();
     }
 
-    event->accept();            // ★ 关键：告诉 Qt 这个事件已被 item 消费
+    event->accept();
 }
-
-
 
 void CanvasItem::mouseMoveEvent(QMouseEvent *event)
 {
@@ -88,30 +138,9 @@ void CanvasItem::mouseMoveEvent(QMouseEvent *event)
     QWidget::mouseMoveEvent(event);
 }
 
-
 void CanvasItem::paintEvent(QPaintEvent *event)
 {
     QWidget::paintEvent(event);
-
-    if (m_selected) {
-        QPainter painter(this);
-        painter.setRenderHint(QPainter::Antialiasing, true);
-
-        QStyleOption opt;
-        opt.initFrom(this);
-        style()->drawPrimitive(QStyle::PE_Widget, &opt, &painter, this);
-
-        QPen pen(Qt::blue);
-        pen.setWidth(2);
-        pen.setStyle(Qt::DashLine); // 虚线
-        painter.setPen(pen);
-
-        QRect r = rect();
-        r.adjust(2,2,-2,-2); // 防止边框被裁剪
-        painter.drawRect(r);
-        QRect handle(rect().right()-handleSize, rect().bottom()-handleSize, handleSize, handleSize);
-        painter.fillRect(handle, Qt::blue);
-    }
 }
 
 bool CanvasItem::isInResizeHandle(const QPoint& pos) const
@@ -119,6 +148,7 @@ bool CanvasItem::isInResizeHandle(const QPoint& pos) const
     QRect handle(rect().right()-handleSize, rect().bottom()-handleSize, handleSize, handleSize);
     return handle.contains(pos);
 }
+
 void CanvasItem::mouseReleaseEvent(QMouseEvent *event)
 {
     if (!m_editLocked) {
