@@ -1,6 +1,6 @@
 #include "numericcomponent.h"
 #include <QPalette>
-#include <QtMath>
+#include <QFontMetrics>
 
 NumericComponent::NumericComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -10,7 +10,9 @@ NumericComponent::NumericComponent(QWidget *parent)
     m_label = new QLabel(this);
     m_label->setAlignment(Qt::AlignCenter);
     m_label->setGeometry(rect());
-    m_label->setStyleSheet("color:black;");
+    QPalette p = m_label->palette();
+    p.setColor(QPalette::WindowText, QColor("black"));
+    m_label->setPalette(p);
 
     updateText();
 }
@@ -31,8 +33,9 @@ QVariantMap NumericComponent::properties() const
     map["decimals"] = m_decimals;
     map["unit"]     = m_unit;
     map["fontSize"] = m_label->font().pointSize();
-    map["bold"]     = m_label->font().bold();
-    map["color"]    = m_label->palette().color(QPalette::WindowText).name();
+    const QFont f = m_label->font();
+    map["font"] = f.italic() ? "italic" : "normal";
+    map["textColor"] = m_label->palette().color(QPalette::WindowText).name();
 
     Qt::Alignment a = m_label->alignment();
     if (a & Qt::AlignLeft)        map["align"] = "left";
@@ -61,15 +64,22 @@ void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "fontSize") {
         QFont f = m_label->font();
-        f.setPointSize(v.toInt());
+        f.setPointSize(qMax(1, v.toInt()));
         m_label->setFont(f);
     }
-    else if (key == "bold") {
+    else if (key == "font" || key == "bold") {
         QFont f = m_label->font();
-        f.setBold(v.toBool());
+        const QString style = v.toString().trimmed().toLower();
+        f.setBold(false);
+        if (style == "italic") {
+            f.setItalic(true);
+        } else {
+            // 兼容旧 bool/bold 输入：统一按 normal 处理
+            f.setItalic(false);
+        }
         m_label->setFont(f);
     }
-    else if (key == "color") {
+    else if (key == "textColor" || key == "textcolor" || key == "color") {
         QPalette p = m_label->palette();
         p.setColor(QPalette::WindowText, QColor(v.toString()));
         m_label->setPalette(p);
@@ -113,13 +123,21 @@ void NumericComponent::resizeEvent(QResizeEvent *event)
 
     m_label->setGeometry(rect());
 
-    // === 和你 TextComponent 一致的自适应字体逻辑 ===
-    QFont f = m_label->font();
-    QString text = m_label->text();
-    if (text.isEmpty()) return;
+    const int availW = qMax(1, width() - 8);
+    const int availH = qMax(1, height() - 8);
 
-    int newPointSize = width() / (text.length() * 0.6);
-    newPointSize = qMin(newPointSize, height());
-    f.setPointSize(qMax(6, newPointSize));
+    QFont f = m_label->font();
+    int pointSize = qMax(1, int(availH * 0.72));
+    f.setPointSize(pointSize);
+
+    const QString text = m_label->text().isEmpty() ? QStringLiteral(" ") : m_label->text();
+    while (pointSize > 1) {
+        QFontMetrics fm(f);
+        if (fm.horizontalAdvance(text) <= availW && fm.height() <= availH)
+            break;
+        --pointSize;
+        f.setPointSize(pointSize);
+    }
+
     m_label->setFont(f);
 }
