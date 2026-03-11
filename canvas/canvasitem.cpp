@@ -130,6 +130,7 @@ void CanvasItem::mouseMoveEvent(QMouseEvent *event)
         int newWidth = std::max(20, m_startRect.width() + delta.x());
         int newHeight = std::max(20, m_startRect.height() + delta.y());
         resize(newWidth, newHeight);
+        updateSelectionOverlay();
     }
     else if (m_dragging) {
         move(m_startRect.topLeft() + delta);

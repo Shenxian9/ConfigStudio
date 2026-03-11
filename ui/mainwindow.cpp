@@ -73,7 +73,7 @@ bool isLikelyBoolPropertyKey(const QString &key)
 {
     const QString k = key.trimmed().toLower();
     static const QSet<QString> boolKeys = {
-        "on", "blink", "checked", "enabled", "visible", "readonly"
+        "on", "blink", "checked", "enabled", "visible", "readonly", "blackbg"
     };
     return boolKeys.contains(k);
 }
@@ -285,6 +285,12 @@ void MainWindow::showProperties(CanvasItem *item)
         bool isToggleCell = false;
 
         if (propValue.type() == QVariant::Bool) {
+            valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            valueItem->setToolTip("Tap to toggle true / false");
+            isToggleCell = true;
+        }
+
+        if (key == "blackBg") {
             valueItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             valueItem->setToolTip("Tap to toggle true / false");
             isToggleCell = true;

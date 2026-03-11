@@ -59,7 +59,12 @@ void TextComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "textColor" || key == "textcolor" || key == "color") {
         QPalette p = m_label->palette();
-        p.setColor(QPalette::WindowText, QColor(v.toString()));
+        QColor c(v.toString());
+        if (!c.isValid())
+            c = QColor("black");
+        if (m_blackBg && c == QColor("black"))
+            c = QColor("white");
+        p.setColor(QPalette::WindowText, c);
         m_label->setPalette(p);
     }
     else if (key == "blackBg") {
