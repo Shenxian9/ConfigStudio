@@ -164,6 +164,7 @@ void DialComponent::applyDialPalette()
 
     m_dial->setAutoFillBackground(true);
     m_dial->setPalette(dialPalette);
+    m_dial->setStyleSheet(QString("QwtDial { background-color: %1; }").arg(faceColor.name()));
     m_dial->update();
 }
 
