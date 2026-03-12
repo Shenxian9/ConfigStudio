@@ -1,9 +1,14 @@
 #include "iconlabel.h"
+#include <QSizePolicy>
 
 IconLabel::IconLabel(QWidget* parent)
     : QLabel(parent)
 {
     setAlignment(Qt::AlignCenter);
+
+    // 避免 pixmap 的 sizeHint 反向撑大网格布局，导致底部 frame 抬高。
+    setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+    setMinimumSize(0, 0);
 }
 
 void IconLabel::setIcon(const QString& resourcePath)

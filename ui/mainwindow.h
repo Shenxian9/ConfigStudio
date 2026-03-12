@@ -96,7 +96,6 @@ private:
     void editPropertyCell(int row, int col);
 
     void applyCanvasTheme(bool darkMode);
-    void enforceCanvasFrameRatio();
 
     VariableModel* m_variableModel;
     DataBindingManager* m_bindingMgr;
