@@ -5,6 +5,7 @@
 #include "canvas/canvasitem.h"
 #include "canvasview.h"
 #include <QLabel>
+#include <QEvent>
 
 class NumericComponent : public CanvasItem {
     Q_OBJECT
@@ -17,9 +18,12 @@ public:
     QString type() const override { return "numeric"; }
 
     void resizeEvent(QResizeEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private:
     void updateText();   // 核心：数值 → 文本
+    bool isCanvasDarkMode() const;
+    void applyLabelStyle();
 
 private:
     QLabel *m_label;
@@ -28,6 +32,7 @@ private:
     int     m_decimals = 1;
     QString m_unit;
     bool m_blackBg = false;
+    bool m_themeDark = false;
 
     QString m_varId;
 };

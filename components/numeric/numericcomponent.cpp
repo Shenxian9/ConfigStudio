@@ -1,6 +1,7 @@
 #include "numericcomponent.h"
 #include <QPalette>
 #include <QFontMetrics>
+#include <QEvent>
 
 NumericComponent::NumericComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -15,6 +16,9 @@ NumericComponent::NumericComponent(QWidget *parent)
     p.setColor(QPalette::Window, QColor("white"));
     m_label->setPalette(p);
     m_label->setAutoFillBackground(true);
+
+    m_themeDark = isCanvasDarkMode();
+    applyLabelStyle();
 
     updateText();
 }
@@ -77,7 +81,6 @@ void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
         if (style == "italic") {
             f.setItalic(true);
         } else {
-            // 兼容旧 bool/bold 输入：统一按 normal 处理
             f.setItalic(false);
         }
         m_label->setFont(f);
@@ -87,25 +90,13 @@ void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
         QColor c(v.toString());
         if (!c.isValid())
             c = QColor("black");
-        if (m_blackBg && c == QColor("black"))
-            c = QColor("white");
         p.setColor(QPalette::WindowText, c);
         m_label->setPalette(p);
+        applyLabelStyle();
     }
     else if (key == "blackBg") {
         m_blackBg = v.toBool();
-        QPalette p = m_label->palette();
-        p.setColor(QPalette::Window, m_blackBg ? QColor("black") : QColor("white"));
-
-        // 黑底时若文字仍是黑色，自动切到白色保证可读性；
-        // 白底时若文字是白色，自动恢复黑色。
-        const QColor textColor = p.color(QPalette::WindowText);
-        if (m_blackBg && textColor == QColor("black"))
-            p.setColor(QPalette::WindowText, QColor("white"));
-        else if (!m_blackBg && textColor == QColor("white"))
-            p.setColor(QPalette::WindowText, QColor("black"));
-
-        m_label->setPalette(p);
+        applyLabelStyle();
     }
     else if (key == "align") {
         if (v.toString() == "left")
@@ -163,4 +154,55 @@ void NumericComponent::resizeEvent(QResizeEvent *event)
     }
 
     m_label->setFont(f);
+}
+
+void NumericComponent::changeEvent(QEvent *event)
+{
+    CanvasItem::changeEvent(event);
+
+    if (!event)
+        return;
+
+    if (event->type() == QEvent::PaletteChange ||
+        event->type() == QEvent::StyleChange ||
+        event->type() == QEvent::ApplicationPaletteChange) {
+        const bool dark = isCanvasDarkMode();
+        if (dark != m_themeDark) {
+            m_themeDark = dark;
+            applyLabelStyle();
+        }
+    }
+}
+
+bool NumericComponent::isCanvasDarkMode() const
+{
+    const QWidget *w = this;
+    while (w) {
+        if (QString::fromLatin1(w->metaObject()->className()) == "CanvasView") {
+            const QString ss = w->styleSheet().toLower();
+            return ss.contains("#505050");
+        }
+        w = w->parentWidget();
+    }
+
+    const QPalette canvasPalette = palette();
+    return canvasPalette.color(QPalette::Window).lightness() < 128;
+}
+
+void NumericComponent::applyLabelStyle()
+{
+    if (!m_label)
+        return;
+
+    QPalette p = m_label->palette();
+    const QColor textColor = p.color(QPalette::WindowText);
+    const bool useBlackBg = m_themeDark || m_blackBg;
+    const QColor bgColor = useBlackBg ? QColor("black") : QColor("white");
+
+    p.setColor(QPalette::Window, bgColor);
+    m_label->setPalette(p);
+
+    // 显式样式覆盖 CanvasView QLabel 通用规则，确保文字颜色可由属性表修改。
+    m_label->setStyleSheet(QString("QLabel { color: %1; background-color: %2; }")
+                           .arg(textColor.name(), bgColor.name()));
 }
