@@ -2,6 +2,7 @@
 
 #include <qwt_plot.h>
 #include <qwt_scale_div.h>
+#include <qwt_scale_draw.h>
 #include <qwt_text.h>
 
 #include "runtime/databindingmanager.h"
@@ -10,6 +11,29 @@
 #include <QBrush>
 #include <QRegularExpression>
 #include <QtGlobal>
+
+namespace {
+class HistogramIntegerScaleDraw : public QwtScaleDraw {
+public:
+    explicit HistogramIntegerScaleDraw(int *barCount)
+        : m_barCount(barCount) {}
+
+    QwtText label(double value) const override
+    {
+        const int tick = qRound(value);
+        if (!qFuzzyCompare(value + 1.0, tick + 1.0))
+            return QwtText();
+
+        if (!m_barCount || tick < 1 || tick > *m_barCount)
+            return QwtText();
+
+        return QwtText(QString::number(tick));
+    }
+
+private:
+    int *m_barCount = nullptr;
+};
+}
 
 HistogramComponent::HistogramComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -20,6 +44,8 @@ HistogramComponent::HistogramComponent(QWidget *parent)
     m_plot->setTitle("Histogram");
     m_plot->setAxisTitle(QwtPlot::xBottom, "X");
     m_plot->setAxisTitle(QwtPlot::yLeft, "Y");
+    m_plot->setAxisScaleDraw(QwtPlot::xBottom, new HistogramIntegerScaleDraw(&m_barCount));
+    m_plot->setAxisMaxMinor(QwtPlot::xBottom, 0);
     m_plot->setGeometry(rect());
     m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
     m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
@@ -206,18 +232,22 @@ void HistogramComponent::refreshSamples()
     if (m_values.size() < m_barCount)
         m_values.resize(m_barCount);
 
+    constexpr double kBarHalfWidth = 0.35; // 每个柱子左右留白，保证柱间和边缘间距
+
     for (int i = 0; i < m_bars.size(); ++i) {
         if (!m_bars[i])
             continue;
 
-        const double left = static_cast<double>(i);
-        const double right = static_cast<double>(i + 1);
+        const double center = static_cast<double>(i + 1);
+        const double left = center - kBarHalfWidth;
+        const double right = center + kBarHalfWidth;
         QVector<QwtIntervalSample> samples;
         samples.append(QwtIntervalSample(m_values.value(i), left, right));
         m_bars[i]->setSamples(samples);
     }
 
-    m_plot->setAxisScale(QwtPlot::xBottom, 0.0, qMax(1, m_barCount));
+    // X 轴固定以整数中心点显示标签：1..N，且两侧保留空白。
+    m_plot->setAxisScale(QwtPlot::xBottom, 0.5, qMax(1, m_barCount) + 0.5, 1.0);
     m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
     m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->replot();
