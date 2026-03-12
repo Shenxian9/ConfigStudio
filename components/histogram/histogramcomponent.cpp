@@ -2,6 +2,9 @@
 
 #include <qwt_plot.h>
 #include <qwt_scale_div.h>
+#include <qwt_text.h>
+
+#include "runtime/databindingmanager.h"
 
 #include <QPen>
 #include <QBrush>
@@ -20,7 +23,9 @@ HistogramComponent::HistogramComponent(QWidget *parent)
     m_plot->setGeometry(rect());
 
     m_values = QVector<double>(m_curveCount, 0.0);
-    m_varIds = QStringList(m_curveCount, QString());
+    m_varIds.clear();
+    for (int i = 0; i < m_curveCount; ++i)
+        m_varIds.append(QString());
 
     rebuildBars();
     refreshSamples();
