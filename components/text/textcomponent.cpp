@@ -3,6 +3,18 @@
 #include <QFontMetrics>
 #include <QEvent>
 
+static QString textColorNameForProperty(const QColor &c)
+{
+    if (c == QColor("black")) return "black";
+    if (c == QColor("white")) return "white";
+    if (c == QColor("red")) return "red";
+    if (c == QColor("green")) return "green";
+    if (c == QColor("blue")) return "blue";
+    if (c == QColor("yellow")) return "yellow";
+    if (c == QColor("gray") || c == QColor("grey")) return "gray";
+    return c.name();
+}
+
 TextComponent::TextComponent(QWidget *parent)
     : CanvasItem(parent)
 {
@@ -19,6 +31,7 @@ TextComponent::TextComponent(QWidget *parent)
     m_label->setAutoFillBackground(true);
 
     m_themeDark = isCanvasDarkMode();
+    m_blackBg = m_themeDark;
     applyLabelStyle();
 }
 
@@ -29,7 +42,7 @@ QVariantMap TextComponent::properties() const
     map["fontSize"] = m_label->font().pointSize();
     const QFont f = m_label->font();
     map["font"] = f.italic() ? "italic" : "normal";
-    map["textColor"] = m_label->palette().color(QPalette::WindowText).name();
+    map["textColor"] = textColorNameForProperty(m_label->palette().color(QPalette::WindowText));
     map["blackBg"] = m_blackBg;
 
     Qt::Alignment a = m_label->alignment();
@@ -122,10 +135,9 @@ void TextComponent::changeEvent(QEvent *event)
         event->type() == QEvent::StyleChange ||
         event->type() == QEvent::ApplicationPaletteChange) {
         const bool dark = isCanvasDarkMode();
-        if (dark != m_themeDark) {
-            m_themeDark = dark;
-            applyLabelStyle();
-        }
+        m_themeDark = dark;
+        m_blackBg = dark;
+        applyLabelStyle();
     }
 }
 
@@ -151,8 +163,7 @@ void TextComponent::applyLabelStyle()
 
     QPalette p = m_label->palette();
     const QColor textColor = p.color(QPalette::WindowText);
-    const bool useBlackBg = m_themeDark || m_blackBg;
-    const QColor bgColor = useBlackBg ? QColor("black") : QColor("white");
+    const QColor bgColor = m_blackBg ? QColor("black") : QColor("white");
 
     p.setColor(QPalette::Window, bgColor);
     m_label->setPalette(p);
