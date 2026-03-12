@@ -47,7 +47,7 @@ QString normalizedColorName(const QString &raw)
 QString normalizedTextColorName(const QString &raw)
 {
     const QString v = raw.trimmed().toLower();
-    if (v == "black" || v == "white" || v == "gray" || v == "grey" ||
+    if (v == "black" || v == "gray" || v == "grey" ||
         v == "red" || v == "green" || v == "blue" || v == "yellow")
         return v == "grey" ? "gray" : v;
 
@@ -56,7 +56,6 @@ QString normalizedTextColorName(const QString &raw)
         return "black";
 
     if (c == QColor("black")) return "black";
-    if (c == QColor("white")) return "white";
     if (c == QColor("gray") || c == QColor("grey") || c == QColor(128, 128, 128)) return "gray";
     if (c == QColor("red") || c == QColor(255, 0, 0)) return "red";
     if (c == QColor("green") || c == QColor(0, 255, 0)) return "green";

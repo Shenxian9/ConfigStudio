@@ -5,6 +5,7 @@
 #include "canvas/canvasitem.h"
 #include <QLabel>
 #include <QEvent>
+#include <QColor>
 
 class TextComponent : public CanvasItem {
     Q_OBJECT
@@ -27,6 +28,7 @@ private:
     QLabel *m_label;
     bool m_blackBg = false;
     bool m_themeDark = false;
+    QColor m_textColor = QColor("black");
 };
 
 #endif

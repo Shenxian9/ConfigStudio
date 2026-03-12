@@ -6,7 +6,6 @@
 static QString textColorNameForProperty(const QColor &c)
 {
     if (c == QColor("black")) return "black";
-    if (c == QColor("white")) return "white";
     if (c == QColor("red")) return "red";
     if (c == QColor("green")) return "green";
     if (c == QColor("blue")) return "blue";
@@ -24,7 +23,8 @@ NumericComponent::NumericComponent(QWidget *parent)
     m_label->setAlignment(Qt::AlignCenter);
     m_label->setGeometry(rect());
     QPalette p = m_label->palette();
-    p.setColor(QPalette::WindowText, QColor("black"));
+    m_textColor = QColor("black");
+    p.setColor(QPalette::WindowText, m_textColor);
     p.setColor(QPalette::Window, QColor("white"));
     m_label->setPalette(p);
     m_label->setAutoFillBackground(true);
@@ -54,7 +54,7 @@ QVariantMap NumericComponent::properties() const
     map["fontSize"] = m_label->font().pointSize();
     const QFont f = m_label->font();
     map["font"] = f.italic() ? "italic" : "normal";
-    map["textColor"] = textColorNameForProperty(m_label->palette().color(QPalette::WindowText));
+    map["textColor"] = textColorNameForProperty(m_textColor);
     map["blackBg"] = m_blackBg;
 
     Qt::Alignment a = m_label->alignment();
@@ -103,7 +103,8 @@ void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
         QColor c(v.toString());
         if (!c.isValid())
             c = QColor("black");
-        p.setColor(QPalette::WindowText, c);
+        m_textColor = c;
+        p.setColor(QPalette::WindowText, m_textColor);
         m_label->setPalette(p);
         applyLabelStyle();
     }
@@ -207,13 +208,14 @@ void NumericComponent::applyLabelStyle()
         return;
 
     QPalette p = m_label->palette();
-    const QColor textColor = p.color(QPalette::WindowText);
+    const QColor textColor = m_textColor;
     const QColor bgColor = m_blackBg ? QColor("black") : QColor("white");
 
     p.setColor(QPalette::Window, bgColor);
+    p.setColor(QPalette::WindowText, textColor);
     m_label->setPalette(p);
 
-    // blackBg=true 且属性色为 black 时，显示白字保证可读；但属性值本身保持 black。
+    // blackBg=true 且属性色为 black 时，显示白字保证可读；但属性值保持 black。
     const QColor displayTextColor = (m_blackBg && textColor == QColor("black"))
             ? QColor("white")
             : textColor;

@@ -6,6 +6,7 @@
 #include "canvasview.h"
 #include <QLabel>
 #include <QEvent>
+#include <QColor>
 
 class NumericComponent : public CanvasItem {
     Q_OBJECT
@@ -33,6 +34,7 @@ private:
     QString m_unit;
     bool m_blackBg = false;
     bool m_themeDark = false;
+    QColor m_textColor = QColor("black");
 
     QString m_varId;
 };
