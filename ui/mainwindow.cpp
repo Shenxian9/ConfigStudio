@@ -509,9 +509,9 @@ void MainWindow::refreshActionButtonIcons()
     auto apply = [](QPushButton* btn){
         if (!btn) return;
         const int size = qMin(btn->width(), btn->height());
-        if (size <= 0)
+        if (size < 16)
             return;
-        const int iconSize = qMax(1, int(size * 0.97));
+        const int iconSize = qMax(16, int(size * 0.97));
         btn->setIconSize(QSize(iconSize, iconSize));
         btn->update();
     };
@@ -637,6 +637,8 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
 void MainWindow::on_pushOfDatasrc_clicked()
 {
     ui->MainStackedWidget->setCurrentWidget(ui->DataWorkspace);
+    refreshActionButtonIcons();
+    QTimer::singleShot(0, this, [this]() { refreshActionButtonIcons(); });
 }
 
 void MainWindow::on_pushOfL_D_clicked()
