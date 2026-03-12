@@ -509,7 +509,7 @@ void MainWindow::refreshActionButtonIcons()
         const int size = qMin(btn->width(), btn->height());
         if (size <= 0)
             return;
-        const int iconSize = qMax(1, int(size * 0.92));
+        const int iconSize = qMax(1, int(size * 0.97));
         btn->setIconSize(QSize(iconSize, iconSize));
         btn->update();
     };
