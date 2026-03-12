@@ -13,5 +13,9 @@
         <file>icons/wheel.png</file>
         <file>icons/numeric.png</file>
         <file>icons/indicator.png</file>
+        <file>icons/darkmode.png</file>
+        <file>icons/datasource.png</file>
+        <file>icons/designmode.png</file>
+        <file>icons/lightmode.png</file>
     </qresource>
 </RCC>

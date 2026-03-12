@@ -172,7 +172,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
     refreshActionButtonIcons();
-    ui->pushOfL_D->setText("darkmode");
+    //ui->pushOfL_D->setText("darkmode");
     applyCanvasTheme(false);
     QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
 

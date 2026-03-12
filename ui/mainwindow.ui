@@ -105,8 +105,8 @@
                <property name="spacing">
                 <number>0</number>
                </property>
-               <item row="1" column="6">
-                <widget class="QPushButton" name="deleteButton">
+               <item row="2" column="0">
+                <widget class="IconLabel" name="labelOfHistogram">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                    <horstretch>0</horstretch>
@@ -119,18 +119,12 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string/>
-                 </property>
-                 <property name="iconSize">
-                  <size>
-                   <width>32</width>
-                   <height>32</height>
-                  </size>
+                  <string>Histogram</string>
                  </property>
                 </widget>
                </item>
-               <item row="2" column="6">
-                <widget class="QPushButton" name="buttonOfFullscreen">
+               <item row="1" column="4">
+                <widget class="IconLabel" name="labelOfIndicator">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                    <horstretch>0</horstretch>
@@ -143,7 +137,7 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string/>
+                  <string>Indicator</string>
                  </property>
                 </widget>
                </item>
@@ -201,24 +195,6 @@
                  </property>
                 </widget>
                </item>
-               <item row="1" column="1">
-                <widget class="IconLabel" name="labelOfPlot">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>22</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Plot</string>
-                 </property>
-                </widget>
-               </item>
                <item row="1" column="0">
                 <widget class="IconLabel" name="labelOfDial">
                  <property name="sizePolicy">
@@ -234,24 +210,6 @@
                  </property>
                  <property name="text">
                   <string>Dial</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="2" column="4">
-                <widget class="IconLabel" name="labelOfNumeric">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="font">
-                  <font>
-                   <pointsize>22</pointsize>
-                  </font>
-                 </property>
-                 <property name="text">
-                  <string>Numeric</string>
                  </property>
                 </widget>
                </item>
@@ -273,8 +231,8 @@
                  </property>
                 </widget>
                </item>
-               <item row="1" column="4">
-                <widget class="IconLabel" name="labelOfIndicator">
+               <item row="1" column="1">
+                <widget class="IconLabel" name="labelOfPlot">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                    <horstretch>0</horstretch>
@@ -287,7 +245,43 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Indicator</string>
+                  <string>Plot</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="7">
+                <widget class="QPushButton" name="buttonOfFullscreen">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>22</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="4">
+                <widget class="IconLabel" name="labelOfNumeric">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="font">
+                  <font>
+                   <pointsize>22</pointsize>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Numeric</string>
                  </property>
                 </widget>
                </item>
@@ -309,7 +303,20 @@
                  </property>
                 </widget>
                </item>
-               <item row="2" column="5">
+               <item row="2" column="6">
+                <widget class="QPushButton" name="pushOfL_D">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="text">
+                  <string/>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="7">
                 <widget class="QPushButton" name="pushOfDatasrc">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -318,12 +325,12 @@
                   </sizepolicy>
                  </property>
                  <property name="text">
-                  <string>datasrc</string>
+                  <string/>
                  </property>
                 </widget>
                </item>
-               <item row="2" column="0">
-                <widget class="IconLabel" name="labelOfHistogram">
+               <item row="1" column="6">
+                <widget class="QPushButton" name="deleteButton">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                    <horstretch>0</horstretch>
@@ -336,20 +343,13 @@
                   </font>
                  </property>
                  <property name="text">
-                  <string>Histogram</string>
+                  <string/>
                  </property>
-                </widget>
-               </item>
-               <item row="1" column="5">
-                <widget class="QPushButton" name="pushOfL_D">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>darkmode</string>
+                 <property name="iconSize">
+                  <size>
+                   <width>32</width>
+                   <height>32</height>
+                  </size>
                  </property>
                 </widget>
                </item>
