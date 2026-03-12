@@ -168,7 +168,12 @@ void TextComponent::applyLabelStyle()
     p.setColor(QPalette::Window, bgColor);
     m_label->setPalette(p);
 
+    // blackBg=true 且属性色为 black 时，显示白字保证可读；但属性值本身保持 black。
+    const QColor displayTextColor = (m_blackBg && textColor == QColor("black"))
+            ? QColor("white")
+            : textColor;
+
     // 显式样式覆盖 CanvasView QLabel 通用规则，确保文字颜色可由属性表修改。
     m_label->setStyleSheet(QString("QLabel { color: %1; background-color: %2; }")
-                           .arg(textColor.name(), bgColor.name()));
+                           .arg(displayTextColor.name(), bgColor.name()));
 }

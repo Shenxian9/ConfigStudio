@@ -44,6 +44,28 @@ QString normalizedColorName(const QString &raw)
     return "gray";
 }
 
+QString normalizedTextColorName(const QString &raw)
+{
+    const QString v = raw.trimmed().toLower();
+    if (v == "black" || v == "white" || v == "gray" || v == "grey" ||
+        v == "red" || v == "green" || v == "blue" || v == "yellow")
+        return v == "grey" ? "gray" : v;
+
+    const QColor c(v);
+    if (!c.isValid())
+        return "black";
+
+    if (c == QColor("black")) return "black";
+    if (c == QColor("white")) return "white";
+    if (c == QColor("gray") || c == QColor("grey") || c == QColor(128, 128, 128)) return "gray";
+    if (c == QColor("red") || c == QColor(255, 0, 0)) return "red";
+    if (c == QColor("green") || c == QColor(0, 255, 0)) return "green";
+    if (c == QColor("blue") || c == QColor(0, 0, 255)) return "blue";
+    if (c == QColor("yellow") || c == QColor(255, 255, 0)) return "yellow";
+
+    return "black";
+}
+
 QString nextColorName(const QString &current)
 {
     const QString c = normalizedColorName(current);
@@ -274,7 +296,10 @@ void MainWindow::showProperties(CanvasItem *item)
         QTableWidgetItem *keyItem = new QTableWidgetItem(key);
         QString valueText = propValue.toString();
         if (isColorPropertyKey(key)) {
-            valueText = normalizedColorName(valueText);
+            if (key == "textColor" || key == "textcolor")
+                valueText = normalizedTextColorName(valueText);
+            else
+                valueText = normalizedColorName(valueText);
         }
         QTableWidgetItem *valueItem = new QTableWidgetItem(valueText);
 
