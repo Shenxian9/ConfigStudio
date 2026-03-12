@@ -21,10 +21,12 @@ HistogramComponent::HistogramComponent(QWidget *parent)
     m_plot->setAxisTitle(QwtPlot::xBottom, "X");
     m_plot->setAxisTitle(QwtPlot::yLeft, "Y");
     m_plot->setGeometry(rect());
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
 
-    m_values = QVector<double>(m_curveCount, 0.0);
+    m_values = QVector<double>(m_barCount, 0.0);
     m_varIds.clear();
-    for (int i = 0; i < m_curveCount; ++i)
+    for (int i = 0; i < m_barCount; ++i)
         m_varIds.append(QString());
 
     rebuildBars();
@@ -39,16 +41,17 @@ QVariantMap HistogramComponent::properties() const
     map["yAxisTitle"] = m_plot->axisTitle(QwtPlot::yLeft).text();
     map["xMin"] = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     map["xMax"] = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
-    map["curveCount"] = m_curveCount;
-    map["barCount"] = m_curveCount;
+    map["yMin"] = m_yMin;
+    map["yMax"] = m_yMax;
+    map["barCount"] = m_barCount;
 
-    if (m_curveCount > 0) {
+    if (m_barCount > 0) {
         map["value"] = m_values.value(0);
         map["varId"] = m_varIds.value(0);
     }
 
     QVariantList values;
-    for (int i = 0; i < m_curveCount; ++i) {
+    for (int i = 0; i < m_barCount; ++i) {
         map[QString("value%1").arg(i + 1)] = m_values.value(i);
         map[QString("varId%1").arg(i + 1)] = m_varIds.value(i);
         values.append(m_values.value(i));
@@ -69,9 +72,23 @@ void HistogramComponent::setPropertyValue(const QString& key, const QVariant& v)
     else if (key == "yAxisTitle") {
         m_plot->setAxisTitle(QwtPlot::yLeft, v.toString());
     }
-    else if (key == "curveCount" || key == "barCount") {
+    else if (key == "yMin") {
+        m_yMin = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMax = m_yMin + 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
+    }
+    else if (key == "yMax") {
+        m_yMax = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMin = m_yMax - 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
+    }
+    else if (key == "barCount") {
         const int n = qMax(1, v.toInt());
-        if (n == m_curveCount)
+        if (n == m_barCount)
             return;
 
         for (int i = 0; i < m_varIds.size(); ++i) {
@@ -79,11 +96,11 @@ void HistogramComponent::setPropertyValue(const QString& key, const QVariant& v)
                 m_bindingMgr->unbind(m_varIds[i], this, QString("value%1").arg(i + 1));
         }
 
-        m_curveCount = n;
-        m_values.resize(m_curveCount);
-        while (m_varIds.size() < m_curveCount)
+        m_barCount = n;
+        m_values.resize(m_barCount);
+        while (m_varIds.size() < m_barCount)
             m_varIds.append(QString());
-        while (m_varIds.size() > m_curveCount)
+        while (m_varIds.size() > m_barCount)
             m_varIds.removeLast();
 
         rebuildBars();
@@ -93,7 +110,7 @@ void HistogramComponent::setPropertyValue(const QString& key, const QVariant& v)
     else if (key == "values") {
         if (v.canConvert<QVariantList>()) {
             const QVariantList list = v.toList();
-            const int count = qMin(list.size(), m_curveCount);
+            const int count = qMin(list.size(), m_barCount);
             for (int i = 0; i < count; ++i)
                 m_values[i] = list[i].toDouble();
             refreshSamples();
@@ -110,7 +127,7 @@ void HistogramComponent::setPropertyValue(const QString& key, const QVariant& v)
         QRegularExpressionMatch vm = valueRe.match(key);
         if (vm.hasMatch()) {
             const int idx = vm.captured(1).toInt() - 1;
-            if (idx < 0 || idx >= m_curveCount)
+            if (idx < 0 || idx >= m_barCount)
                 return;
             m_values[idx] = v.toDouble();
             refreshSamples();
@@ -121,7 +138,7 @@ void HistogramComponent::setPropertyValue(const QString& key, const QVariant& v)
         QRegularExpressionMatch idm = varIdRe.match(key);
         if (idm.hasMatch()) {
             const int idx = idm.captured(1).toInt() - 1;
-            if (idx < 0 || idx >= m_curveCount)
+            if (idx < 0 || idx >= m_barCount)
                 return;
 
             const QString oldVarId = m_varIds.value(idx);
@@ -165,7 +182,7 @@ void HistogramComponent::rebuildBars()
         QColor(255, 140, 0), QColor(160, 32, 240), QColor(0, 180, 180)
     };
 
-    for (int i = 0; i < m_curveCount; ++i) {
+    for (int i = 0; i < m_barCount; ++i) {
         auto *bar = new QwtPlotHistogram(QString("Bar %1").arg(i + 1));
         const QColor color = palette[i % palette.size()];
         bar->setBrush(QBrush(color));
@@ -177,7 +194,7 @@ void HistogramComponent::rebuildBars()
 
 void HistogramComponent::rebindAllSeries()
 {
-    for (int i = 0; i < m_curveCount; ++i) {
+    for (int i = 0; i < m_barCount; ++i) {
         const QString varId = m_varIds.value(i);
         if (!varId.isEmpty() && m_bindingMgr)
             m_bindingMgr->bind(varId, this, QString("value%1").arg(i + 1));
@@ -186,8 +203,8 @@ void HistogramComponent::rebindAllSeries()
 
 void HistogramComponent::refreshSamples()
 {
-    if (m_values.size() < m_curveCount)
-        m_values.resize(m_curveCount);
+    if (m_values.size() < m_barCount)
+        m_values.resize(m_barCount);
 
     for (int i = 0; i < m_bars.size(); ++i) {
         if (!m_bars[i])
@@ -200,7 +217,9 @@ void HistogramComponent::refreshSamples()
         m_bars[i]->setSamples(samples);
     }
 
-    m_plot->setAxisScale(QwtPlot::xBottom, 0.0, qMax(1, m_curveCount));
+    m_plot->setAxisScale(QwtPlot::xBottom, 0.0, qMax(1, m_barCount));
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->replot();
 }
 

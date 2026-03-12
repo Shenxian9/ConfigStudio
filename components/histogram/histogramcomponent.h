@@ -29,7 +29,10 @@ private:
     QVector<double> m_values;
     QStringList m_varIds;
 
-    int m_curveCount = 1;
+    int m_barCount = 1;
+
+    double m_yMin = 0.0;
+    double m_yMax = 100.0;
 };
 
 #endif
