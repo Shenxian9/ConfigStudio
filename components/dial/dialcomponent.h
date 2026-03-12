@@ -22,8 +22,11 @@ public:
     QString type() const override { return "dial"; }
 
     void resizeEvent(QResizeEvent* event) override;
+    void changeEvent(QEvent* event) override;
 
 private:
+    void applyDialPalette();
+
     QwtDial *m_dial;
     QLabel  *m_title;
 

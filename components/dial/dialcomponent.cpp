@@ -1,10 +1,11 @@
 #include "dialcomponent.h"
 #include <qwt_dial_needle.h>
+#include <QEvent>
+#include <QPalette>
 
 DialComponent::DialComponent(QWidget *parent)
     : CanvasItem(parent)
 {
-    qDebug()<<"?";
     resize(200, 220);
 
     m_title = new QLabel("Dial", this);
@@ -21,6 +22,8 @@ DialComponent::DialComponent(QWidget *parent)
 
     m_dial->setNeedle(new QwtDialSimpleNeedle(
         QwtDialSimpleNeedle::Arrow, true, Qt::red));
+
+    applyDialPalette();
 }
 
 
@@ -103,4 +106,42 @@ void DialComponent::resizeEvent(QResizeEvent* event)
         m_dial->setGeometry(0, 20, width(), height() - 20); // 剩余部分给表盘
 }
 
+void DialComponent::changeEvent(QEvent *event)
+{
+    CanvasItem::changeEvent(event);
+
+    if (!event)
+        return;
+
+    if (event->type() == QEvent::PaletteChange ||
+        event->type() == QEvent::StyleChange ||
+        event->type() == QEvent::ApplicationPaletteChange) {
+        applyDialPalette();
+    }
+}
+
+void DialComponent::applyDialPalette()
+{
+    if (!m_dial)
+        return;
+
+    const QPalette canvasPalette = palette();
+    const bool darkMode = canvasPalette.color(QPalette::Window).lightness() < 128;
+
+    QPalette dialPalette = m_dial->palette();
+
+    // 盘面中心颜色：浅色模式白底；深色模式深灰底，避免被主题强制变成白圈看不清。
+    dialPalette.setColor(QPalette::Window, darkMode ? QColor("#2f2f2f") : QColor("white"));
+    dialPalette.setColor(QPalette::Base, darkMode ? QColor("#2f2f2f") : QColor("white"));
+    dialPalette.setColor(QPalette::Button, darkMode ? QColor("#2f2f2f") : QColor("white"));
+
+    // 刻度与数字颜色：浅色模式深色；深色模式浅色，确保可读。
+    const QColor scaleColor = darkMode ? QColor("#f2f2f2") : QColor("#1f1f1f");
+    dialPalette.setColor(QPalette::WindowText, scaleColor);
+    dialPalette.setColor(QPalette::Text, scaleColor);
+    dialPalette.setColor(QPalette::Foreground, scaleColor);
+
+    m_dial->setPalette(dialPalette);
+    m_dial->update();
+}
 
