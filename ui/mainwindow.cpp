@@ -834,7 +834,7 @@ void MainWindow::editPropertyCell(int row, int col)
                 }
                 if (targetItem) {
                     targetItem->setPropertyValue(key, newVal);
-                    if (key == "curveCount" || key == "varId" || key.startsWith("varId"))
+                    if (key == "curveCount" || key == "barCount" || key == "varId" || key.startsWith("varId"))
                         showProperties(targetItem);
                 }
             }, Qt::QueuedConnection);

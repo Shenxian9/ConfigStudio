@@ -45,8 +45,6 @@ QVariantMap PlotComponent::properties() const
     map["xMax"] = m_xData.isEmpty() ? 0.0 : m_xData.last();
     map["curveCount"] = m_curveCount;
     map["maxPoints"] = m_maxPoints;
-    if (m_curveCount > 0)
-        map["varId"] = m_varIds.value(0);
     for (int i = 0; i < m_curveCount; ++i)
         map[QString("varId%1").arg(i + 1)] = m_varIds.value(i);
     return map;

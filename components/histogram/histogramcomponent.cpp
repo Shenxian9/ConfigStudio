@@ -71,18 +71,10 @@ QVariantMap HistogramComponent::properties() const
     map["yMax"] = m_yMax;
     map["barCount"] = m_barCount;
 
-    if (m_barCount > 0) {
-        map["value"] = m_values.value(0);
-        map["varId"] = m_varIds.value(0);
-    }
-
-    QVariantList values;
     for (int i = 0; i < m_barCount; ++i) {
         map[QString("value%1").arg(i + 1)] = m_values.value(i);
         map[QString("varId%1").arg(i + 1)] = m_varIds.value(i);
-        values.append(m_values.value(i));
     }
-    map["values"] = values;
 
     return map;
 }
