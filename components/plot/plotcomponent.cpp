@@ -32,6 +32,12 @@ PlotComponent::PlotComponent(QWidget *parent)
     rebuildCurves();
 
     m_xData.reserve(m_maxPoints);
+
+    m_latestValues = QVector<double>(m_curveCount, 0.0);
+    m_hasLatestValues = QVector<bool>(m_curveCount, false);
+
+    connect(&m_sampleTimer, &QTimer::timeout, this, [this]() { sampleAtFixedRate(); });
+    applySampleTimer();
 }
 
 
@@ -45,6 +51,7 @@ QVariantMap PlotComponent::properties() const
     map["xMax"] = m_xData.isEmpty() ? 0.0 : m_xData.last();
     map["curveCount"] = m_curveCount;
     map["maxPoints"] = m_maxPoints;
+    map["refreshRate"] = m_refreshRate;
     for (int i = 0; i < m_curveCount; ++i)
         map[QString("varId%1").arg(i + 1)] = m_varIds.value(i);
     return map;
@@ -53,7 +60,10 @@ QVariantMap PlotComponent::properties() const
 void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
 {
     if (key == "value") {
-        appendValue(v.toDouble(), 0);
+        if (!m_latestValues.isEmpty()) {
+            m_latestValues[0] = v.toDouble();
+            m_hasLatestValues[0] = true;
+        }
     }
     else if (key == "title") {
         m_plot->setTitle(v.toString());
@@ -83,6 +93,13 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
         while (m_varIds.size() > m_curveCount)
             m_varIds.removeLast();
 
+        m_latestValues.resize(m_curveCount);
+        m_hasLatestValues.resize(m_curveCount);
+        for (int i = 0; i < m_hasLatestValues.size(); ++i) {
+            if (!m_hasLatestValues[i])
+                m_latestValues[i] = 0.0;
+        }
+
         rebuildCurves();
         rebindAllSeries();
     }
@@ -90,6 +107,13 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
         int mp = v.toInt();
         if (mp > 0)
             m_maxPoints = mp;
+    }
+    else if (key == "refreshRate") {
+        const int hz = qMax(1, v.toInt());
+        if (hz != m_refreshRate) {
+            m_refreshRate = hz;
+            applySampleTimer();
+        }
     }
     else if (key == "varId") {
         setPropertyValue("varId1", v);
@@ -134,7 +158,10 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
         QRegularExpressionMatch m = valueRe.match(key);
         if (m.hasMatch()) {
             const int idx = m.captured(1).toInt() - 1;
-            appendValue(v.toDouble(), idx);
+            if (idx < 0 || idx >= m_curveCount)
+                return;
+            m_latestValues[idx] = v.toDouble();
+            m_hasLatestValues[idx] = true;
             return;
         }
     }
@@ -194,6 +221,23 @@ void PlotComponent::rebindAllSeries()
     }
 }
 
+
+
+void PlotComponent::applySampleTimer()
+{
+    const int hz = qMax(1, m_refreshRate);
+    const int intervalMs = qMax(1, int(1000 / hz));
+    m_sampleTimer.start(intervalMs);
+}
+
+void PlotComponent::sampleAtFixedRate()
+{
+    for (int i = 0; i < m_curveCount; ++i) {
+        if (!m_hasLatestValues.value(i))
+            continue;
+        appendValue(m_latestValues.value(i), i);
+    }
+}
 
 void PlotComponent::mouseDoubleClickEvent(QMouseEvent *event)
 {

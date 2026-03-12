@@ -9,6 +9,7 @@
 #include <QTableWidget>
 #include <QStringList>
 #include <QLabel>
+#include <QTimer>
 
 class PlotComponent : public CanvasItem {
     Q_OBJECT
@@ -34,6 +35,11 @@ private:
 
     int m_curveCount = 1;
     int m_maxPoints = 50; // 最多显示点数
+    int m_refreshRate = 5; // Hz
+
+    QTimer m_sampleTimer;
+    QVector<double> m_latestValues;
+    QVector<bool> m_hasLatestValues;
 
     QWidget *m_historyPanel = nullptr;
     QTableWidget *m_historyTable = nullptr;
@@ -47,6 +53,8 @@ private:
     void showBindingConflict(const QString &message);
     void rebuildCurves();
     void rebindAllSeries();
+    void applySampleTimer();
+    void sampleAtFixedRate();
 };
 
 
