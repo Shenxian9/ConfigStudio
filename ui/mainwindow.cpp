@@ -269,10 +269,13 @@ MainWindow::MainWindow(QWidget *parent)
                 .strategy=DataStrategy::Random};
     Variable v3{.id="3", .name="Age", .deviceId="PLC3", .type="float", .unit="year",
                 .strategy=DataStrategy::Square};
+    Variable v4{.id="Variable", .name="Variable", .deviceId="TEST", .type="float", .unit="",
+                .value=50.0, .strategy=DataStrategy::None};
 
     m_variableModel->addVariable(v1);
     m_variableModel->addVariable(v2);
-        m_variableModel->addVariable(v3);
+    m_variableModel->addVariable(v3);
+    m_variableModel->addVariable(v4);
 
     // 启动仿真
     RuntimeSimulator* sim = new RuntimeSimulator(m_variableModel, this);

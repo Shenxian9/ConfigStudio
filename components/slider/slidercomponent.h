@@ -27,6 +27,9 @@ private:
     QwtSlider *m_slider;
     QLabel      *m_valueLabel;
     QLabel    *m_title;
+
+    QString m_varId;
+    bool m_updatingFromBinding = false;
 };
 
 #endif

@@ -16,6 +16,7 @@ public:
 
     void bind(const QString& varId, CanvasItem* item, const QString& property);
     void unbind(const QString& varId, CanvasItem* item, const QString& property);
+    bool publishValue(const QString& varId, const QVariant& value);
 
 private slots:
     void onVariableChanged(const QString& varId, const QVariant& value);

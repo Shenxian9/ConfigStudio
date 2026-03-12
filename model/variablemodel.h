@@ -39,6 +39,7 @@ public:
     void addVariable(const Variable& var);
     Variable& variableAt(int row);
     void updateValue(int row, const QVariant& value);
+    bool updateValueById(const QString& varId, const QVariant& value);
 
 signals:
     void variableValueChanged(const QString& varId, const QVariant& value);

@@ -1,3 +1,5 @@
+#include "runtime/databindingmanager.h"
+
 #include "slidercomponent.h"
 
 SliderComponent::SliderComponent(QWidget *parent)
@@ -23,6 +25,9 @@ SliderComponent::SliderComponent(QWidget *parent)
     connect(m_slider, &QwtSlider::valueChanged, this, [this](double v){
         m_valueLabel->setText(QString::number(v, 'f', 1));
         emit valueChanged(v);
+
+        if (!m_updatingFromBinding && m_bindingMgr && !m_varId.isEmpty())
+            m_bindingMgr->publishValue(m_varId, v);
     });
 
     // 初始化显示
@@ -36,6 +41,7 @@ QVariantMap SliderComponent::properties() const
     map["min"]   = m_slider->lowerBound();
     map["max"]   = m_slider->upperBound();
     map["value"] = m_slider->value();
+    map["varId"] = m_varId;
     return map;
 }
 
@@ -56,13 +62,28 @@ void SliderComponent::setPropertyValue(const QString& key, const QVariant& v)
     else if (key == "value") {
         setValue(v.toDouble());
     }
+    else if (key == "varId") {
+        const QString newVarId = v.toString().trimmed();
+        if (newVarId == m_varId)
+            return;
+
+        if (!m_varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->unbind(m_varId, this, "value");
+
+        m_varId = newVarId;
+
+        if (!m_varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->bind(m_varId, this, "value");
+    }
 }
 
 void SliderComponent::setValue(double val)
 {
+    m_updatingFromBinding = true;
     m_slider->setValue(val);
+    m_updatingFromBinding = false;
+
     m_valueLabel->setText(QString::number(val, 'f', 1));
-    emit valueChanged(val);
 }
 
 void SliderComponent::resizeEvent(QResizeEvent *event)
