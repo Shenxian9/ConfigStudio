@@ -18,6 +18,8 @@ public:
     void setDesignSize(const QSize& size) { m_designSize = size; updatePixmap(); }
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override;
 
 private:
 

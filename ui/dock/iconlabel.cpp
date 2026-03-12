@@ -54,3 +54,13 @@ void IconLabel::updatePixmap()
 }
 
 
+QSize IconLabel::sizeHint() const
+{
+    // 防止 QLabel 根据 pixmap/text 的 hint 撑高网格行。
+    return QSize(1, 1);
+}
+
+QSize IconLabel::minimumSizeHint() const
+{
+    return QSize(1, 1);
+}
