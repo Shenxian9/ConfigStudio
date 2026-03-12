@@ -149,8 +149,10 @@ void DialComponent::applyDialPalette()
     const QColor faceColor = darkMode ? QColor("#ffffff") : QColor("#bfbfbf");
     // 刻度与数字颜色。
     const QColor scaleColor = darkMode ? QColor("#101010") : QColor("#1f1f1f");
-    // 最外圈描边颜色：浅色模式黑色，深色模式浅色。
-    const QColor ringColor = darkMode ? QColor("#f2f2f2") : QColor("#000000");
+    // 外圈描边使用固定灰阶，保持稳定的立体渐变效果（不随创建时主题变纯白/纯黑）。
+    const QColor ringMid = QColor("#8a8a8a");
+    const QColor ringDark = QColor("#5a5a5a");
+    const QColor ringShadow = QColor("#2f2f2f");
 
     // QwtDial 关键角色：
     // Base       -> 框内背景
@@ -175,10 +177,10 @@ void DialComponent::applyDialPalette()
         dialPalette.setColor(group, QPalette::ButtonText, scaleColor);
         dialPalette.setColor(group, QPalette::Foreground, scaleColor);
 
-        // 外圈描边相关角色。
-        dialPalette.setColor(group, QPalette::Dark, ringColor);
-        dialPalette.setColor(group, QPalette::Shadow, ringColor);
-        dialPalette.setColor(group, QPalette::Mid, ringColor);
+        // 外圈描边相关角色：固定灰阶形成渐变立体边缘。
+        dialPalette.setColor(group, QPalette::Mid, ringMid);
+        dialPalette.setColor(group, QPalette::Dark, ringDark);
+        dialPalette.setColor(group, QPalette::Shadow, ringShadow);
     }
 
     m_dial->setLineWidth(2);
