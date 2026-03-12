@@ -145,18 +145,24 @@ void DialComponent::applyDialPalette()
 
     QPalette dialPalette = m_dial->palette();
 
-    // 盘面中心与当前主题背景一致：浅色白色，深色 #505050。
-    const QColor faceColor = darkMode ? QColor("#505050") : QColor("white");
+    // 盘面中心颜色：浅色模式灰色，深色模式白色。
+    const QColor faceColor = darkMode ? QColor("#ffffff") : QColor("#bfbfbf");
     dialPalette.setColor(QPalette::Window, faceColor);
     dialPalette.setColor(QPalette::Base, faceColor);
     dialPalette.setColor(QPalette::Button, faceColor);
+    dialPalette.setColor(QPalette::Light, faceColor);
+    dialPalette.setColor(QPalette::Midlight, faceColor);
+    dialPalette.setColor(QPalette::Mid, faceColor);
+    dialPalette.setColor(QPalette::Dark, faceColor);
+    dialPalette.setColor(QPalette::Shadow, faceColor);
 
     // 刻度与数字颜色：浅色模式深色；深色模式浅色，确保可读。
-    const QColor scaleColor = darkMode ? QColor("#f2f2f2") : QColor("#1f1f1f");
+    const QColor scaleColor = darkMode ? QColor("#202020") : QColor("#1f1f1f");
     dialPalette.setColor(QPalette::WindowText, scaleColor);
     dialPalette.setColor(QPalette::Text, scaleColor);
     dialPalette.setColor(QPalette::Foreground, scaleColor);
 
+    m_dial->setAutoFillBackground(true);
     m_dial->setPalette(dialPalette);
     m_dial->update();
 }
