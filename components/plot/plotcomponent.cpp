@@ -23,6 +23,8 @@ PlotComponent::PlotComponent(QWidget *parent)
     m_plot->setTitle("Plot");
     m_plot->setAxisTitle(QwtPlot::xBottom, "X");
     m_plot->setAxisTitle(QwtPlot::yLeft, "Y");
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->setGeometry(rect());
     m_plot->installEventFilter(this);
 
@@ -49,6 +51,8 @@ QVariantMap PlotComponent::properties() const
     map["yAxisTitle"] = m_plot->axisTitle(QwtPlot::yLeft).text();
     map["xMin"] = m_xData.isEmpty() ? 0.0 : m_xData.first();
     map["xMax"] = m_xData.isEmpty() ? 0.0 : m_xData.last();
+    map["yMin"] = m_yMin;
+    map["yMax"] = m_yMax;
     map["curveCount"] = m_curveCount;
     map["maxPoints"] = m_maxPoints;
     map["refreshRate"] = m_refreshRate;
@@ -74,6 +78,22 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "yAxisTitle") {
         m_plot->setAxisTitle(QwtPlot::yLeft, v.toString());
+        m_plot->replot();
+    }
+    else if (key == "yMin") {
+        m_yMin = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMax = m_yMin + 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
+        m_plot->replot();
+    }
+    else if (key == "yMax") {
+        m_yMax = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMin = m_yMax - 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
         m_plot->replot();
     }
     else if (key == "curveCount") {
@@ -209,6 +229,8 @@ void PlotComponent::rebuildCurves()
         m_curves.append(curve);
     }
 
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->replot();
 }
 
@@ -459,5 +481,7 @@ void PlotComponent::appendValue(double value, int seriesIndex)
     if (!m_xData.isEmpty())
         m_plot->setAxisScale(QwtPlot::xBottom, m_xData.first(), m_xData.last());
 
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->replot();
 }
