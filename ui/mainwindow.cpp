@@ -150,6 +150,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->labelOfNumeric->setIcon(":/icons/numeric.png");
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    ui->pushOfL_D->setText("darkmode");
+    applyCanvasTheme(false);
 
     connect(ui->canvasView, &CanvasView::itemSelected,
             this, &MainWindow::onItemSelected);
@@ -461,6 +463,39 @@ void MainWindow::resizeEvent(QResizeEvent* event)
 
 
 
+void MainWindow::applyCanvasTheme(bool darkMode)
+{
+    m_darkCanvasMode = darkMode;
+
+    if (!ui || !ui->canvasView)
+        return;
+
+    if (darkMode) {
+        ui->canvasView->setStyleSheet(
+            "CanvasView { background-color: #505050; }"
+            "CanvasView QWidget { color: #f2f2f2; border-color: #dcdcdc; }"
+            "CanvasView QLabel { color: #f2f2f2; }"
+            "CanvasView QLineEdit, CanvasView QTextEdit, CanvasView QPlainTextEdit {"
+            " color: #f2f2f2; border: 1px solid #d0d0d0; background-color: transparent; }"
+            "CanvasView QFrame { border-color: #d0d0d0; }");
+    } else {
+        ui->canvasView->setStyleSheet(
+            "CanvasView { background-color: white; }"
+            "CanvasView QWidget { color: black; border-color: black; }"
+            "CanvasView QLabel { color: black; }"
+            "CanvasView QLineEdit, CanvasView QTextEdit, CanvasView QPlainTextEdit {"
+            " color: black; border: 1px solid black; background-color: transparent; }"
+            "CanvasView QFrame { border-color: black; }");
+    }
+
+    ui->canvasView->update();
+    const auto children = ui->canvasView->findChildren<QWidget*>();
+    for (QWidget *w : children) {
+        if (w)
+            w->update();
+    }
+}
+
 void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
 {
     if (!btn) return;
@@ -487,6 +522,13 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
 void MainWindow::on_pushOfDatasrc_clicked()
 {
     ui->MainStackedWidget->setCurrentWidget(ui->DataWorkspace);
+}
+
+void MainWindow::on_pushOfL_D_clicked()
+{
+    const bool nextDarkMode = !m_darkCanvasMode;
+    applyCanvasTheme(nextDarkMode);
+    ui->pushOfL_D->setText(nextDarkMode ? "lightmode" : "darkmode");
 }
 
 void MainWindow::editPropertyCell(int row, int col)

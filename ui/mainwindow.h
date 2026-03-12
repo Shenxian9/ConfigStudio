@@ -67,6 +67,7 @@ private slots:
     void on_pushOfDatasrc_clicked();
 
     void on_pushOfDesign_clicked();
+    void on_pushOfL_D_clicked();
 
 private:
     void showProperties(CanvasItem *item);
@@ -94,6 +95,7 @@ private:
 
     void editPropertyCell(int row, int col);
 
+    void applyCanvasTheme(bool darkMode);
 
     VariableModel* m_variableModel;
     DataBindingManager* m_bindingMgr;
@@ -105,6 +107,8 @@ private:
     QPointer<CanvasItem> m_pendingPropertyItem;
     QString m_pendingPropertyKey;
     int m_pendingPropertyRow = -1;
+
+    bool m_darkCanvasMode = false;
 
 };
 

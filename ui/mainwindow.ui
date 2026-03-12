@@ -341,7 +341,7 @@
                 </widget>
                </item>
                <item row="1" column="5">
-                <widget class="QPushButton" name="pushButton">
+                <widget class="QPushButton" name="pushOfL_D">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
                    <horstretch>0</horstretch>
@@ -349,7 +349,7 @@
                   </sizepolicy>
                  </property>
                  <property name="text">
-                  <string>PushButton</string>
+                  <string>darkmode</string>
                  </property>
                 </widget>
                </item>
