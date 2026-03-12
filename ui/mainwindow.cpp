@@ -500,8 +500,9 @@ void MainWindow::resizeEvent(QResizeEvent* event)
 
     auto update = [](QPushButton* btn){
         if (!btn) return;
-        int size = qMin(btn->width(), btn->height()); // 以最短边为准
-        btn->setIconSize(QSize(size, size));
+        const int size = qMin(btn->width(), btn->height()); // 以最短边为准
+        const int iconSize = qMax(1, int(size * 0.92));
+        btn->setIconSize(QSize(iconSize, iconSize));
     };
 
     update(ui->deleteButton);
@@ -590,12 +591,15 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
     btn->setIcon(QIcon(pix));
     btn->setFlat(true);
     btn->setFocusPolicy(Qt::NoFocus);
+    btn->setStyleSheet("QPushButton { padding: 0px; margin: 0px; border: none; }");
 
-    // 延迟设置 iconSize
+    // 延迟设置 iconSize（与 IconLabel 视觉尺寸接近）
     QTimer::singleShot(0, btn, [btn](){
-        int size = qMin(btn->width(), btn->height());
-        if (size > 0)
-            btn->setIconSize(QSize(size, size));
+        const int size = qMin(btn->width(), btn->height());
+        if (size > 0) {
+            const int iconSize = qMax(1, int(size * 0.92));
+            btn->setIconSize(QSize(iconSize, iconSize));
+        }
     });
 }
 
