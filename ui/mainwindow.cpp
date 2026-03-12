@@ -173,6 +173,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
     ui->pushOfL_D->setText("darkmode");
     applyCanvasTheme(false);
+    enforceCanvasFrameRatio();
 
     connect(ui->canvasView, &CanvasView::itemSelected,
             this, &MainWindow::onItemSelected);
@@ -493,6 +494,8 @@ void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
 
+    enforceCanvasFrameRatio();
+
     auto update = [](QPushButton* btn){
         if (!btn) return;
         int size = qMin(btn->width(), btn->height()); // 以最短边为准
@@ -501,6 +504,37 @@ void MainWindow::resizeEvent(QResizeEvent* event)
 
     update(ui->deleteButton);
     update(ui->buttonOfFullscreen);
+}
+
+void MainWindow::enforceCanvasFrameRatio()
+{
+    if (!ui || !ui->canvasView || !ui->frame)
+        return;
+
+    QWidget *container = ui->canvasView->parentWidget();
+    if (!container)
+        return;
+
+    const int totalHeight = container->height();
+    if (totalHeight <= 0)
+        return;
+
+    const int frameHeight = qMax(1, totalHeight / 4);
+    const int canvasHeight = qMax(1, totalHeight - frameHeight);
+
+    // 严格 3:1：无论内部 icon/label 的 sizeHint 如何，都不允许 frame 继续抬高。
+    ui->canvasView->setMinimumHeight(canvasHeight);
+    ui->canvasView->setMaximumHeight(canvasHeight);
+    ui->frame->setMinimumHeight(frameHeight);
+    ui->frame->setMaximumHeight(frameHeight);
+
+    ui->canvasView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    ui->frame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+    if (auto vlayout = qobject_cast<QVBoxLayout*>(container->layout())) {
+        vlayout->setStretch(0, 3);
+        vlayout->setStretch(1, 1);
+    }
 }
 
 
