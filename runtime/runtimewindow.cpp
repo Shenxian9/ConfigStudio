@@ -32,6 +32,8 @@ void RuntimeWindow::setCanvas(CanvasView* canvas)
     m_originalIndex = m_originalLayout ? m_originalLayout->indexOf(canvas) : -1;
     m_originalSize = canvas->size();
     m_originalPolicy = canvas->sizePolicy();
+    m_originalMinSize = canvas->minimumSize();
+    m_originalMaxSize = canvas->maximumSize();
 
     if (auto vlayout = qobject_cast<QVBoxLayout*>(m_originalLayout)) {
         if (m_originalIndex != -1)
@@ -58,28 +60,12 @@ void RuntimeWindow::setCanvas(CanvasView* canvas)
     ui->centralWidget->layout()->addWidget(canvas);
     ui->centralWidget->layout()->setContentsMargins(0,0,0,0);
 
-    // 等比放大 CanvasView
-    QSize fullSize = ui->centralWidget->size();
-    double scale = qMin(double(fullSize.width()) / m_originalSize.width(),
-                        double(fullSize.height()) / m_originalSize.height());
+    // 进入全屏时解除设计态比例约束，让 Canvas 填满运行窗口。
+    canvas->setMinimumSize(0, 0);
+    canvas->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+    canvas->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    // resize CanvasView
-    canvas->resize(m_originalSize * scale);
-    canvas->move(0,0);
-
-    // 等比放大每个 CanvasItem
-    // 等比放大每个 CanvasItem
-    for (auto item : m_canvas->findChildren<CanvasItem*>()) {
-        QRect g = m_originalItemGeometries[item];
-        item->setGeometry(g.x()*scale, g.y()*scale, g.width()*scale, g.height()*scale);
-
-        // 如果是 IconLabel，通知它更新 pixmap
-        for (auto icon : item->findChildren<IconLabel*>()) {
-            icon->updatePixmap(); // 按比例更新
-        }
-    }
-
-
+    applyRuntimeScale();
     canvas->show();
 }
 
@@ -97,6 +83,8 @@ void RuntimeWindow::on_buttonOfQuit_clicked()
     }
 
     m_canvas->setSizePolicy(m_originalPolicy);
+    m_canvas->setMinimumSize(m_originalMinSize);
+    m_canvas->setMaximumSize(m_originalMaxSize);
     m_canvas->resize(m_originalSize);
 
     // 恢复 CanvasItem geometry
@@ -125,6 +113,8 @@ void RuntimeWindow::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
 
+    applyRuntimeScale();
+
     auto update = [](QPushButton* btn){
         if (btn)
             btn->setIconSize(btn->size());
@@ -133,6 +123,32 @@ void RuntimeWindow::resizeEvent(QResizeEvent* event)
     update(ui->buttonOfQuit);
 
 }
+
+void RuntimeWindow::applyRuntimeScale()
+{
+    if (!m_canvas || !ui || !ui->centralWidget)
+        return;
+
+    const QSize fullSize = ui->centralWidget->size();
+    if (fullSize.isEmpty() || m_originalSize.isEmpty())
+        return;
+
+    const double sx = double(fullSize.width()) / m_originalSize.width();
+    const double sy = double(fullSize.height()) / m_originalSize.height();
+
+    m_canvas->resize(fullSize);
+    m_canvas->move(0, 0);
+
+    for (auto item : m_canvas->findChildren<CanvasItem*>()) {
+        QRect g = m_originalItemGeometries.value(item, item->geometry());
+        item->setGeometry(int(g.x() * sx), int(g.y() * sy), int(g.width() * sx), int(g.height() * sy));
+
+        for (auto icon : item->findChildren<IconLabel*>()) {
+            icon->updatePixmap();
+        }
+    }
+}
+
 void RuntimeWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
 {
     if (!btn) return;

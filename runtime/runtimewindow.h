@@ -32,6 +32,7 @@ public:
 protected:
     void resizeEvent(QResizeEvent* event);
     void setupIconButton(QPushButton* btn, const QString& iconPath);
+    void applyRuntimeScale();
 
 private slots:
     void on_buttonOfQuit_clicked();
@@ -47,6 +48,8 @@ private:
     QSize m_originalSize;
     int m_originalStretch = 0;
     QSizePolicy m_originalPolicy;
+    QSize m_originalMinSize;
+    QSize m_originalMaxSize;
 
      QMap<CanvasItem*, QRect> m_originalItemGeometries;
 
