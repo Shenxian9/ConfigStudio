@@ -149,6 +149,8 @@ void DialComponent::applyDialPalette()
     const QColor faceColor = darkMode ? QColor("#ffffff") : QColor("#bfbfbf");
     // 刻度与数字颜色。
     const QColor scaleColor = darkMode ? QColor("#101010") : QColor("#1f1f1f");
+    // 最外圈描边颜色：浅色模式黑色，深色模式浅色。
+    const QColor ringColor = darkMode ? QColor("#f2f2f2") : QColor("#000000");
 
     // QwtDial 关键角色：
     // Base       -> 框内背景
@@ -172,8 +174,15 @@ void DialComponent::applyDialPalette()
         dialPalette.setColor(group, QPalette::Text, scaleColor);
         dialPalette.setColor(group, QPalette::ButtonText, scaleColor);
         dialPalette.setColor(group, QPalette::Foreground, scaleColor);
+
+        // 外圈描边相关角色。
+        dialPalette.setColor(group, QPalette::Dark, ringColor);
+        dialPalette.setColor(group, QPalette::Shadow, ringColor);
+        dialPalette.setColor(group, QPalette::Mid, ringColor);
     }
 
+    m_dial->setLineWidth(2);
+    m_dial->setFrameShadow(QwtDial::Raised);
     m_dial->setAutoFillBackground(false);
     m_dial->setBackgroundRole(QPalette::Base);
     m_dial->setForegroundRole(QPalette::Text);
