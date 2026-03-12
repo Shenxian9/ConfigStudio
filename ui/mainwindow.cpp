@@ -171,6 +171,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->labelOfNumeric->setIcon(":/icons/numeric.png");
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    setupIconButton(ui->pushOfDatasrc, ":/icons/datasource.png");
+    setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
     refreshActionButtonIcons();
     //ui->pushOfL_D->setText("darkmode");
     applyCanvasTheme(false);
@@ -517,14 +519,23 @@ void MainWindow::refreshActionButtonIcons()
     // 立即尝试一次，再在布局稳定后补一次，规避时序导致的 setIconSize 失效。
     apply(ui->deleteButton);
     apply(ui->buttonOfFullscreen);
+    apply(ui->pushOfL_D);
+    apply(ui->pushOfDatasrc);
+    apply(ui->pushOfDesign);
 
     QTimer::singleShot(0, this, [this, apply]() {
         apply(ui->deleteButton);
         apply(ui->buttonOfFullscreen);
+        apply(ui->pushOfL_D);
+        apply(ui->pushOfDatasrc);
+        apply(ui->pushOfDesign);
     });
     QTimer::singleShot(30, this, [this, apply]() {
         apply(ui->deleteButton);
         apply(ui->buttonOfFullscreen);
+        apply(ui->pushOfL_D);
+        apply(ui->pushOfDatasrc);
+        apply(ui->pushOfDesign);
     });
 }
 
@@ -574,6 +585,8 @@ void MainWindow::applyCanvasTheme(bool darkMode)
     if (!ui || !ui->canvasView)
         return;
 
+    setupIconButton(ui->pushOfL_D, darkMode ? ":/icons/lightmode.png" : ":/icons/darkmode.png");
+
     if (darkMode) {
         ui->canvasView->setStyleSheet(
             "CanvasView { background-color: #505050; }"
@@ -608,6 +621,7 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
     if (pix.isNull()) return;
 
     btn->setIcon(QIcon(pix));
+    btn->setText(QString());
     btn->setFlat(true);
     btn->setFocusPolicy(Qt::NoFocus);
     btn->setStyleSheet("QPushButton { padding: 0px; margin: 0px; border: none; }");
@@ -629,7 +643,6 @@ void MainWindow::on_pushOfL_D_clicked()
 {
     const bool nextDarkMode = !m_darkCanvasMode;
     applyCanvasTheme(nextDarkMode);
-    ui->pushOfL_D->setText(nextDarkMode ? "lightmode" : "darkmode");
 }
 
 void MainWindow::editPropertyCell(int row, int col)
@@ -884,6 +897,8 @@ void MainWindow::on_pushOfDesign_clicked()
     ui->MainStackedWidget->setCurrentWidget(ui->DesignWorkspace);
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    setupIconButton(ui->pushOfDatasrc, ":/icons/datasource.png");
+    setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
     refreshActionButtonIcons();
     QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
 }
