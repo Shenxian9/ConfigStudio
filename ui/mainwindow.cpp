@@ -192,6 +192,25 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->canvasView, &CanvasView::emptyAreaClicked,
             this, &MainWindow::clearProperties);
 
+    connect(ui->pushButton_6, &QPushButton::clicked, this, [this]() {
+        if (!ui) return;
+
+        const auto dump = [](const char *name, QWidget *w) {
+            if (!w) {
+                qDebug() << "[layout-debug]" << name << "is null";
+                return;
+            }
+            qDebug() << "[layout-debug]" << name
+                     << "w=" << w->width()
+                     << "h=" << w->height();
+        };
+
+        dump("canvasView", ui->canvasView);
+        dump("frame", ui->frame);
+        dump("propertyTable", ui->propertyTable);
+        dump("widget_3", ui->widget_3);
+    });
+
     // ① 数据模型
     m_variableModel = new VariableModel(this);
 
