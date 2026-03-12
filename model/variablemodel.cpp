@@ -145,3 +145,18 @@ bool VariableModel::updateValueById(const QString& varId, const QVariant& value)
     }
     return false;
 }
+
+
+bool VariableModel::valueById(const QString& varId, QVariant* outValue) const
+{
+    if (!outValue)
+        return false;
+
+    for (int row = 0; row < m_vars.size(); ++row) {
+        if (m_vars[row].id == varId) {
+            *outValue = m_vars[row].value;
+            return true;
+        }
+    }
+    return false;
+}

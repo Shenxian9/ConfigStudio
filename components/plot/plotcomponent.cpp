@@ -169,8 +169,15 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
                 m_bindingMgr->unbind(oldVarId, this, propName);
 
             m_varIds[idx] = newVarId;
-            if (!newVarId.isEmpty() && m_bindingMgr)
+            if (!newVarId.isEmpty() && m_bindingMgr) {
                 m_bindingMgr->bind(newVarId, this, propName);
+
+                QVariant currentVal;
+                if (m_bindingMgr->currentValue(newVarId, &currentVal)) {
+                    m_latestValues[idx] = currentVal.toDouble();
+                    m_hasLatestValues[idx] = true;
+                }
+            }
             return;
         }
 

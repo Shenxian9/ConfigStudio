@@ -40,6 +40,7 @@ public:
     Variable& variableAt(int row);
     void updateValue(int row, const QVariant& value);
     bool updateValueById(const QString& varId, const QVariant& value);
+    bool valueById(const QString& varId, QVariant* outValue) const;
 
 signals:
     void variableValueChanged(const QString& varId, const QVariant& value);
