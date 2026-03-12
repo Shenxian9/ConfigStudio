@@ -30,18 +30,20 @@ void IconLabel::updatePixmap()
     if (m_originalPixmap.isNull() || size().isEmpty())
         return;
 
-    // 计算缩放比例：相对于设计尺寸
-    double wRatio = double(width()) / m_designSize.width();
-    double hRatio = double(height()) / m_designSize.height();
-    double scale = qMin(wRatio, hRatio);
+    // 以当前可用区域为上限进行缩放，避免图标放大后破坏布局比例。
+    constexpr int kIconPadding = 6;
+    const QSize availableSize = contentsRect().adjusted(
+                                    kIconPadding / 2,
+                                    kIconPadding / 2,
+                                    -kIconPadding / 2,
+                                    -kIconPadding / 2)
+                                    .size()
+                                    .expandedTo(QSize(1, 1));
 
-    QSize targetSize = m_designSize * scale*1.9;
-
-    QPixmap scaled = m_originalPixmap.scaled(
-        targetSize,
+    const QPixmap scaled = m_originalPixmap.scaled(
+        availableSize,
         Qt::KeepAspectRatio,
-        Qt::SmoothTransformation
-        );
+        Qt::SmoothTransformation);
 
     setPixmap(scaled);
 }
