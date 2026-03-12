@@ -171,6 +171,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->labelOfNumeric->setIcon(":/icons/numeric.png");
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    refreshActionButtonIcons();
     ui->pushOfL_D->setText("darkmode");
     applyCanvasTheme(false);
     QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
@@ -498,15 +499,33 @@ void MainWindow::resizeEvent(QResizeEvent* event)
 
     enforceCanvasFrameRatio();
 
-    auto update = [](QPushButton* btn){
+    refreshActionButtonIcons();
+}
+
+void MainWindow::refreshActionButtonIcons()
+{
+    auto apply = [](QPushButton* btn){
         if (!btn) return;
-        const int size = qMin(btn->width(), btn->height()); // 以最短边为准
+        const int size = qMin(btn->width(), btn->height());
+        if (size <= 0)
+            return;
         const int iconSize = qMax(1, int(size * 0.92));
         btn->setIconSize(QSize(iconSize, iconSize));
+        btn->update();
     };
 
-    update(ui->deleteButton);
-    update(ui->buttonOfFullscreen);
+    // 立即尝试一次，再在布局稳定后补一次，规避时序导致的 setIconSize 失效。
+    apply(ui->deleteButton);
+    apply(ui->buttonOfFullscreen);
+
+    QTimer::singleShot(0, this, [this, apply]() {
+        apply(ui->deleteButton);
+        apply(ui->buttonOfFullscreen);
+    });
+    QTimer::singleShot(30, this, [this, apply]() {
+        apply(ui->deleteButton);
+        apply(ui->buttonOfFullscreen);
+    });
 }
 
 void MainWindow::enforceCanvasFrameRatio()
@@ -593,14 +612,8 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
     btn->setFocusPolicy(Qt::NoFocus);
     btn->setStyleSheet("QPushButton { padding: 0px; margin: 0px; border: none; }");
 
-    // 延迟设置 iconSize（与 IconLabel 视觉尺寸接近）
-    QTimer::singleShot(0, btn, [btn](){
-        const int size = qMin(btn->width(), btn->height());
-        if (size > 0) {
-            const int iconSize = qMax(1, int(size * 0.92));
-            btn->setIconSize(QSize(iconSize, iconSize));
-        }
-    });
+    // 走统一刷新入口，处理布局时序。
+    QTimer::singleShot(0, this, [this]() { refreshActionButtonIcons(); });
 }
 
 
@@ -871,5 +884,6 @@ void MainWindow::on_pushOfDesign_clicked()
     ui->MainStackedWidget->setCurrentWidget(ui->DesignWorkspace);
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    refreshActionButtonIcons();
     QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
 }

@@ -97,6 +97,7 @@ private:
 
     void applyCanvasTheme(bool darkMode);
     void enforceCanvasFrameRatio();
+    void refreshActionButtonIcons();
 
     VariableModel* m_variableModel;
     DataBindingManager* m_bindingMgr;
