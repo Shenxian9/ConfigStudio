@@ -1,3 +1,5 @@
+#include "runtime/databindingmanager.h"
+
 #include "wheelcomponent.h"
 
 WheelComponent::WheelComponent(QWidget *parent)
@@ -22,6 +24,9 @@ WheelComponent::WheelComponent(QWidget *parent)
     connect(m_wheel, &QwtWheel::valueChanged,
             this, [this](double v){
                 m_value->setText(QString::number(v, 'f', 1));
+
+                if (!m_updatingFromBinding && m_bindingMgr && !m_varId.isEmpty())
+                    m_bindingMgr->publishValue(m_varId, v);
             });
 
     // 初始化显示
@@ -37,6 +42,7 @@ QVariantMap WheelComponent::properties() const
     map["max"]   = m_wheel->maximum();
     map["value"] = m_wheel->value();
     map["step"]  = m_wheel->singleStep();
+    map["varId"] = m_varId;
     return map;
 }
 
@@ -52,12 +58,27 @@ void WheelComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_wheel->setRange(m_wheel->minimum(), v.toDouble());
     }
     else if (key == "value") {
-        double val = v.toDouble();
+        const double val = v.toDouble();
+        m_updatingFromBinding = true;
         m_wheel->setValue(val);
+        m_updatingFromBinding = false;
         m_value->setText(QString::number(val, 'f', 1)); // ⭐ 同步
     }
     else if (key == "step") {
         m_wheel->setSingleStep(v.toDouble());
+    }
+    else if (key == "varId") {
+        const QString newVarId = v.toString().trimmed();
+        if (newVarId == m_varId)
+            return;
+
+        if (!m_varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->unbind(m_varId, this, "value");
+
+        m_varId = newVarId;
+
+        if (!m_varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->bind(m_varId, this, "value");
     }
 }
 

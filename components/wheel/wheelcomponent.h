@@ -22,6 +22,9 @@ private:
     QLabel   *m_title;
     QwtWheel *m_wheel;
     QLabel   *m_value;
+
+    QString m_varId;
+    bool m_updatingFromBinding = false;
 };
 
 #endif
