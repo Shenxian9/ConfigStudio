@@ -173,7 +173,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
     ui->pushOfL_D->setText("darkmode");
     applyCanvasTheme(false);
-    enforceCanvasFrameRatio();
+    QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
 
     connect(ui->canvasView, &CanvasView::itemSelected,
             this, &MainWindow::onItemSelected);
@@ -195,6 +195,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     connect(ui->pushButton_6, &QPushButton::clicked, this, [this]() {
         if (!ui) return;
+
+        enforceCanvasFrameRatio();
 
         const auto dump = [](const char *name, QWidget *w) {
             if (!w) {
@@ -515,7 +517,12 @@ void MainWindow::enforceCanvasFrameRatio()
     if (!container)
         return;
 
-    const int totalHeight = container->height();
+    int totalHeight = container->height();
+    if (ui->widget_2)
+        totalHeight = qMax(totalHeight, ui->widget_2->height());
+    if (ui->propertyTable && ui->widget_3)
+        totalHeight = qMax(totalHeight, ui->propertyTable->height() + ui->widget_3->height());
+
     if (totalHeight <= 0)
         return;
 
@@ -860,4 +867,5 @@ void MainWindow::on_pushOfDesign_clicked()
     ui->MainStackedWidget->setCurrentWidget(ui->DesignWorkspace);
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
 }
