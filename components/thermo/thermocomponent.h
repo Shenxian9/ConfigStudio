@@ -20,6 +20,7 @@ public:
     QString type() const override { return "thermo"; }
 
     void resizeEvent(QResizeEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
     void setValue(double val);
 signals:
@@ -29,6 +30,8 @@ private:
     QwtThermo *m_thermo;
     QLabel    *m_title;
     QLabel      *m_value;
+
+    void applyFixedLiquidColor();
 
     QString m_varId;
 };
