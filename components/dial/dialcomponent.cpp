@@ -125,15 +125,31 @@ void DialComponent::applyDialPalette()
     if (!m_dial)
         return;
 
-    const QPalette canvasPalette = palette();
-    const bool darkMode = canvasPalette.color(QPalette::Window).lightness() < 128;
+    // Canvas 主题是通过样式表切换的，不能仅依赖 palette 明暗判断。
+    bool darkMode = false;
+    QWidget *w = this;
+    while (w) {
+        if (QString::fromLatin1(w->metaObject()->className()) == "CanvasView") {
+            const QString ss = w->styleSheet().toLower();
+            darkMode = ss.contains("#505050");
+            break;
+        }
+        w = w->parentWidget();
+    }
+
+    // 回退：若未拿到 CanvasView 样式，再用调色板明暗兜底。
+    if (!w) {
+        const QPalette canvasPalette = palette();
+        darkMode = canvasPalette.color(QPalette::Window).lightness() < 128;
+    }
 
     QPalette dialPalette = m_dial->palette();
 
-    // 盘面中心颜色：浅色模式白底；深色模式深灰底，避免被主题强制变成白圈看不清。
-    dialPalette.setColor(QPalette::Window, darkMode ? QColor("#2f2f2f") : QColor("white"));
-    dialPalette.setColor(QPalette::Base, darkMode ? QColor("#2f2f2f") : QColor("white"));
-    dialPalette.setColor(QPalette::Button, darkMode ? QColor("#2f2f2f") : QColor("white"));
+    // 盘面中心与当前主题背景一致：浅色白色，深色 #505050。
+    const QColor faceColor = darkMode ? QColor("#505050") : QColor("white");
+    dialPalette.setColor(QPalette::Window, faceColor);
+    dialPalette.setColor(QPalette::Base, faceColor);
+    dialPalette.setColor(QPalette::Button, faceColor);
 
     // 刻度与数字颜色：浅色模式深色；深色模式浅色，确保可读。
     const QColor scaleColor = darkMode ? QColor("#f2f2f2") : QColor("#1f1f1f");
