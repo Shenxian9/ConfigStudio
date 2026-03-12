@@ -145,30 +145,34 @@ void DialComponent::applyDialPalette()
 
     QPalette dialPalette = m_dial->palette();
 
-    // 盘面中心颜色：浅色模式灰色，深色模式白色。
+    // 盘面颜色：浅色模式灰色，深色模式白色。
     const QColor faceColor = darkMode ? QColor("#ffffff") : QColor("#bfbfbf");
-    dialPalette.setColor(QPalette::Window, faceColor);
-    dialPalette.setColor(QPalette::Base, faceColor);
-    dialPalette.setColor(QPalette::Button, faceColor);
-    dialPalette.setColor(QPalette::Light, faceColor);
-    dialPalette.setColor(QPalette::Midlight, faceColor);
-    dialPalette.setColor(QPalette::Mid, faceColor);
-    dialPalette.setColor(QPalette::Dark, faceColor);
-    dialPalette.setColor(QPalette::Shadow, faceColor);
-
-    // 刻度与数字颜色：浅色模式深色；深色模式浅色，确保可读。
+    // 刻度与数字颜色。
     const QColor scaleColor = darkMode ? QColor("#101010") : QColor("#1f1f1f");
-    dialPalette.setColor(QPalette::WindowText, scaleColor);
-    dialPalette.setColor(QPalette::Text, scaleColor);
-    dialPalette.setColor(QPalette::Foreground, scaleColor);
-    dialPalette.setColor(QPalette::ButtonText, scaleColor);
 
-    dialPalette.setColor(QPalette::Active, QPalette::Base, faceColor);
-    dialPalette.setColor(QPalette::Inactive, QPalette::Base, faceColor);
-    dialPalette.setColor(QPalette::Disabled, QPalette::Base, faceColor);
-    dialPalette.setColor(QPalette::Active, QPalette::Window, faceColor);
-    dialPalette.setColor(QPalette::Inactive, QPalette::Window, faceColor);
-    dialPalette.setColor(QPalette::Disabled, QPalette::Window, faceColor);
+    // QwtDial 关键角色：
+    // Base       -> 框内背景
+    // WindowText -> 刻度圈内部圆盘填充
+    // Text       -> 刻度和数字
+    const QPalette::ColorGroup groups[] = {
+        QPalette::Active,
+        QPalette::Inactive,
+        QPalette::Disabled
+    };
+
+    for (QPalette::ColorGroup group : groups) {
+        dialPalette.setColor(group, QPalette::Base, faceColor);
+        dialPalette.setColor(group, QPalette::Window, faceColor);
+        dialPalette.setColor(group, QPalette::Button, faceColor);
+
+        // 关键：WindowText 控制内盘填充，不用于刻度文字。
+        dialPalette.setColor(group, QPalette::WindowText, faceColor);
+
+        // 刻度/数字颜色使用 Text。
+        dialPalette.setColor(group, QPalette::Text, scaleColor);
+        dialPalette.setColor(group, QPalette::ButtonText, scaleColor);
+        dialPalette.setColor(group, QPalette::Foreground, scaleColor);
+    }
 
     m_dial->setAutoFillBackground(false);
     m_dial->setBackgroundRole(QPalette::Base);
