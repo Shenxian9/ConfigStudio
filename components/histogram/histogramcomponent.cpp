@@ -1,10 +1,39 @@
 #include "histogramcomponent.h"
-#include <qwt_plot.h>
-#include <qwt_plot_histogram.h>
-//#include <qwt_interval_data.h>
-#include <qwt_scale_draw.h>
-#include <qwt_text.h>      // 必须加
 
+#include <qwt_plot.h>
+#include <qwt_scale_div.h>
+#include <qwt_scale_draw.h>
+#include <qwt_text.h>
+
+#include "runtime/databindingmanager.h"
+
+#include <QPen>
+#include <QBrush>
+#include <QRegularExpression>
+#include <QtGlobal>
+
+namespace {
+class HistogramIntegerScaleDraw : public QwtScaleDraw {
+public:
+    explicit HistogramIntegerScaleDraw(int *barCount)
+        : m_barCount(barCount) {}
+
+    QwtText label(double value) const override
+    {
+        const int tick = qRound(value);
+        if (!qFuzzyCompare(value + 1.0, tick + 1.0))
+            return QwtText();
+
+        if (!m_barCount || tick < 1 || tick > *m_barCount)
+            return QwtText();
+
+        return QwtText(QString::number(tick));
+    }
+
+private:
+    int *m_barCount = nullptr;
+};
+}
 
 HistogramComponent::HistogramComponent(QWidget *parent)
     : CanvasItem(parent)
@@ -15,31 +44,37 @@ HistogramComponent::HistogramComponent(QWidget *parent)
     m_plot->setTitle("Histogram");
     m_plot->setAxisTitle(QwtPlot::xBottom, "X");
     m_plot->setAxisTitle(QwtPlot::yLeft, "Y");
+    m_plot->setAxisScaleDraw(QwtPlot::xBottom, new HistogramIntegerScaleDraw(&m_barCount));
+    m_plot->setAxisMaxMinor(QwtPlot::xBottom, 0);
     m_plot->setGeometry(rect());
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
 
-    // 初始化柱状图
-    m_histogram = new QwtPlotHistogram("Histogram");
-    QVector<QwtIntervalSample> samples;
-    samples.append(QwtIntervalSample(1, 0, 1));
-    samples.append(QwtIntervalSample(4, 1, 2));
-    samples.append(QwtIntervalSample(9, 2, 3));
-    samples.append(QwtIntervalSample(16, 3, 4));
-    m_histogram->setSamples(samples);
-    m_histogram->attach(m_plot);
+    m_values = QVector<double>(m_barCount, 0.0);
+    m_varIds.clear();
+    for (int i = 0; i < m_barCount; ++i)
+        m_varIds.append(QString());
+
+    rebuildBars();
+    refreshSamples();
 }
 
 QVariantMap HistogramComponent::properties() const
 {
     QVariantMap map;
     map["title"] = m_plot->title().text();
+    map["xAxisTitle"] = m_plot->axisTitle(QwtPlot::xBottom).text();
+    map["yAxisTitle"] = m_plot->axisTitle(QwtPlot::yLeft).text();
     map["xMin"] = m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     map["xMax"] = m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    map["yMin"] = m_yMin;
+    map["yMax"] = m_yMax;
+    map["barCount"] = m_barCount;
 
-    QVariantList values;
-    for (const auto &s : m_samples)
-        values.append(s.value);
-
-    map["values"] = values;
+    for (int i = 0; i < m_barCount; ++i) {
+        map[QString("value%1").arg(i + 1)] = m_values.value(i);
+        map[QString("varId%1").arg(i + 1)] = m_varIds.value(i);
+    }
 
     return map;
 }
@@ -49,21 +84,166 @@ void HistogramComponent::setPropertyValue(const QString& key, const QVariant& v)
     if (key == "title") {
         m_plot->setTitle(v.toString());
     }
+    else if (key == "xAxisTitle") {
+        m_plot->setAxisTitle(QwtPlot::xBottom, v.toString());
+    }
+    else if (key == "yAxisTitle") {
+        m_plot->setAxisTitle(QwtPlot::yLeft, v.toString());
+    }
+    else if (key == "yMin") {
+        m_yMin = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMax = m_yMin + 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
+    }
+    else if (key == "yMax") {
+        m_yMax = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMin = m_yMax - 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
+    }
+    else if (key == "barCount") {
+        const int n = qMax(1, v.toInt());
+        if (n == m_barCount)
+            return;
+
+        for (int i = 0; i < m_varIds.size(); ++i) {
+            if (!m_varIds[i].isEmpty() && m_bindingMgr)
+                m_bindingMgr->unbind(m_varIds[i], this, QString("value%1").arg(i + 1));
+        }
+
+        m_barCount = n;
+        m_values.resize(m_barCount);
+        while (m_varIds.size() < m_barCount)
+            m_varIds.append(QString());
+        while (m_varIds.size() > m_barCount)
+            m_varIds.removeLast();
+
+        rebuildBars();
+        refreshSamples();
+        rebindAllSeries();
+    }
     else if (key == "values") {
         if (v.canConvert<QVariantList>()) {
-            QVariantList list = v.toList();
-            QVector<QwtIntervalSample> samples;
-            for (int i = 0; i < list.size(); ++i) {
-                double val = list[i].toDouble();
-                samples.append(QwtIntervalSample(val, i, i+1));
-            }
-            m_samples = samples;                // 保存数据
-            m_histogram->setSamples(m_samples); // 更新柱状图
-            m_plot->replot();
+            const QVariantList list = v.toList();
+            const int count = qMin(list.size(), m_barCount);
+            for (int i = 0; i < count; ++i)
+                m_values[i] = list[i].toDouble();
+            refreshSamples();
         }
+    }
+    else if (key == "value") {
+        setPropertyValue("value1", v);
+    }
+    else if (key == "varId") {
+        setPropertyValue("varId1", v);
+    }
+    else {
+        QRegularExpression valueRe("^value(\\d+)$");
+        QRegularExpressionMatch vm = valueRe.match(key);
+        if (vm.hasMatch()) {
+            const int idx = vm.captured(1).toInt() - 1;
+            if (idx < 0 || idx >= m_barCount)
+                return;
+            m_values[idx] = v.toDouble();
+            refreshSamples();
+            return;
+        }
+
+        QRegularExpression varIdRe("^varId(\\d+)$");
+        QRegularExpressionMatch idm = varIdRe.match(key);
+        if (idm.hasMatch()) {
+            const int idx = idm.captured(1).toInt() - 1;
+            if (idx < 0 || idx >= m_barCount)
+                return;
+
+            const QString oldVarId = m_varIds.value(idx);
+            const QString newVarId = v.toString().trimmed();
+            if (oldVarId == newVarId)
+                return;
+
+            if (!newVarId.isEmpty()) {
+                for (int i = 0; i < m_varIds.size(); ++i) {
+                    if (i != idx && m_varIds.value(i) == newVarId)
+                        return;
+                }
+            }
+
+            const QString propName = QString("value%1").arg(idx + 1);
+            if (!oldVarId.isEmpty() && m_bindingMgr)
+                m_bindingMgr->unbind(oldVarId, this, propName);
+
+            m_varIds[idx] = newVarId;
+            if (!newVarId.isEmpty() && m_bindingMgr)
+                m_bindingMgr->bind(newVarId, this, propName);
+            return;
+        }
+    }
+
+    m_plot->replot();
+}
+
+void HistogramComponent::rebuildBars()
+{
+    for (QwtPlotHistogram *bar : m_bars) {
+        if (!bar)
+            continue;
+        bar->detach();
+        delete bar;
+    }
+    m_bars.clear();
+
+    static const QVector<QColor> palette = {
+        QColor(255, 0, 0), QColor(0, 180, 0), QColor(0, 90, 255),
+        QColor(255, 140, 0), QColor(160, 32, 240), QColor(0, 180, 180)
+    };
+
+    for (int i = 0; i < m_barCount; ++i) {
+        auto *bar = new QwtPlotHistogram(QString("Bar %1").arg(i + 1));
+        const QColor color = palette[i % palette.size()];
+        bar->setBrush(QBrush(color));
+        bar->setPen(QPen(color.darker(130), 1));
+        bar->attach(m_plot);
+        m_bars.append(bar);
     }
 }
 
+void HistogramComponent::rebindAllSeries()
+{
+    for (int i = 0; i < m_barCount; ++i) {
+        const QString varId = m_varIds.value(i);
+        if (!varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->bind(varId, this, QString("value%1").arg(i + 1));
+    }
+}
+
+void HistogramComponent::refreshSamples()
+{
+    if (m_values.size() < m_barCount)
+        m_values.resize(m_barCount);
+
+    constexpr double kBarHalfWidth = 0.35; // 每个柱子左右留白，保证柱间和边缘间距
+
+    for (int i = 0; i < m_bars.size(); ++i) {
+        if (!m_bars[i])
+            continue;
+
+        const double center = static_cast<double>(i + 1);
+        const double left = center - kBarHalfWidth;
+        const double right = center + kBarHalfWidth;
+        QVector<QwtIntervalSample> samples;
+        samples.append(QwtIntervalSample(m_values.value(i), left, right));
+        m_bars[i]->setSamples(samples);
+    }
+
+    // X 轴固定以整数中心点显示标签：1..N，且两侧保留空白。
+    m_plot->setAxisScale(QwtPlot::xBottom, 0.5, qMax(1, m_barCount) + 0.5, 1.0);
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
+    m_plot->replot();
+}
 
 void HistogramComponent::resizeEvent(QResizeEvent* event)
 {

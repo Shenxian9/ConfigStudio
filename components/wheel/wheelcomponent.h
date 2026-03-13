@@ -17,11 +17,16 @@ public:
     QString type() const override { return "wheel"; }
 
     void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     QLabel   *m_title;
     QwtWheel *m_wheel;
     QLabel   *m_value;
+
+    QString m_varId;
+    bool m_updatingFromBinding = false;
+    bool m_userInteracting = false;
 };
 
 #endif

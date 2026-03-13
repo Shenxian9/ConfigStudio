@@ -171,6 +171,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->labelOfNumeric->setIcon(":/icons/numeric.png");
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    setupIconButton(ui->pushOfDatasrc, ":/icons/datasource.png");
+    setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
     refreshActionButtonIcons();
     //ui->pushOfL_D->setText("darkmode");
     applyCanvasTheme(false);
@@ -267,10 +269,13 @@ MainWindow::MainWindow(QWidget *parent)
                 .strategy=DataStrategy::Random};
     Variable v3{.id="3", .name="Age", .deviceId="PLC3", .type="float", .unit="year",
                 .strategy=DataStrategy::Square};
+    Variable v4{.id="Variable", .name="Variable", .deviceId="TEST", .type="float", .unit="",
+                .value=50.0, .strategy=DataStrategy::None};
 
     m_variableModel->addVariable(v1);
     m_variableModel->addVariable(v2);
-        m_variableModel->addVariable(v3);
+    m_variableModel->addVariable(v3);
+    m_variableModel->addVariable(v4);
 
     // 启动仿真
     RuntimeSimulator* sim = new RuntimeSimulator(m_variableModel, this);
@@ -507,9 +512,9 @@ void MainWindow::refreshActionButtonIcons()
     auto apply = [](QPushButton* btn){
         if (!btn) return;
         const int size = qMin(btn->width(), btn->height());
-        if (size <= 0)
+        if (size < 16)
             return;
-        const int iconSize = qMax(1, int(size * 0.97));
+        const int iconSize = qMax(16, int(size * 0.97));
         btn->setIconSize(QSize(iconSize, iconSize));
         btn->update();
     };
@@ -517,14 +522,23 @@ void MainWindow::refreshActionButtonIcons()
     // 立即尝试一次，再在布局稳定后补一次，规避时序导致的 setIconSize 失效。
     apply(ui->deleteButton);
     apply(ui->buttonOfFullscreen);
+    apply(ui->pushOfL_D);
+    apply(ui->pushOfDatasrc);
+    apply(ui->pushOfDesign);
 
     QTimer::singleShot(0, this, [this, apply]() {
         apply(ui->deleteButton);
         apply(ui->buttonOfFullscreen);
+        apply(ui->pushOfL_D);
+        apply(ui->pushOfDatasrc);
+        apply(ui->pushOfDesign);
     });
     QTimer::singleShot(30, this, [this, apply]() {
         apply(ui->deleteButton);
         apply(ui->buttonOfFullscreen);
+        apply(ui->pushOfL_D);
+        apply(ui->pushOfDatasrc);
+        apply(ui->pushOfDesign);
     });
 }
 
@@ -574,6 +588,8 @@ void MainWindow::applyCanvasTheme(bool darkMode)
     if (!ui || !ui->canvasView)
         return;
 
+    setupIconButton(ui->pushOfL_D, darkMode ? ":/icons/lightmode.png" : ":/icons/darkmode.png");
+
     if (darkMode) {
         ui->canvasView->setStyleSheet(
             "CanvasView { background-color: #505050; }"
@@ -608,6 +624,7 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
     if (pix.isNull()) return;
 
     btn->setIcon(QIcon(pix));
+    btn->setText(QString());
     btn->setFlat(true);
     btn->setFocusPolicy(Qt::NoFocus);
     btn->setStyleSheet("QPushButton { padding: 0px; margin: 0px; border: none; }");
@@ -623,13 +640,14 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
 void MainWindow::on_pushOfDatasrc_clicked()
 {
     ui->MainStackedWidget->setCurrentWidget(ui->DataWorkspace);
+    refreshActionButtonIcons();
+    QTimer::singleShot(0, this, [this]() { refreshActionButtonIcons(); });
 }
 
 void MainWindow::on_pushOfL_D_clicked()
 {
     const bool nextDarkMode = !m_darkCanvasMode;
     applyCanvasTheme(nextDarkMode);
-    ui->pushOfL_D->setText(nextDarkMode ? "lightmode" : "darkmode");
 }
 
 void MainWindow::editPropertyCell(int row, int col)
@@ -819,7 +837,7 @@ void MainWindow::editPropertyCell(int row, int col)
                 }
                 if (targetItem) {
                     targetItem->setPropertyValue(key, newVal);
-                    if (key == "curveCount" || key == "varId" || key.startsWith("varId"))
+                    if (key == "curveCount" || key == "barCount" || key == "varId" || key.startsWith("varId"))
                         showProperties(targetItem);
                 }
             }, Qt::QueuedConnection);
@@ -884,6 +902,8 @@ void MainWindow::on_pushOfDesign_clicked()
     ui->MainStackedWidget->setCurrentWidget(ui->DesignWorkspace);
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
+    setupIconButton(ui->pushOfDatasrc, ":/icons/datasource.png");
+    setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
     refreshActionButtonIcons();
     QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
 }

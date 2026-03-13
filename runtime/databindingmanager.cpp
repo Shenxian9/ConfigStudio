@@ -65,6 +65,23 @@ void DataBindingManager::unbind(const QString& varId, CanvasItem* item, const QS
 }
 
 
+
+bool DataBindingManager::publishValue(const QString& varId, const QVariant& value)
+{
+    if (!m_model || varId.trimmed().isEmpty())
+        return false;
+
+    return m_model->updateValueById(varId.trimmed(), value);
+}
+
+
+bool DataBindingManager::currentValue(const QString& varId, QVariant* outValue) const
+{
+    if (!m_model)
+        return false;
+    return m_model->valueById(varId.trimmed(), outValue);
+}
+
 void DataBindingManager::onVariableChanged(const QString& varId, const QVariant& value)
 {
     auto it = m_bindings.find(varId);

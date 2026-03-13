@@ -18,6 +18,7 @@ public:
     QString type() const override { return "slider"; }
 
     void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void setValue(double val);
 
 signals:
@@ -27,6 +28,10 @@ private:
     QwtSlider *m_slider;
     QLabel      *m_valueLabel;
     QLabel    *m_title;
+
+    QString m_varId;
+    bool m_updatingFromBinding = false;
+    bool m_userInteracting = false;
 };
 
 #endif

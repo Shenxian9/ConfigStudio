@@ -133,3 +133,30 @@ void VariableModel::updateValue(int row, const QVariant& value)
     //qDebug() << "Model emit:" << m_vars[row].id << value;
     emit variableValueChanged(m_vars[row].id, value);  // ⭐ 广播
 }
+
+
+bool VariableModel::updateValueById(const QString& varId, const QVariant& value)
+{
+    for (int row = 0; row < m_vars.size(); ++row) {
+        if (m_vars[row].id == varId) {
+            updateValue(row, value);
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool VariableModel::valueById(const QString& varId, QVariant* outValue) const
+{
+    if (!outValue)
+        return false;
+
+    for (int row = 0; row < m_vars.size(); ++row) {
+        if (m_vars[row].id == varId) {
+            *outValue = m_vars[row].value;
+            return true;
+        }
+    }
+    return false;
+}

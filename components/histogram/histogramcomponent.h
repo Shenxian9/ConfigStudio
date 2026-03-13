@@ -5,7 +5,7 @@
 #include "canvas/canvasitem.h"
 #include <qwt_plot.h>
 #include <qwt_plot_histogram.h>
-
+#include <QStringList>
 
 class HistogramComponent : public CanvasItem {
     Q_OBJECT
@@ -20,9 +20,19 @@ public:
     void resizeEvent(QResizeEvent* event) override;
 
 private:
+    void rebuildBars();
+    void rebindAllSeries();
+    void refreshSamples();
+
     QwtPlot *m_plot;
-    QwtPlotHistogram *m_histogram;
-    QVector<QwtIntervalSample> m_samples; // 保存柱子数据
+    QVector<QwtPlotHistogram*> m_bars;
+    QVector<double> m_values;
+    QStringList m_varIds;
+
+    int m_barCount = 1;
+
+    double m_yMin = 0.0;
+    double m_yMax = 100.0;
 };
 
 #endif

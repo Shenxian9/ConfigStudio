@@ -1,3 +1,6 @@
+#include <QPalette>
+#include <QEvent>
+
 #include "thermocomponent.h"
 
 ThermoComponent::ThermoComponent(QWidget *parent)
@@ -18,7 +21,7 @@ ThermoComponent::ThermoComponent(QWidget *parent)
     m_thermo->setOrientation(Qt::Vertical);
     m_thermo->setScale(0, 100);
 
-    m_thermo->setFillBrush(Qt::red);
+    applyFixedLiquidColor();
 
     // 初始化显示
     m_value->setText(QString::number(m_thermo->value(), 'f', 1));
@@ -80,8 +83,36 @@ void ThermoComponent::setPropertyValue(const QString& key, const QVariant& v)
 }
 
 
+void ThermoComponent::applyFixedLiquidColor()
+{
+    if (!m_thermo)
+        return;
+
+    const QColor fixedRed(220, 38, 38);
+    m_thermo->setFillBrush(QBrush(fixedRed));
+
+    QPalette pal = m_thermo->palette();
+    pal.setColor(QPalette::ButtonText, fixedRed);
+    pal.setColor(QPalette::Highlight, fixedRed);
+    pal.setColor(QPalette::BrightText, fixedRed);
+    pal.setColor(QPalette::WindowText, fixedRed);
+    m_thermo->setPalette(pal);
+    m_thermo->update();
+}
+
+void ThermoComponent::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+    if (!event)
+        return;
+
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange)
+        applyFixedLiquidColor();
+}
+
 void ThermoComponent::setValue(double val)
 {
+    applyFixedLiquidColor();
     m_thermo->setValue(val);
     m_value->setText(QString::number(val, 'f', 1));
     emit valueChanged(val);

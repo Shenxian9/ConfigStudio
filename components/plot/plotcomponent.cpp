@@ -1,6 +1,8 @@
 #include "plotcomponent.h"
 #include <qwt_text.h>
 #include <qwt_scale_div.h>
+#include <qwt_scale_draw.h>
+#include <qwt_scale_widget.h>
 
 #include <qwt_plot_curve.h>
 
@@ -14,6 +16,17 @@
 #include <QtGlobal>
 #include <QPen>
 
+
+namespace {
+class PlotIntegerScaleDraw : public QwtScaleDraw {
+public:
+    QwtText label(double value) const override
+    {
+        return QwtText(QString::number(qRound(value)));
+    }
+};
+}
+
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
 {
@@ -23,6 +36,13 @@ PlotComponent::PlotComponent(QWidget *parent)
     m_plot->setTitle("Plot");
     m_plot->setAxisTitle(QwtPlot::xBottom, "X");
     m_plot->setAxisTitle(QwtPlot::yLeft, "Y");
+    m_plot->setAxisScaleDraw(QwtPlot::xBottom, new PlotIntegerScaleDraw());
+    m_plot->setAxisMaxMinor(QwtPlot::xBottom, 0);
+    m_plot->setAxisMaxMajor(QwtPlot::xBottom, 6);
+    if (auto *xAxisWidget = m_plot->axisWidget(QwtPlot::xBottom))
+        xAxisWidget->setMinBorderDist(24, 24);
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->setGeometry(rect());
     m_plot->installEventFilter(this);
 
@@ -32,6 +52,12 @@ PlotComponent::PlotComponent(QWidget *parent)
     rebuildCurves();
 
     m_xData.reserve(m_maxPoints);
+
+    m_latestValues = QVector<double>(m_curveCount, 0.0);
+    m_hasLatestValues = QVector<bool>(m_curveCount, false);
+
+    connect(&m_sampleTimer, &QTimer::timeout, this, [this]() { sampleAtFixedRate(); });
+    applySampleTimer();
 }
 
 
@@ -43,10 +69,11 @@ QVariantMap PlotComponent::properties() const
     map["yAxisTitle"] = m_plot->axisTitle(QwtPlot::yLeft).text();
     map["xMin"] = m_xData.isEmpty() ? 0.0 : m_xData.first();
     map["xMax"] = m_xData.isEmpty() ? 0.0 : m_xData.last();
+    map["yMin"] = m_yMin;
+    map["yMax"] = m_yMax;
     map["curveCount"] = m_curveCount;
     map["maxPoints"] = m_maxPoints;
-    if (m_curveCount > 0)
-        map["varId"] = m_varIds.value(0);
+    map["refreshRate"] = m_refreshRate;
     for (int i = 0; i < m_curveCount; ++i)
         map[QString("varId%1").arg(i + 1)] = m_varIds.value(i);
     return map;
@@ -55,7 +82,10 @@ QVariantMap PlotComponent::properties() const
 void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
 {
     if (key == "value") {
-        appendValue(v.toDouble(), 0);
+        if (!m_latestValues.isEmpty()) {
+            m_latestValues[0] = v.toDouble();
+            m_hasLatestValues[0] = true;
+        }
     }
     else if (key == "title") {
         m_plot->setTitle(v.toString());
@@ -66,6 +96,22 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "yAxisTitle") {
         m_plot->setAxisTitle(QwtPlot::yLeft, v.toString());
+        m_plot->replot();
+    }
+    else if (key == "yMin") {
+        m_yMin = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMax = m_yMin + 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
+        m_plot->replot();
+    }
+    else if (key == "yMax") {
+        m_yMax = v.toDouble();
+        if (m_yMax <= m_yMin)
+            m_yMin = m_yMax - 1.0;
+        m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+        m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
         m_plot->replot();
     }
     else if (key == "curveCount") {
@@ -85,6 +131,13 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
         while (m_varIds.size() > m_curveCount)
             m_varIds.removeLast();
 
+        m_latestValues.resize(m_curveCount);
+        m_hasLatestValues.resize(m_curveCount);
+        for (int i = 0; i < m_hasLatestValues.size(); ++i) {
+            if (!m_hasLatestValues[i])
+                m_latestValues[i] = 0.0;
+        }
+
         rebuildCurves();
         rebindAllSeries();
     }
@@ -92,6 +145,13 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
         int mp = v.toInt();
         if (mp > 0)
             m_maxPoints = mp;
+    }
+    else if (key == "refreshRate") {
+        const int hz = qMax(1, v.toInt());
+        if (hz != m_refreshRate) {
+            m_refreshRate = hz;
+            applySampleTimer();
+        }
     }
     else if (key == "varId") {
         setPropertyValue("varId1", v);
@@ -127,8 +187,15 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
                 m_bindingMgr->unbind(oldVarId, this, propName);
 
             m_varIds[idx] = newVarId;
-            if (!newVarId.isEmpty() && m_bindingMgr)
+            if (!newVarId.isEmpty() && m_bindingMgr) {
                 m_bindingMgr->bind(newVarId, this, propName);
+
+                QVariant currentVal;
+                if (m_bindingMgr->currentValue(newVarId, &currentVal)) {
+                    m_latestValues[idx] = currentVal.toDouble();
+                    m_hasLatestValues[idx] = true;
+                }
+            }
             return;
         }
 
@@ -136,7 +203,10 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
         QRegularExpressionMatch m = valueRe.match(key);
         if (m.hasMatch()) {
             const int idx = m.captured(1).toInt() - 1;
-            appendValue(v.toDouble(), idx);
+            if (idx < 0 || idx >= m_curveCount)
+                return;
+            m_latestValues[idx] = v.toDouble();
+            m_hasLatestValues[idx] = true;
             return;
         }
     }
@@ -145,6 +215,7 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
 
 void PlotComponent::resizeEvent(QResizeEvent* event)
 {
+    QWidget::resizeEvent(event);
     if (m_plot)
         m_plot->setGeometry(rect());
 }
@@ -184,6 +255,8 @@ void PlotComponent::rebuildCurves()
         m_curves.append(curve);
     }
 
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->replot();
 }
 
@@ -196,6 +269,23 @@ void PlotComponent::rebindAllSeries()
     }
 }
 
+
+
+void PlotComponent::applySampleTimer()
+{
+    const int hz = qMax(1, m_refreshRate);
+    const int intervalMs = qMax(1, int(1000 / hz));
+    m_sampleTimer.start(intervalMs);
+}
+
+void PlotComponent::sampleAtFixedRate()
+{
+    for (int i = 0; i < m_curveCount; ++i) {
+        if (!m_hasLatestValues.value(i))
+            continue;
+        appendValue(m_latestValues.value(i), i);
+    }
+}
 
 void PlotComponent::mouseDoubleClickEvent(QMouseEvent *event)
 {
@@ -414,8 +504,15 @@ void PlotComponent::appendValue(double value, int seriesIndex)
             m_curves[i]->setSamples(m_xData, m_ySeries.value(i));
     }
 
-    if (!m_xData.isEmpty())
-        m_plot->setAxisScale(QwtPlot::xBottom, m_xData.first(), m_xData.last());
+    if (!m_xData.isEmpty()) {
+        const double xmin = m_xData.first();
+        const double xmax = m_xData.last();
+        const double span = qMax(1.0, xmax - xmin);
+        const double step = qMax(1.0, static_cast<double>(qRound(span / 5.0)));
+        m_plot->setAxisScale(QwtPlot::xBottom, xmin, xmax, step);
+    }
 
+    m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
+    m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->replot();
 }

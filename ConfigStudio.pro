@@ -1,6 +1,7 @@
 QT       += core gui
 QT += widgets
 QT += quick quickwidgets qml
+QT += serialport
 
 TEMPLATE = app
 TARGET = ConfigStudio
