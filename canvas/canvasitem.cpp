@@ -63,7 +63,7 @@ void CanvasItem::setEditLocked(bool locked)
     for (QWidget *w : widgets) {
         if (!w || w == m_selectionFrame || w == m_resizeHandleOverlay)
             continue;
-        w->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+        w->setAttribute(Qt::WA_TransparentForMouseEvents, !locked);
     }
     updateSelectionOverlay();
     update();
@@ -80,23 +80,9 @@ void CanvasItem::childEvent(QChildEvent *event)
     if (!w || w == m_selectionFrame || w == m_resizeHandleOverlay)
         return;
 
-    // 设计态也允许子控件交互（例如 slider/switch/wheel 直接拖动）。
-    w->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    w->installEventFilter(this);
-}
-
-
-bool CanvasItem::eventFilter(QObject *watched, QEvent *event)
-{
-    QWidget *child = qobject_cast<QWidget*>(watched);
-    if (!child || child->parentWidget() != this || child == m_selectionFrame || child == m_resizeHandleOverlay)
-        return QWidget::eventFilter(watched, event);
-
-    if (event && (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::TouchBegin)) {
-        emit selected(this);
-    }
-
-    return QWidget::eventFilter(watched, event);
+    // 设计态时子控件不消费鼠标事件，便于选中/拖拽组件；
+    // 运行态（editLocked=true）恢复子控件交互。
+    w->setAttribute(Qt::WA_TransparentForMouseEvents, !m_editLocked);
 }
 
 void CanvasItem::resizeEvent(QResizeEvent *event)

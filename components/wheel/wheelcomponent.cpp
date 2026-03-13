@@ -1,5 +1,7 @@
 #include "runtime/databindingmanager.h"
 
+#include <QEvent>
+
 #include "wheelcomponent.h"
 
 WheelComponent::WheelComponent(QWidget *parent)
@@ -20,6 +22,7 @@ WheelComponent::WheelComponent(QWidget *parent)
     m_wheel->setSingleStep(1.0);
     // 触控设备上过大的 mass 会让拖动显得“发涩”，降低后跟手更好。
     m_wheel->setMass(0.08);
+    m_wheel->installEventFilter(this);
 
     // ⭐ 核心：wheel 变化 → label 更新
     connect(m_wheel, &QwtWheel::valueChanged,
@@ -59,6 +62,9 @@ void WheelComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_wheel->setRange(m_wheel->minimum(), v.toDouble());
     }
     else if (key == "value") {
+        if (m_userInteracting)
+            return;
+
         const double val = v.toDouble();
         m_updatingFromBinding = true;
         m_wheel->setValue(val);
@@ -83,6 +89,28 @@ void WheelComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
 }
 
+
+
+bool WheelComponent::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_wheel && event) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+        case QEvent::TouchBegin:
+            m_userInteracting = true;
+            break;
+        case QEvent::MouseButtonRelease:
+        case QEvent::TouchEnd:
+        case QEvent::Leave:
+            m_userInteracting = false;
+            break;
+        default:
+            break;
+        }
+    }
+
+    return CanvasItem::eventFilter(watched, event);
+}
 
 void WheelComponent::resizeEvent(QResizeEvent *event)
 {
