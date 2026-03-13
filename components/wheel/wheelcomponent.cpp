@@ -18,7 +18,8 @@ WheelComponent::WheelComponent(QWidget *parent)
     m_wheel->setRange(0.0, 100.0);
     m_wheel->setValue(50.0);
     m_wheel->setSingleStep(1.0);
-    m_wheel->setMass(0.3);
+    // 触控设备上过大的 mass 会让拖动显得“发涩”，降低后跟手更好。
+    m_wheel->setMass(0.08);
 
     // ⭐ 核心：wheel 变化 → label 更新
     connect(m_wheel, &QwtWheel::valueChanged,
@@ -94,26 +95,18 @@ void WheelComponent::resizeEvent(QResizeEvent *event)
     int valueH = 20;
 
     m_title->setGeometry(0, 0, w, titleH);
-    m_value->setGeometry(0, h-titleH, w, valueH);
+    m_value->setGeometry(0, h - valueH, w, valueH);
 
-    // 剩余区域
-    int wheelAreaY = titleH + valueH;
-    int wheelAreaH = h - wheelAreaY;
+    // 标题与数值标签之间整块区域都作为可拖动区域，提升触控连续性。
+    const int marginX = qMax(4, w / 16);
+    const int marginY = 4;
+    const int wheelY = titleH + marginY;
+    const int wheelH = qMax(24, h - titleH - valueH - marginY * 2);
+    const int wheelW = qMax(24, w - marginX * 2);
 
-    // ⭐ 控制视觉宽度（不要太胖）
-    int wheelVisualWidth = qMin(w / 6*4, 400);   // 最大 40
-    int wheelAreaWidth   = wheelVisualWidth + 20; // 留点边距
+    m_wheel->setGeometry(marginX, wheelY, wheelW, wheelH);
 
-    int x = (w - wheelAreaWidth) / 2;
-
-    m_wheel->setGeometry(
-        x,
-        wheelAreaY - 12,                // 上下留白
-        wheelAreaWidth,
-        wheelAreaH - 16
-        );
-
-    // ⭐ 控制滚轮“厚度”
+    // 轮体厚度按当前控件宽度自适应，避免太窄导致难以拖动。
+    const int wheelVisualWidth = qMax(16, qMin(wheelW - 8, 80));
     m_wheel->setWheelWidth(wheelVisualWidth);
 }
-
