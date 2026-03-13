@@ -1,5 +1,7 @@
 #include "runtime/databindingmanager.h"
 
+#include <QEvent>
+
 #include "slidercomponent.h"
 
 SliderComponent::SliderComponent(QWidget *parent)
@@ -20,6 +22,7 @@ SliderComponent::SliderComponent(QWidget *parent)
     m_slider->setOrientation(Qt::Horizontal);
     m_slider->setScale(0, 100);
     m_slider->setValue(50);
+    m_slider->installEventFilter(this);
 
     // ⭐ 绑定 Slider 值变化，实时更新 Label
     connect(m_slider, &QwtSlider::valueChanged, this, [this](double v){
@@ -60,6 +63,8 @@ void SliderComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_slider->setScale(min, v.toDouble());
     }
     else if (key == "value") {
+        if (m_userInteracting)
+            return;
         setValue(v.toDouble());
     }
     else if (key == "varId") {
@@ -84,6 +89,28 @@ void SliderComponent::setValue(double val)
     m_updatingFromBinding = false;
 
     m_valueLabel->setText(QString::number(val, 'f', 1));
+}
+
+
+bool SliderComponent::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_slider && event) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+        case QEvent::TouchBegin:
+            m_userInteracting = true;
+            break;
+        case QEvent::MouseButtonRelease:
+        case QEvent::TouchEnd:
+        case QEvent::Leave:
+            m_userInteracting = false;
+            break;
+        default:
+            break;
+        }
+    }
+
+    return CanvasItem::eventFilter(watched, event);
 }
 
 void SliderComponent::resizeEvent(QResizeEvent *event)
