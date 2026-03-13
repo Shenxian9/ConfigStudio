@@ -212,6 +212,7 @@ void PlotComponent::setPropertyValue(const QString& key, const QVariant& v)
 
 void PlotComponent::resizeEvent(QResizeEvent* event)
 {
+    QWidget::resizeEvent(event);
     if (m_plot)
         m_plot->setGeometry(rect());
 }
@@ -504,7 +505,7 @@ void PlotComponent::appendValue(double value, int seriesIndex)
         const double xmin = m_xData.first();
         const double xmax = m_xData.last();
         const double span = qMax(1.0, xmax - xmin);
-        const double step = qMax(1.0, qRound(span / 5.0));
+        const double step = qMax(1.0, static_cast<double>(qRound(span / 5.0)));
         m_plot->setAxisScale(QwtPlot::xBottom, xmin, xmax, step);
     }
 
