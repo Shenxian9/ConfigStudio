@@ -192,7 +192,6 @@ void NumericComponent::changeEvent(QEvent *event)
         event->type() == QEvent::ApplicationPaletteChange) {
         const bool dark = isCanvasDarkMode();
         m_themeDark = dark;
-        m_blackBg = dark;
         applyLabelStyle();
     }
 }
