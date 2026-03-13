@@ -203,7 +203,11 @@ void NumericComponent::ensureInputPanel()
     if (m_inputPanel)
         return;
 
-    QFrame *panel = new QFrame(this);
+    QWidget *host = window();
+    if (!host)
+        host = this;
+
+    QFrame *panel = new QFrame(host);
     panel->setFrameShape(QFrame::StyledPanel);
     panel->setStyleSheet("QFrame { background: white; border: 2px solid #7aa7d9; border-radius: 8px; }");
 
@@ -213,7 +217,7 @@ void NumericComponent::ensureInputPanel()
     QFont inputFont = m_inputEdit->font();
     inputFont.setPointSize(18);
     m_inputEdit->setFont(inputFont);
-    m_inputEdit->setMinimumHeight(48);
+    m_inputEdit->setMinimumHeight(52);
     layout->addWidget(m_inputEdit);
 
     QPushButton *okBtn = new QPushButton("OK", panel);
@@ -280,12 +284,15 @@ void NumericComponent::mouseDoubleClickEvent(QMouseEvent *event)
     m_userEditing = true;
     m_inputEdit->setText(QString::number(m_value, 'f', m_decimals));
 
-    const int panelW = qMax(240, width() - 12);
-    const int panelH = 170;
-    m_inputPanel->setGeometry((width() - panelW) / 2,
-                              qMax(4, (height() - panelH) / 2),
-                              panelW,
-                              panelH);
+    QWidget *host = m_inputPanel->parentWidget();
+    if (!host)
+        host = this;
+
+    const int panelW = qMax(320, host->width() / 2);
+    const int panelH = 220;
+    const int panelX = (host->width() - panelW) / 2;
+    const int panelY = qMax(16, (host->height() - panelH) / 2 - host->height() / 6);
+    m_inputPanel->setGeometry(panelX, panelY, panelW, panelH);
     m_inputPanel->show();
     m_inputPanel->raise();
 
