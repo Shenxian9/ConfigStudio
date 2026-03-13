@@ -1,6 +1,7 @@
 #include "plotcomponent.h"
 #include <qwt_text.h>
 #include <qwt_scale_div.h>
+#include <qwt_scale_draw.h>
 
 #include <qwt_plot_curve.h>
 
@@ -14,6 +15,17 @@
 #include <QtGlobal>
 #include <QPen>
 
+
+namespace {
+class PlotIntegerScaleDraw : public QwtScaleDraw {
+public:
+    QwtText label(double value) const override
+    {
+        return QwtText(QString::number(qRound(value)));
+    }
+};
+}
+
 PlotComponent::PlotComponent(QWidget *parent)
     : CanvasItem(parent)
 {
@@ -23,6 +35,9 @@ PlotComponent::PlotComponent(QWidget *parent)
     m_plot->setTitle("Plot");
     m_plot->setAxisTitle(QwtPlot::xBottom, "X");
     m_plot->setAxisTitle(QwtPlot::yLeft, "Y");
+    m_plot->setAxisScaleDraw(QwtPlot::xBottom, new PlotIntegerScaleDraw());
+    m_plot->setAxisMaxMinor(QwtPlot::xBottom, 0);
+    m_plot->setAxisMaxMajor(QwtPlot::xBottom, 6);
     m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
     m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->setGeometry(rect());
@@ -485,8 +500,13 @@ void PlotComponent::appendValue(double value, int seriesIndex)
             m_curves[i]->setSamples(m_xData, m_ySeries.value(i));
     }
 
-    if (!m_xData.isEmpty())
-        m_plot->setAxisScale(QwtPlot::xBottom, m_xData.first(), m_xData.last());
+    if (!m_xData.isEmpty()) {
+        const double xmin = m_xData.first();
+        const double xmax = m_xData.last();
+        const double span = qMax(1.0, xmax - xmin);
+        const double step = qMax(1.0, qRound(span / 5.0));
+        m_plot->setAxisScale(QwtPlot::xBottom, xmin, xmax, step);
+    }
 
     m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
     m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
