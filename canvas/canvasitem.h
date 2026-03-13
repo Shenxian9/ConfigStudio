@@ -40,6 +40,7 @@ protected:
     void paintEvent(QPaintEvent *event) override;
     void childEvent(QChildEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 
     DataBindingManager* m_bindingMgr = nullptr;
