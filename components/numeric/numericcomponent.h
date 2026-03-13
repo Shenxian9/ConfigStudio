@@ -7,6 +7,7 @@
 #include <QLabel>
 #include <QEvent>
 #include <QColor>
+#include <QLineEdit>
 
 class NumericComponent : public CanvasItem {
     Q_OBJECT
@@ -20,11 +21,13 @@ public:
 
     void resizeEvent(QResizeEvent *event) override;
     void changeEvent(QEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
     void updateText();   // 核心：数值 → 文本
     bool isCanvasDarkMode() const;
     void applyLabelStyle();
+    void ensureInputPanel();
 
 private:
     QLabel *m_label;
@@ -37,6 +40,10 @@ private:
     QColor m_textColor = QColor("black");
 
     QString m_varId;
+
+    QWidget *m_inputPanel = nullptr;
+    QLineEdit *m_inputEdit = nullptr;
+    bool m_userEditing = false;
 };
 
 #endif

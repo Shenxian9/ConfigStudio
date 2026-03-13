@@ -1,3 +1,11 @@
+#include <QMouseEvent>
+#include <QInputMethod>
+#include <QGuiApplication>
+#include <QTimer>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QFrame>
+#include "runtime/databindingmanager.h"
 #include "numericcomponent.h"
 #include <QPalette>
 #include <QFontMetrics>
@@ -71,6 +79,8 @@ QVariantMap NumericComponent::properties() const
 void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
 {
     if (key == "value") {
+        if (m_userEditing)
+            return;
         m_value = v.toDouble();
         updateText();                 // ⭐ 运行态数据入口
     }
@@ -185,6 +195,110 @@ void NumericComponent::changeEvent(QEvent *event)
         m_blackBg = dark;
         applyLabelStyle();
     }
+}
+
+
+void NumericComponent::ensureInputPanel()
+{
+    if (m_inputPanel)
+        return;
+
+    QFrame *panel = new QFrame(this);
+    panel->setFrameShape(QFrame::StyledPanel);
+    panel->setStyleSheet("QFrame { background: white; border: 2px solid #7aa7d9; border-radius: 8px; }");
+
+    QVBoxLayout *layout = new QVBoxLayout(panel);
+    m_inputEdit = new QLineEdit(panel);
+    m_inputEdit->setAttribute(Qt::WA_InputMethodEnabled, true);
+    QFont inputFont = m_inputEdit->font();
+    inputFont.setPointSize(18);
+    m_inputEdit->setFont(inputFont);
+    m_inputEdit->setMinimumHeight(48);
+    layout->addWidget(m_inputEdit);
+
+    QPushButton *okBtn = new QPushButton("OK", panel);
+    QPushButton *cancelBtn = new QPushButton("Cancel", panel);
+    okBtn->setMinimumHeight(40);
+    cancelBtn->setMinimumHeight(40);
+    layout->addWidget(okBtn);
+    layout->addWidget(cancelBtn);
+
+    connect(okBtn, &QPushButton::clicked, this, [this, panel]() {
+        if (!m_inputEdit)
+            return;
+
+        bool ok = false;
+        const double newVal = m_inputEdit->text().toDouble(&ok);
+        panel->hide();
+        m_userEditing = false;
+
+        if (ok) {
+            m_value = newVal;
+            updateText();
+            if (m_bindingMgr && !m_varId.isEmpty())
+                m_bindingMgr->publishValue(m_varId, newVal);
+        }
+
+        QTimer::singleShot(0, []() {
+            QInputMethod *inputMethod = QGuiApplication::inputMethod();
+            if (inputMethod) {
+                inputMethod->hide();
+                inputMethod->reset();
+            }
+        });
+    });
+
+    connect(cancelBtn, &QPushButton::clicked, this, [this, panel]() {
+        panel->hide();
+        m_userEditing = false;
+        QTimer::singleShot(0, []() {
+            QInputMethod *inputMethod = QGuiApplication::inputMethod();
+            if (inputMethod) {
+                inputMethod->hide();
+                inputMethod->reset();
+            }
+        });
+    });
+
+    panel->hide();
+    m_inputPanel = panel;
+}
+
+void NumericComponent::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (!event || event->button() != Qt::LeftButton) {
+        CanvasItem::mouseDoubleClickEvent(event);
+        return;
+    }
+
+    ensureInputPanel();
+    if (!m_inputPanel || !m_inputEdit) {
+        CanvasItem::mouseDoubleClickEvent(event);
+        return;
+    }
+
+    m_userEditing = true;
+    m_inputEdit->setText(QString::number(m_value, 'f', m_decimals));
+
+    const int panelW = qMax(240, width() - 12);
+    const int panelH = 170;
+    m_inputPanel->setGeometry((width() - panelW) / 2,
+                              qMax(4, (height() - panelH) / 2),
+                              panelW,
+                              panelH);
+    m_inputPanel->show();
+    m_inputPanel->raise();
+
+    QTimer::singleShot(0, this, [this]() {
+        if (!m_inputEdit)
+            return;
+        m_inputEdit->setFocus(Qt::OtherFocusReason);
+        QInputMethod *inputMethod = QGuiApplication::inputMethod();
+        if (inputMethod)
+            inputMethod->show();
+    });
+
+    event->accept();
 }
 
 bool NumericComponent::isCanvasDarkMode() const
