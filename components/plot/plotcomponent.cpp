@@ -2,6 +2,7 @@
 #include <qwt_text.h>
 #include <qwt_scale_div.h>
 #include <qwt_scale_draw.h>
+#include <qwt_scale_widget.h>
 
 #include <qwt_plot_curve.h>
 
@@ -38,6 +39,8 @@ PlotComponent::PlotComponent(QWidget *parent)
     m_plot->setAxisScaleDraw(QwtPlot::xBottom, new PlotIntegerScaleDraw());
     m_plot->setAxisMaxMinor(QwtPlot::xBottom, 0);
     m_plot->setAxisMaxMajor(QwtPlot::xBottom, 6);
+    if (auto *xAxisWidget = m_plot->axisWidget(QwtPlot::xBottom))
+        xAxisWidget->setMinBorderDist(24, 24);
     m_plot->setAxisAutoScale(QwtPlot::yLeft, false);
     m_plot->setAxisScale(QwtPlot::yLeft, m_yMin, m_yMax);
     m_plot->setGeometry(rect());
