@@ -200,12 +200,18 @@ void NumericComponent::changeEvent(QEvent *event)
 
 void NumericComponent::ensureInputPanel()
 {
-    if (m_inputPanel)
-        return;
-
     QWidget *host = window();
     if (!host)
         host = this;
+
+    if (m_inputPanel && m_inputPanel->parentWidget() != host) {
+        m_inputPanel->deleteLater();
+        m_inputPanel = nullptr;
+        m_inputEdit = nullptr;
+    }
+
+    if (m_inputPanel)
+        return;
 
     QFrame *panel = new QFrame(host);
     panel->setFrameShape(QFrame::StyledPanel);
@@ -284,7 +290,9 @@ void NumericComponent::mouseDoubleClickEvent(QMouseEvent *event)
     m_userEditing = true;
     m_inputEdit->setText(QString::number(m_value, 'f', m_decimals));
 
-    QWidget *host = m_inputPanel->parentWidget();
+    QWidget *host = window();
+    if (!host)
+        host = m_inputPanel->parentWidget();
     if (!host)
         host = this;
 
