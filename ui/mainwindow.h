@@ -74,8 +74,10 @@ private slots:
 private:
     void setupDataWorkspace();
     void refreshDataSourceTree();
+    void refreshDataSourceTreeDeferred();
     void showSerialConfigDialog();
     void showMappingDialog();
+    void prepareImeForTransientEditor();
 
     void showProperties(CanvasItem *item);
     void clearProperties();
@@ -122,6 +124,8 @@ private:
     SerialDataSource *m_serialDataSource = nullptr;
     SerialVariableMapper *m_serialMapper = nullptr;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
+    QPointer<QDialog> m_serialConfigDialog;
+    QPointer<QDialog> m_mappingDialog;
 
 };
 
