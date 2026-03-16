@@ -61,6 +61,7 @@ public:
     void setBinding(const QString &sourceKey, const QString &varId);
     void removeBinding(const QString &sourceKey);
     void clearBindings();
+    QHash<QString, QString> bindings() const { return m_keyToVarId; }
 
 public slots:
     void onFrameReceived(const QByteArray &frame);

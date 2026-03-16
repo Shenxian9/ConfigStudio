@@ -160,3 +160,12 @@ bool VariableModel::valueById(const QString& varId, QVariant* outValue) const
     }
     return false;
 }
+
+QStringList VariableModel::variableIds() const
+{
+    QStringList ids;
+    ids.reserve(m_vars.size());
+    for (const Variable &var : m_vars)
+        ids.append(var.id);
+    return ids;
+}

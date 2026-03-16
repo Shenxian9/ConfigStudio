@@ -20,6 +20,7 @@
 #include <QQuickWidget>
 #include <QFrame>
 #include <QPointer>
+#include <QStandardItemModel>
 
 #include "componentpalette.h"
 #include "palettebinder.h"
@@ -29,6 +30,7 @@
 #include "runtimewindow.h"
 #include "variablemodel.h"
 #include "runtimesimulator.h"
+#include "serialdatasource.h"
 #include "virtualkeyboardhost.h"
 namespace Ui {
 class MainWindow;
@@ -70,6 +72,11 @@ private slots:
     void on_pushOfL_D_clicked();
 
 private:
+    void setupDataWorkspace();
+    void refreshDataSourceTree();
+    void showSerialConfigDialog();
+    void showMappingDialog();
+
     void showProperties(CanvasItem *item);
     void clearProperties();
     void onPropertyChanged(int row, int col);
@@ -111,6 +118,10 @@ private:
     int m_pendingPropertyRow = -1;
 
     bool m_darkCanvasMode = false;
+
+    SerialDataSource *m_serialDataSource = nullptr;
+    SerialVariableMapper *m_serialMapper = nullptr;
+    QStandardItemModel *m_dataSourceTreeModel = nullptr;
 
 };
 
