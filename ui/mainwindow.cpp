@@ -10,14 +10,12 @@
 #include <QSet>
 #include <QDialogButtonBox>
 #include <QFormLayout>
-#include <QComboBox>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QTreeView>
 #include <QHeaderView>
 #include <QMessageBox>
-#include <QInputDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <algorithm>
@@ -341,15 +339,7 @@ void MainWindow::setupDataWorkspace()
     });
 
     connect(ui->pushButton_10, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
-    connect(ui->pushButton_11, &QPushButton::clicked, this, [this]() {
-        const QString key = QInputDialog::getText(this,
-                                                  tr("Delete Mapping"),
-                                                  tr("Source key to remove:"));
-        if (key.trimmed().isEmpty())
-            return;
-        m_serialMapper->removeBinding(key);
-        refreshDataSourceTree();
-    });
+    connect(ui->pushButton_11, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
     connect(ui->pushButton_12, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
 
     ui->pushButton_2->setText("Add/Config Serial");
@@ -453,12 +443,13 @@ void MainWindow::showMappingDialog()
         ++row;
     }
 
-    const QStringList ids = m_variableModel->variableIds();
     for (int r = 0; r < table->rowCount(); ++r) {
-        auto *combo = new QComboBox(table);
-        combo->addItems(ids);
-        combo->setCurrentText(table->item(r, 1)->text());
-        table->setCellWidget(r, 1, combo);
+        auto *keyItem = table->item(r, 0);
+        auto *idItem = table->item(r, 1);
+        if (keyItem)
+            keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        if (idItem)
+            idItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
     }
 
     auto *buttonRow = new QHBoxLayout();
@@ -469,13 +460,15 @@ void MainWindow::showMappingDialog()
     buttonRow->addStretch();
     layout->addLayout(buttonRow);
 
-    connect(addBtn, &QPushButton::clicked, &dialog, [table, ids]() {
+    connect(addBtn, &QPushButton::clicked, &dialog, [table]() {
         const int newRow = table->rowCount();
         table->insertRow(newRow);
-        table->setItem(newRow, 0, new QTableWidgetItem(QString()));
-        auto *combo = new QComboBox(table);
-        combo->addItems(ids);
-        table->setCellWidget(newRow, 1, combo);
+        auto *keyItem = new QTableWidgetItem(QString());
+        auto *idItem = new QTableWidgetItem(QString());
+        keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        idItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        table->setItem(newRow, 0, keyItem);
+        table->setItem(newRow, 1, idItem);
     });
 
     connect(delBtn, &QPushButton::clicked, &dialog, [table]() {
@@ -495,11 +488,11 @@ void MainWindow::showMappingDialog()
     m_serialMapper->clearBindings();
     for (int r = 0; r < table->rowCount(); ++r) {
         const QTableWidgetItem *keyItem = table->item(r, 0);
-        auto *combo = qobject_cast<QComboBox *>(table->cellWidget(r, 1));
-        if (!keyItem || !combo)
+        const QTableWidgetItem *idItem = table->item(r, 1);
+        if (!keyItem || !idItem)
             continue;
         const QString key = keyItem->text().trimmed();
-        const QString id = combo->currentText().trimmed();
+        const QString id = idItem->text().trimmed();
         if (!key.isEmpty() && !id.isEmpty())
             m_serialMapper->setBinding(key, id);
     }
