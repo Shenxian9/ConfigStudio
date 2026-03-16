@@ -8,16 +8,16 @@
 #include <QColor>
 #include <QInputMethod>
 #include <QSet>
-#include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QLineEdit>
-#include <QSpinBox>
 #include <QTableWidget>
 #include <QTreeView>
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QLabel>
+#include <QIntValidator>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -350,7 +350,109 @@ void MainWindow::setupDataWorkspace()
 
     ui->pushButton_8->setEnabled(true);
     ui->pushButton_9->setEnabled(false);
+
+    setupDataWorkspacePanels();
     refreshDataSourceTree();
+}
+
+void MainWindow::setupDataWorkspacePanels()
+{
+    if (!m_serialConfigPanel) {
+        m_serialConfigPanel = new QFrame(this);
+        m_serialConfigPanel->setObjectName("serialConfigPanel");
+        m_serialConfigPanel->setStyleSheet("#serialConfigPanel { background: #f7f7f7; border: 1px solid #888; border-radius: 6px; }");
+        m_serialConfigPanel->hide();
+
+        auto *layout = new QVBoxLayout(m_serialConfigPanel);
+        layout->setContentsMargins(12, 12, 12, 12);
+        layout->setSpacing(8);
+
+        auto *title = new QLabel("Serial Source Config", m_serialConfigPanel);
+        layout->addWidget(title);
+
+        auto *form = new QFormLayout();
+        m_serialPortEdit = new QLineEdit(m_serialConfigPanel);
+        m_serialBaudEdit = new QLineEdit(m_serialConfigPanel);
+        m_serialBaudEdit->setValidator(new QIntValidator(1200, 921600, m_serialBaudEdit));
+        m_serialTerminatorEdit = new QLineEdit(m_serialConfigPanel);
+        m_serialTerminatorEdit->setToolTip("Use \\n to represent newline terminator");
+        form->addRow("Port", m_serialPortEdit);
+        form->addRow("Baud", m_serialBaudEdit);
+        form->addRow("Frame Terminator", m_serialTerminatorEdit);
+        layout->addLayout(form);
+
+        auto *buttons = new QHBoxLayout();
+        auto *okBtn = new QPushButton("Apply", m_serialConfigPanel);
+        auto *cancelBtn = new QPushButton("Cancel", m_serialConfigPanel);
+        buttons->addStretch();
+        buttons->addWidget(okBtn);
+        buttons->addWidget(cancelBtn);
+        layout->addLayout(buttons);
+
+        connect(okBtn, &QPushButton::clicked, this, &MainWindow::applySerialConfigFromPanel);
+        connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
+    }
+
+    if (!m_mappingPanel) {
+        m_mappingPanel = new QFrame(this);
+        m_mappingPanel->setObjectName("mappingPanel");
+        m_mappingPanel->setStyleSheet("#mappingPanel { background: #f7f7f7; border: 1px solid #888; border-radius: 6px; }");
+        m_mappingPanel->hide();
+
+        auto *layout = new QVBoxLayout(m_mappingPanel);
+        layout->setContentsMargins(12, 12, 12, 12);
+        layout->setSpacing(8);
+
+        auto *title = new QLabel("Serial Key -> Variable Mapping", m_mappingPanel);
+        layout->addWidget(title);
+
+        m_mappingTable = new QTableWidget(m_mappingPanel);
+        m_mappingTable->setColumnCount(2);
+        m_mappingTable->setHorizontalHeaderLabels({"Source Key", "Variable ID"});
+        m_mappingTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+        m_mappingTable->setAttribute(Qt::WA_InputMethodEnabled, false);
+        layout->addWidget(m_mappingTable);
+
+        auto *rowButtons = new QHBoxLayout();
+        auto *addBtn = new QPushButton("Add Row", m_mappingPanel);
+        auto *delBtn = new QPushButton("Delete Row", m_mappingPanel);
+        rowButtons->addWidget(addBtn);
+        rowButtons->addWidget(delBtn);
+        rowButtons->addStretch();
+        layout->addLayout(rowButtons);
+
+        connect(addBtn, &QPushButton::clicked, this, [this]() {
+            if (!m_mappingTable)
+                return;
+            const int newRow = m_mappingTable->rowCount();
+            m_mappingTable->insertRow(newRow);
+            auto *keyItem = new QTableWidgetItem(QString());
+            auto *idItem = new QTableWidgetItem(QString());
+            keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+            idItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+            m_mappingTable->setItem(newRow, 0, keyItem);
+            m_mappingTable->setItem(newRow, 1, idItem);
+        });
+
+        connect(delBtn, &QPushButton::clicked, this, [this]() {
+            if (!m_mappingTable)
+                return;
+            const int row = m_mappingTable->currentRow();
+            if (row >= 0)
+                m_mappingTable->removeRow(row);
+        });
+
+        auto *buttons = new QHBoxLayout();
+        auto *okBtn = new QPushButton("Apply", m_mappingPanel);
+        auto *cancelBtn = new QPushButton("Cancel", m_mappingPanel);
+        buttons->addStretch();
+        buttons->addWidget(okBtn);
+        buttons->addWidget(cancelBtn);
+        layout->addLayout(buttons);
+
+        connect(okBtn, &QPushButton::clicked, this, &MainWindow::applyMappingFromPanel);
+        connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
+    }
 }
 
 void MainWindow::refreshDataSourceTree()
@@ -396,161 +498,132 @@ void MainWindow::prepareImeForTransientEditor()
 
 void MainWindow::showSerialConfigDialog()
 {
-    if (!m_serialDataSource)
+    if (!m_serialDataSource || !m_serialConfigPanel || !m_serialPortEdit || !m_serialBaudEdit || !m_serialTerminatorEdit)
         return;
 
     prepareImeForTransientEditor();
 
-    if (m_serialConfigDialog) {
-        m_serialConfigDialog->raise();
-        m_serialConfigDialog->activateWindow();
-        return;
+    const SerialPortConfig cfg = m_serialDataSource->config();
+    {
+        QSignalBlocker b1(m_serialPortEdit);
+        QSignalBlocker b2(m_serialBaudEdit);
+        QSignalBlocker b3(m_serialTerminatorEdit);
+        m_serialPortEdit->setText(cfg.portName);
+        m_serialBaudEdit->setText(QString::number(cfg.baudRate));
+        m_serialTerminatorEdit->setText(QString::fromUtf8(cfg.frameTerminator));
     }
 
-    auto *dialog = new QDialog(this);
-    m_serialConfigDialog = dialog;
-    dialog->setAttribute(Qt::WA_DeleteOnClose, true);
-    dialog->setModal(true);
-    dialog->setWindowTitle("Serial Source Config");
+    hideDataWorkspacePanels();
+    const int panelW = qMin(width() - 32, 560);
+    const int panelH = qMin(height() - 32, 260);
+    const int panelX = (width() - panelW) / 2;
+    const int panelY = (height() - panelH) / 2;
+    m_serialConfigPanel->setGeometry(panelX, panelY, panelW, panelH);
+    m_serialConfigPanel->show();
+    m_serialConfigPanel->raise();
 
-    auto *layout = new QFormLayout(dialog);
-    const SerialPortConfig cfg = m_serialDataSource->config();
-
-    auto *portEdit = new QLineEdit(cfg.portName, dialog);
-    auto *baudSpin = new QSpinBox(dialog);
-    baudSpin->setRange(1200, 921600);
-    baudSpin->setValue(cfg.baudRate);
-
-    auto *terminatorEdit = new QLineEdit(QString::fromUtf8(cfg.frameTerminator), dialog);
-    terminatorEdit->setToolTip("Use \\n to represent newline terminator");
-
-    layout->addRow("Port", portEdit);
-    layout->addRow("Baud", baudSpin);
-    layout->addRow("Frame Terminator", terminatorEdit);
-
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
-    layout->addRow(buttons);
-
-    connect(buttons, &QDialogButtonBox::accepted, dialog, [this, portEdit, baudSpin, terminatorEdit, dialog]() {
-        SerialPortConfig nextCfg = m_serialDataSource->config();
-        nextCfg.portName = portEdit->text().trimmed();
-        nextCfg.baudRate = baudSpin->value();
-        QByteArray terminator = terminatorEdit->text().toUtf8();
-        terminator.replace("\\n", "\n");
-        nextCfg.frameTerminator = terminator;
-        m_serialDataSource->setConfig(nextCfg);
-        dialog->close();
-        refreshDataSourceTreeDeferred();
+    QTimer::singleShot(0, this, [this]() {
+        if (!m_serialPortEdit)
+            return;
+        m_serialPortEdit->setFocus(Qt::OtherFocusReason);
+        QInputMethod *im = QGuiApplication::inputMethod();
+        if (im)
+            im->show();
     });
-    connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::close);
-
-    connect(dialog, &QDialog::finished, this, [this]() {
-        prepareImeForTransientEditor();
-        m_serialConfigDialog = nullptr;
-        refreshDataSourceTreeDeferred();
-    });
-
-    dialog->open();
 }
 
 void MainWindow::showMappingDialog()
 {
-    if (!m_serialMapper || !m_variableModel)
+    if (!m_serialMapper || !m_variableModel || !m_mappingPanel || !m_mappingTable)
         return;
 
     prepareImeForTransientEditor();
 
-    if (m_mappingDialog) {
-        m_mappingDialog->raise();
-        m_mappingDialog->activateWindow();
-        return;
+    {
+        QSignalBlocker blocker(m_mappingTable);
+        m_mappingTable->setRowCount(0);
     }
-
-    auto *dialog = new QDialog(this);
-    m_mappingDialog = dialog;
-    dialog->setAttribute(Qt::WA_DeleteOnClose, true);
-    dialog->setModal(true);
-    dialog->setWindowTitle("Serial Key -> Variable Mapping");
-    dialog->resize(520, 420);
-
-    auto *layout = new QVBoxLayout(dialog);
-    auto *table = new QTableWidget(dialog);
-    table->setColumnCount(2);
-    table->setHorizontalHeaderLabels({"Source Key", "Variable ID"});
-    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    layout->addWidget(table);
 
     const auto existing = m_serialMapper->bindings();
     int row = 0;
     for (auto it = existing.cbegin(); it != existing.cend(); ++it) {
-        table->insertRow(row);
-        table->setItem(row, 0, new QTableWidgetItem(it.key()));
-        table->setItem(row, 1, new QTableWidgetItem(it.value()));
+        m_mappingTable->insertRow(row);
+        m_mappingTable->setItem(row, 0, new QTableWidgetItem(it.key()));
+        m_mappingTable->setItem(row, 1, new QTableWidgetItem(it.value()));
         ++row;
     }
 
-    for (int r = 0; r < table->rowCount(); ++r) {
-        auto *keyItem = table->item(r, 0);
-        auto *idItem = table->item(r, 1);
+    for (int r = 0; r < m_mappingTable->rowCount(); ++r) {
+        auto *keyItem = m_mappingTable->item(r, 0);
+        auto *idItem = m_mappingTable->item(r, 1);
         if (keyItem)
             keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
         if (idItem)
             idItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
     }
 
-    auto *buttonRow = new QHBoxLayout();
-    auto *addBtn = new QPushButton("Add Row", dialog);
-    auto *delBtn = new QPushButton("Delete Row", dialog);
-    buttonRow->addWidget(addBtn);
-    buttonRow->addWidget(delBtn);
-    buttonRow->addStretch();
-    layout->addLayout(buttonRow);
+    hideDataWorkspacePanels();
+    const int panelW = qMin(width() - 32, 640);
+    const int panelH = qMin(height() - 32, 460);
+    const int panelX = (width() - panelW) / 2;
+    const int panelY = (height() - panelH) / 2;
+    m_mappingPanel->setGeometry(panelX, panelY, panelW, panelH);
+    m_mappingPanel->show();
+    m_mappingPanel->raise();
 
-    connect(addBtn, &QPushButton::clicked, dialog, [table]() {
-        const int newRow = table->rowCount();
-        table->insertRow(newRow);
-        auto *keyItem = new QTableWidgetItem(QString());
-        auto *idItem = new QTableWidgetItem(QString());
-        keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        idItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        table->setItem(newRow, 0, keyItem);
-        table->setItem(newRow, 1, idItem);
+    QTimer::singleShot(0, this, [this]() {
+        if (!m_mappingTable)
+            return;
+        m_mappingTable->setFocus(Qt::OtherFocusReason);
     });
+}
 
-    connect(delBtn, &QPushButton::clicked, dialog, [table]() {
-        const int row = table->currentRow();
-        if (row >= 0)
-            table->removeRow(row);
-    });
+void MainWindow::hideDataWorkspacePanels()
+{
+    if (m_serialConfigPanel)
+        m_serialConfigPanel->hide();
+    if (m_mappingPanel)
+        m_mappingPanel->hide();
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
-    layout->addWidget(buttons);
+    QTimer::singleShot(0, this, [this]() { prepareImeForTransientEditor(); });
+}
 
-    connect(buttons, &QDialogButtonBox::accepted, dialog, [this, table, dialog]() {
-        m_serialMapper->clearBindings();
-        for (int r = 0; r < table->rowCount(); ++r) {
-            const QTableWidgetItem *keyItem = table->item(r, 0);
-            const QTableWidgetItem *idItem = table->item(r, 1);
-            if (!keyItem || !idItem)
-                continue;
-            const QString key = keyItem->text().trimmed();
-            const QString id = idItem->text().trimmed();
-            if (!key.isEmpty() && !id.isEmpty())
-                m_serialMapper->setBinding(key, id);
-        }
+void MainWindow::applySerialConfigFromPanel()
+{
+    if (!m_serialDataSource || !m_serialPortEdit || !m_serialBaudEdit || !m_serialTerminatorEdit)
+        return;
 
-        dialog->close();
-        refreshDataSourceTreeDeferred();
-    });
-    connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::close);
+    SerialPortConfig nextCfg = m_serialDataSource->config();
+    nextCfg.portName = m_serialPortEdit->text().trimmed();
+    nextCfg.baudRate = m_serialBaudEdit->text().trimmed().toInt();
+    QByteArray terminator = m_serialTerminatorEdit->text().toUtf8();
+    terminator.replace("\\n", "\n");
+    nextCfg.frameTerminator = terminator;
+    m_serialDataSource->setConfig(nextCfg);
 
-    connect(dialog, &QDialog::finished, this, [this]() {
-        prepareImeForTransientEditor();
-        m_mappingDialog = nullptr;
-        refreshDataSourceTreeDeferred();
-    });
+    hideDataWorkspacePanels();
+    refreshDataSourceTreeDeferred();
+}
 
-    dialog->open();
+void MainWindow::applyMappingFromPanel()
+{
+    if (!m_serialMapper || !m_mappingTable)
+        return;
+
+    m_serialMapper->clearBindings();
+    for (int r = 0; r < m_mappingTable->rowCount(); ++r) {
+        const QTableWidgetItem *keyItem = m_mappingTable->item(r, 0);
+        const QTableWidgetItem *idItem = m_mappingTable->item(r, 1);
+        if (!keyItem || !idItem)
+            continue;
+        const QString key = keyItem->text().trimmed();
+        const QString id = idItem->text().trimmed();
+        if (!key.isEmpty() && !id.isEmpty())
+            m_serialMapper->setBinding(key, id);
+    }
+
+    hideDataWorkspacePanels();
+    refreshDataSourceTreeDeferred();
 }
 
 void MainWindow::showProperties(CanvasItem *item)
@@ -909,6 +982,7 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
 void MainWindow::on_pushOfDatasrc_clicked()
 {
     ui->MainStackedWidget->setCurrentWidget(ui->DataWorkspace);
+    hideDataWorkspacePanels();
     refreshActionButtonIcons();
     QTimer::singleShot(0, this, [this]() { refreshActionButtonIcons(); });
 }
@@ -1170,6 +1244,7 @@ void MainWindow::editPropertyCell(int row, int col)
 
 void MainWindow::on_pushOfDesign_clicked()
 {
+    hideDataWorkspacePanels();
     ui->MainStackedWidget->setCurrentWidget(ui->DesignWorkspace);
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");

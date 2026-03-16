@@ -12,8 +12,8 @@
 #include <QTimer>
 #include <QGuiApplication>
 #include <QInputMethod>
-#include <QDialog>
 #include <QLineEdit>
+#include <QTableWidget>
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QHeaderView>
@@ -73,10 +73,14 @@ private slots:
 
 private:
     void setupDataWorkspace();
+    void setupDataWorkspacePanels();
     void refreshDataSourceTree();
     void refreshDataSourceTreeDeferred();
     void showSerialConfigDialog();
     void showMappingDialog();
+    void hideDataWorkspacePanels();
+    void applySerialConfigFromPanel();
+    void applyMappingFromPanel();
     void prepareImeForTransientEditor();
 
     void showProperties(CanvasItem *item);
@@ -124,8 +128,14 @@ private:
     SerialDataSource *m_serialDataSource = nullptr;
     SerialVariableMapper *m_serialMapper = nullptr;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
-    QPointer<QDialog> m_serialConfigDialog;
-    QPointer<QDialog> m_mappingDialog;
+
+    QWidget *m_serialConfigPanel = nullptr;
+    QLineEdit *m_serialPortEdit = nullptr;
+    QLineEdit *m_serialBaudEdit = nullptr;
+    QLineEdit *m_serialTerminatorEdit = nullptr;
+
+    QWidget *m_mappingPanel = nullptr;
+    QTableWidget *m_mappingTable = nullptr;
 
 };
 
