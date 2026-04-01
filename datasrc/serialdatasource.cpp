@@ -1,5 +1,5 @@
 #include "serialdatasource.h"
-#include "model/variablemodel.h"
+#include "../model/variablemodel.h"
 
 #include <QStringList>
 
