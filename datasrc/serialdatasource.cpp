@@ -1,5 +1,5 @@
 #include "serialdatasource.h"
-#include "model/variablemodel.h"
+#include "../model/variablemodel.h"
 
 #include <QStringList>
 
@@ -142,7 +142,9 @@ void SerialVariableMapper::onFrameReceived(const QByteArray &frame)
     if (text.isEmpty())
         return;
 
-    const QStringList segments = text.split(';', Qt::SkipEmptyParts);
+    QString normalized = text;
+    normalized.replace(',', ';');
+    const QStringList segments = normalized.split(';', Qt::SkipEmptyParts);
     for (const QString &segment : segments) {
         const int eq = segment.indexOf('=');
         if (eq <= 0)

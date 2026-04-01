@@ -12,14 +12,15 @@
 #include <QTimer>
 #include <QGuiApplication>
 #include <QInputMethod>
-#include <QDialog>
 #include <QLineEdit>
+#include <QTableWidget>
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QHeaderView>
 #include <QQuickWidget>
 #include <QFrame>
 #include <QPointer>
+#include <QStandardItemModel>
 
 #include "componentpalette.h"
 #include "palettebinder.h"
@@ -29,6 +30,7 @@
 #include "runtimewindow.h"
 #include "variablemodel.h"
 #include "runtimesimulator.h"
+#include "serialdatasource.h"
 #include "virtualkeyboardhost.h"
 namespace Ui {
 class MainWindow;
@@ -70,6 +72,17 @@ private slots:
     void on_pushOfL_D_clicked();
 
 private:
+    void setupDataWorkspace();
+    void setupDataWorkspacePanels();
+    void refreshDataSourceTree();
+    void refreshDataSourceTreeDeferred();
+    void showSerialConfigDialog();
+    void showMappingDialog();
+    void hideDataWorkspacePanels();
+    void applySerialConfigFromPanel();
+    void applyMappingFromPanel();
+    void prepareImeForTransientEditor();
+
     void showProperties(CanvasItem *item);
     void clearProperties();
     void onPropertyChanged(int row, int col);
@@ -111,6 +124,18 @@ private:
     int m_pendingPropertyRow = -1;
 
     bool m_darkCanvasMode = false;
+
+    SerialDataSource *m_serialDataSource = nullptr;
+    SerialVariableMapper *m_serialMapper = nullptr;
+    QStandardItemModel *m_dataSourceTreeModel = nullptr;
+
+    QWidget *m_serialConfigPanel = nullptr;
+    QLineEdit *m_serialPortEdit = nullptr;
+    QLineEdit *m_serialBaudEdit = nullptr;
+    QLineEdit *m_serialTerminatorEdit = nullptr;
+
+    QWidget *m_mappingPanel = nullptr;
+    QTableWidget *m_mappingTable = nullptr;
 
 };
 
