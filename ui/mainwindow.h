@@ -13,6 +13,8 @@
 #include <QGuiApplication>
 #include <QInputMethod>
 #include <QLineEdit>
+#include <QComboBox>
+#include <QSpinBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -131,8 +133,15 @@ private:
 
     QWidget *m_serialConfigPanel = nullptr;
     QLineEdit *m_serialPortEdit = nullptr;
-    QLineEdit *m_serialBaudEdit = nullptr;
-    QLineEdit *m_serialTerminatorEdit = nullptr;
+    QComboBox *m_serialBaudCombo = nullptr;
+    QComboBox *m_dataBitsCombo = nullptr;
+    QComboBox *m_parityCombo = nullptr;
+    QComboBox *m_stopBitsCombo = nullptr;
+    QSpinBox *m_slaveIdSpin = nullptr;
+    QSpinBox *m_timeoutSpin = nullptr;
+    QSpinBox *m_retrySpin = nullptr;
+    QSpinBox *m_pollIntervalSpin = nullptr;
+    QComboBox *m_functionCodeCombo = nullptr;
 
     QWidget *m_mappingPanel = nullptr;
     QTableWidget *m_mappingTable = nullptr;

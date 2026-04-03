@@ -17,6 +17,11 @@ struct SerialPortConfig {
     QSerialPort::Parity parity = QSerialPort::NoParity;
     QSerialPort::StopBits stopBits = QSerialPort::OneStop;
     QSerialPort::FlowControl flowControl = QSerialPort::NoFlowControl;
+    int slaveId = 1;
+    int timeoutMs = 1000;
+    int retryCount = 3;
+    int pollIntervalMs = 500;
+    int defaultFunctionCode = 3;
     QByteArray frameTerminator = "\n";
 };
 

@@ -9,7 +9,10 @@
 #include <QInputMethod>
 #include <QSet>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QLineEdit>
+#include <QComboBox>
+#include <QSpinBox>
 #include <QTableWidget>
 #include <QTreeView>
 #include <QHeaderView>
@@ -316,7 +319,7 @@ void MainWindow::setupDataWorkspace()
     });
 
     connect(m_serialDataSource, &SerialDataSource::errorOccurred, this, [this](const QString &err) {
-        QMessageBox::warning(this, tr("Serial Data Source"), err);
+        QMessageBox::warning(this, tr("Modbus RTU Data Source"), err);
         refreshDataSourceTreeDeferred();
     });
 
@@ -342,8 +345,8 @@ void MainWindow::setupDataWorkspace()
     connect(ui->pushButton_11, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
     connect(ui->pushButton_12, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
 
-    ui->pushButton_2->setText("Add/Config Serial");
-    ui->pushButton_7->setText("Remove Serial");
+    ui->pushButton_2->setText("Add/Config Modbus RTU");
+    ui->pushButton_7->setText("Remove Modbus RTU");
     ui->pushButton_10->setText("Add/Edit Mapping");
     ui->pushButton_11->setText("Delete Mapping");
     ui->pushButton_12->setText("Data Mapping");
@@ -367,24 +370,73 @@ void MainWindow::setupDataWorkspacePanels()
         layout->setContentsMargins(12, 12, 12, 12);
         layout->setSpacing(8);
 
-        auto *title = new QLabel("Serial Source Config", m_serialConfigPanel);
+        auto *title = new QLabel("Modbus RTU Connection Config", m_serialConfigPanel);
+        QFont titleFont = title->font();
+        titleFont.setBold(true);
+        titleFont.setPointSize(titleFont.pointSize() + 1);
+        title->setFont(titleFont);
         layout->addWidget(title);
 
-        auto *form = new QFormLayout();
+        auto *serialGroup = new QGroupBox("Serial Link Parameters", m_serialConfigPanel);
+        auto *serialForm = new QFormLayout(serialGroup);
+        serialForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        serialForm->setSpacing(10);
+
         m_serialPortEdit = new QLineEdit(m_serialConfigPanel);
-        m_serialBaudEdit = new QLineEdit(m_serialConfigPanel);
-        m_serialBaudEdit->setValidator(new QIntValidator(1200, 921600, m_serialBaudEdit));
-        m_serialTerminatorEdit = new QLineEdit(m_serialConfigPanel);
-        m_serialTerminatorEdit->setToolTip("Use \\n to represent newline terminator");
-        form->addRow("Port", m_serialPortEdit);
-        form->addRow("Baud", m_serialBaudEdit);
-        form->addRow("Frame Terminator", m_serialTerminatorEdit);
-        layout->addLayout(form);
+        m_serialPortEdit->setPlaceholderText("/dev/ttyS2 or COM3");
+        m_serialBaudCombo = new QComboBox(m_serialConfigPanel);
+        m_serialBaudCombo->addItems({"1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"});
+        m_dataBitsCombo = new QComboBox(m_serialConfigPanel);
+        m_dataBitsCombo->addItems({"5", "6", "7", "8"});
+        m_parityCombo = new QComboBox(m_serialConfigPanel);
+        m_parityCombo->addItems({"None", "Even", "Odd"});
+        m_stopBitsCombo = new QComboBox(m_serialConfigPanel);
+        m_stopBitsCombo->addItems({"1", "2"});
+
+        serialForm->addRow("Port", m_serialPortEdit);
+        serialForm->addRow("BaudRate", m_serialBaudCombo);
+        serialForm->addRow("DataBits", m_dataBitsCombo);
+        serialForm->addRow("Parity", m_parityCombo);
+        serialForm->addRow("StopBits", m_stopBitsCombo);
+        layout->addWidget(serialGroup);
+
+        auto *modbusGroup = new QGroupBox("Modbus Parameters", m_serialConfigPanel);
+        auto *modbusForm = new QFormLayout(modbusGroup);
+        modbusForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        modbusForm->setSpacing(10);
+
+        m_slaveIdSpin = new QSpinBox(m_serialConfigPanel);
+        m_slaveIdSpin->setRange(1, 247);
+        m_timeoutSpin = new QSpinBox(m_serialConfigPanel);
+        m_timeoutSpin->setRange(50, 60000);
+        m_timeoutSpin->setSingleStep(50);
+        m_retrySpin = new QSpinBox(m_serialConfigPanel);
+        m_retrySpin->setRange(0, 10);
+        m_pollIntervalSpin = new QSpinBox(m_serialConfigPanel);
+        m_pollIntervalSpin->setRange(50, 60000);
+        m_pollIntervalSpin->setSingleStep(50);
+        m_functionCodeCombo = new QComboBox(m_serialConfigPanel);
+        m_functionCodeCombo->addItems({"03 - Read Holding Registers", "04 - Read Input Registers", "06 - Write Single Register", "10 - Write Multiple Registers"});
+
+        modbusForm->addRow("Slave ID", m_slaveIdSpin);
+        modbusForm->addRow("Timeout (ms)", m_timeoutSpin);
+        modbusForm->addRow("Retry Count", m_retrySpin);
+        modbusForm->addRow("Poll Interval (ms)", m_pollIntervalSpin);
+        modbusForm->addRow("Default Function Code", m_functionCodeCombo);
+        layout->addWidget(modbusGroup);
+
+        auto *hint = new QLabel("Register table and actual Modbus transactions will be added in a later step.", m_serialConfigPanel);
+        hint->setWordWrap(true);
+        hint->setStyleSheet("color:#666;");
+        layout->addWidget(hint);
 
         auto *buttons = new QHBoxLayout();
+        auto *testBtn = new QPushButton("Test Connection", m_serialConfigPanel);
+        testBtn->setEnabled(false);
         auto *okBtn = new QPushButton("Apply", m_serialConfigPanel);
         auto *cancelBtn = new QPushButton("Cancel", m_serialConfigPanel);
         buttons->addStretch();
+        buttons->addWidget(testBtn);
         buttons->addWidget(okBtn);
         buttons->addWidget(cancelBtn);
         layout->addLayout(buttons);
@@ -403,7 +455,7 @@ void MainWindow::setupDataWorkspacePanels()
         layout->setContentsMargins(12, 12, 12, 12);
         layout->setSpacing(8);
 
-        auto *title = new QLabel("Serial Key -> Variable Mapping", m_mappingPanel);
+        auto *title = new QLabel("Modbus Key -> Variable Mapping", m_mappingPanel);
         layout->addWidget(title);
 
         m_mappingTable = new QTableWidget(m_mappingPanel);
@@ -463,12 +515,21 @@ void MainWindow::refreshDataSourceTree()
     m_dataSourceTreeModel->removeRows(0, m_dataSourceTreeModel->rowCount());
 
     const SerialPortConfig cfg = m_serialDataSource->config();
-    auto *root = new QStandardItem(QString("Serial: %1").arg(cfg.portName));
+    auto *root = new QStandardItem(QString("Modbus RTU: %1").arg(cfg.portName));
 
     root->appendRow(new QStandardItem(QString("Status: %1").arg(m_serialDataSource->isOpen() ? "Running" : "Stopped")));
-    root->appendRow(new QStandardItem(QString("Baud: %1").arg(cfg.baudRate)));
-    root->appendRow(new QStandardItem(QString("Frame format: key=value;key2=value2 + terminator '%1'")
-                                          .arg(QString::fromUtf8(cfg.frameTerminator))));
+    root->appendRow(new QStandardItem(QString("Baud/Data/Parity/Stop: %1 / %2 / %3 / %4")
+                                          .arg(cfg.baudRate)
+                                          .arg(static_cast<int>(cfg.dataBits))
+                                          .arg(static_cast<int>(cfg.parity))
+                                          .arg(static_cast<int>(cfg.stopBits))));
+    root->appendRow(new QStandardItem(QString("Slave ID: %1, Timeout: %2 ms, Retry: %3")
+                                          .arg(cfg.slaveId)
+                                          .arg(cfg.timeoutMs)
+                                          .arg(cfg.retryCount)));
+    root->appendRow(new QStandardItem(QString("Reserved Poll/FC: %1 ms / %2")
+                                          .arg(cfg.pollIntervalMs)
+                                          .arg(cfg.defaultFunctionCode)));
 
     auto *mappingRoot = new QStandardItem("Mappings");
     const auto mappings = m_serialMapper->bindings();
@@ -498,7 +559,9 @@ void MainWindow::prepareImeForTransientEditor()
 
 void MainWindow::showSerialConfigDialog()
 {
-    if (!m_serialDataSource || !m_serialConfigPanel || !m_serialPortEdit || !m_serialBaudEdit || !m_serialTerminatorEdit)
+    if (!m_serialDataSource || !m_serialConfigPanel || !m_serialPortEdit || !m_serialBaudCombo
+        || !m_dataBitsCombo || !m_parityCombo || !m_stopBitsCombo || !m_slaveIdSpin
+        || !m_timeoutSpin || !m_retrySpin || !m_pollIntervalSpin || !m_functionCodeCombo)
         return;
 
     prepareImeForTransientEditor();
@@ -506,16 +569,44 @@ void MainWindow::showSerialConfigDialog()
     const SerialPortConfig cfg = m_serialDataSource->config();
     {
         QSignalBlocker b1(m_serialPortEdit);
-        QSignalBlocker b2(m_serialBaudEdit);
-        QSignalBlocker b3(m_serialTerminatorEdit);
+        QSignalBlocker b2(m_serialBaudCombo);
+        QSignalBlocker b3(m_dataBitsCombo);
+        QSignalBlocker b4(m_parityCombo);
+        QSignalBlocker b5(m_stopBitsCombo);
+        QSignalBlocker b6(m_slaveIdSpin);
+        QSignalBlocker b7(m_timeoutSpin);
+        QSignalBlocker b8(m_retrySpin);
+        QSignalBlocker b9(m_pollIntervalSpin);
+        QSignalBlocker b10(m_functionCodeCombo);
         m_serialPortEdit->setText(cfg.portName);
-        m_serialBaudEdit->setText(QString::number(cfg.baudRate));
-        m_serialTerminatorEdit->setText(QString::fromUtf8(cfg.frameTerminator));
+        m_serialBaudCombo->setCurrentText(QString::number(cfg.baudRate));
+        m_dataBitsCombo->setCurrentText(QString::number(static_cast<int>(cfg.dataBits)));
+        m_parityCombo->setCurrentIndex(cfg.parity == QSerialPort::EvenParity ? 1 : (cfg.parity == QSerialPort::OddParity ? 2 : 0));
+        m_stopBitsCombo->setCurrentIndex(cfg.stopBits == QSerialPort::TwoStop ? 1 : 0);
+        m_slaveIdSpin->setValue(cfg.slaveId);
+        m_timeoutSpin->setValue(cfg.timeoutMs);
+        m_retrySpin->setValue(cfg.retryCount);
+        m_pollIntervalSpin->setValue(cfg.pollIntervalMs);
+        switch (cfg.defaultFunctionCode) {
+        case 4:
+            m_functionCodeCombo->setCurrentIndex(1);
+            break;
+        case 6:
+            m_functionCodeCombo->setCurrentIndex(2);
+            break;
+        case 16:
+            m_functionCodeCombo->setCurrentIndex(3);
+            break;
+        case 3:
+        default:
+            m_functionCodeCombo->setCurrentIndex(0);
+            break;
+        }
     }
 
     hideDataWorkspacePanels();
-    const int panelW = qMin(width() - 32, 560);
-    const int panelH = qMin(height() - 32, 260);
+    const int panelW = qMin(width() - 32, 620);
+    const int panelH = qMin(height() - 32, 520);
     const int panelX = (width() - panelW) / 2;
     const int panelY = (height() - panelH) / 2;
     m_serialConfigPanel->setGeometry(panelX, panelY, panelW, panelH);
@@ -590,15 +681,38 @@ void MainWindow::hideDataWorkspacePanels()
 
 void MainWindow::applySerialConfigFromPanel()
 {
-    if (!m_serialDataSource || !m_serialPortEdit || !m_serialBaudEdit || !m_serialTerminatorEdit)
+    if (!m_serialDataSource || !m_serialPortEdit || !m_serialBaudCombo
+        || !m_dataBitsCombo || !m_parityCombo || !m_stopBitsCombo || !m_slaveIdSpin
+        || !m_timeoutSpin || !m_retrySpin || !m_pollIntervalSpin || !m_functionCodeCombo)
         return;
 
     SerialPortConfig nextCfg = m_serialDataSource->config();
     nextCfg.portName = m_serialPortEdit->text().trimmed();
-    nextCfg.baudRate = m_serialBaudEdit->text().trimmed().toInt();
-    QByteArray terminator = m_serialTerminatorEdit->text().toUtf8();
-    terminator.replace("\\n", "\n");
-    nextCfg.frameTerminator = terminator;
+    nextCfg.baudRate = m_serialBaudCombo->currentText().toInt();
+    nextCfg.dataBits = static_cast<QSerialPort::DataBits>(m_dataBitsCombo->currentText().toInt());
+    nextCfg.parity = m_parityCombo->currentIndex() == 1
+                         ? QSerialPort::EvenParity
+                         : (m_parityCombo->currentIndex() == 2 ? QSerialPort::OddParity : QSerialPort::NoParity);
+    nextCfg.stopBits = m_stopBitsCombo->currentIndex() == 1 ? QSerialPort::TwoStop : QSerialPort::OneStop;
+    nextCfg.slaveId = m_slaveIdSpin->value();
+    nextCfg.timeoutMs = m_timeoutSpin->value();
+    nextCfg.retryCount = m_retrySpin->value();
+    nextCfg.pollIntervalMs = m_pollIntervalSpin->value();
+    switch (m_functionCodeCombo->currentIndex()) {
+    case 1:
+        nextCfg.defaultFunctionCode = 4;
+        break;
+    case 2:
+        nextCfg.defaultFunctionCode = 6;
+        break;
+    case 3:
+        nextCfg.defaultFunctionCode = 16;
+        break;
+    case 0:
+    default:
+        nextCfg.defaultFunctionCode = 3;
+        break;
+    }
     m_serialDataSource->setConfig(nextCfg);
 
     hideDataWorkspacePanels();
