@@ -10,5 +10,4 @@ SOURCES += \
     ../datasrc/modbusmappingdefs.cpp
 
 HEADERS += \
-    ../datasrc/modbusmappingdefs.h \
-    ../datasrc/serialdatasource.h
+    ../datasrc/modbusmappingdefs.h
