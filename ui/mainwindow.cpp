@@ -25,6 +25,7 @@
 #include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QTextEdit>
+#include <QUuid>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -307,7 +308,9 @@ void MainWindow::setupDataWorkspace()
 {
     m_serialDataSource = new SerialDataSource(this);
     m_serialMapper = new SerialVariableMapper(m_variableModel, this);
+    m_modbusController = new ModbusController(this);
     m_modbusMappingConfig.connection = m_serialDataSource->config();
+    m_modbusController->applyConnectionConfig(m_modbusMappingConfig.connection);
     m_dataSourceTreeModel = new QStandardItemModel(this);
 
     m_dataSourceTreeModel->setHorizontalHeaderLabels({"Data Sources"});
@@ -329,20 +332,34 @@ void MainWindow::setupDataWorkspace()
     });
 
     connect(ui->pushButton_2, &QPushButton::clicked, this, &MainWindow::showSerialConfigDialog);
-    connect(ui->pushButton_8, &QPushButton::clicked, this, [this]() {
-        if (!m_serialDataSource->open())
-            return;
+    connect(m_modbusController, &ModbusController::portStatusChanged, this, [this](bool opened) {
+        m_workerPortOpen = opened;
+        qDebug().noquote() << QString("[ModbusMain] worker port status=%1").arg(opened);
+        ui->pushButton_8->setEnabled(!opened);
+        ui->pushButton_9->setEnabled(opened);
         refreshDataSourceTreeDeferred();
+    });
+    connect(m_modbusController, &ModbusController::workerLog, this, [](const QString &msg) {
+        qDebug().noquote() << msg;
+    });
+    connect(m_modbusController, &ModbusController::responseReady, this, &MainWindow::handleModbusResponse);
+
+    connect(ui->pushButton_8, &QPushButton::clicked, this, [this]() {
+        qDebug().noquote() << "[ModbusMain] request open worker port";
+        m_modbusController->openPort();
     });
     connect(ui->pushButton_9, &QPushButton::clicked, this, [this]() {
-        m_serialDataSource->close();
-        refreshDataSourceTreeDeferred();
+        qDebug().noquote() << "[ModbusMain] request close worker port";
+        m_modbusController->closePort();
     });
     connect(ui->pushButton_7, &QPushButton::clicked, this, [this]() {
+        m_modbusController->closePort();
         m_serialDataSource->close();
         m_serialMapper->clearBindings();
         SerialPortConfig cfg;
         m_serialDataSource->setConfig(cfg);
+        m_modbusMappingConfig.connection = cfg;
+        m_modbusController->applyConnectionConfig(cfg);
         refreshDataSourceTreeDeferred();
     });
 
@@ -583,12 +600,20 @@ void MainWindow::setupDataWorkspacePanels()
         layout->addWidget(pointBox);
 
         auto *buttons = new QHBoxLayout();
+        auto *testBtn = new QPushButton("Send Test Request", m_mappingPanel);
+        m_testPayloadEdit = new QLineEdit(m_mappingPanel);
+        m_testPayloadEdit->setPlaceholderText("hex/raw payload, e.g. 01 03 00 00 00 01");
+        m_testResultLabel = new QLabel("Last Result: N/A", m_mappingPanel);
+        m_testResultLabel->setWordWrap(true);
         auto *okBtn = new QPushButton("Apply", m_mappingPanel);
         auto *cancelBtn = new QPushButton("Close", m_mappingPanel);
+        buttons->addWidget(m_testPayloadEdit, 1);
+        buttons->addWidget(testBtn);
         buttons->addStretch();
         buttons->addWidget(okBtn);
         buttons->addWidget(cancelBtn);
         layout->addLayout(buttons);
+        layout->addWidget(m_testResultLabel);
 
         connect(m_pollGroupList, &QListWidget::currentRowChanged, this, &MainWindow::loadPollGroupToForm);
         connect(pollNewBtn, &QPushButton::clicked, this, &MainWindow::clearPollGroupForm);
@@ -621,6 +646,7 @@ void MainWindow::setupDataWorkspacePanels()
             refreshDataSourceTreeDeferred();
         });
         connect(pointCancelBtn, &QPushButton::clicked, this, &MainWindow::clearPointForm);
+        connect(testBtn, &QPushButton::clicked, this, &MainWindow::sendTestRequest);
 
         connect(okBtn, &QPushButton::clicked, this, &MainWindow::applyMappingFromPanel);
         connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
@@ -637,7 +663,7 @@ void MainWindow::refreshDataSourceTree()
     const SerialPortConfig cfg = m_serialDataSource->config();
     auto *root = new QStandardItem(QString("Modbus RTU: %1").arg(cfg.portName));
 
-    root->appendRow(new QStandardItem(QString("Status: %1").arg(m_serialDataSource->isOpen() ? "Running" : "Stopped")));
+    root->appendRow(new QStandardItem(QString("Worker Status: %1").arg(m_workerPortOpen ? "Running" : "Stopped")));
     root->appendRow(new QStandardItem(QString("Baud/Data/Parity/Stop: %1 / %2 / %3 / %4")
                                           .arg(cfg.baudRate)
                                           .arg(static_cast<int>(cfg.dataBits))
@@ -834,6 +860,10 @@ void MainWindow::applySerialConfigFromPanel()
     }
     m_serialDataSource->setConfig(nextCfg);
     m_modbusMappingConfig.connection = nextCfg;
+    if (m_modbusController) {
+        qDebug().noquote() << QString("[ModbusMain] apply worker config port=%1 baud=%2").arg(nextCfg.portName).arg(nextCfg.baudRate);
+        m_modbusController->applyConnectionConfig(nextCfg);
+    }
 
     hideDataWorkspacePanels();
     refreshDataSourceTreeDeferred();
@@ -848,6 +878,43 @@ void MainWindow::applyMappingFromPanel()
                               .arg(m_modbusMappingConfig.points.size());
     hideDataWorkspacePanels();
     refreshDataSourceTreeDeferred();
+}
+
+void MainWindow::sendTestRequest()
+{
+    if (!m_modbusController)
+        return;
+
+    ModbusRequest req;
+    req.requestId = QString("req_%1").arg(++m_testReqSeq);
+    req.slaveId = m_modbusMappingConfig.connection.slaveId;
+    req.functionCode = m_modbusMappingConfig.connection.defaultFunctionCode;
+    req.timeoutMs = m_modbusMappingConfig.connection.timeoutMs;
+    req.retryCount = m_modbusMappingConfig.connection.retryCount;
+    req.description = "ui-test-request";
+
+    QByteArray payload = m_testPayloadEdit ? m_testPayloadEdit->text().trimmed().toLatin1() : QByteArray();
+    if (payload.isEmpty())
+        payload = QByteArrayLiteral("01 03 00 00 00 01");
+    req.pduOrPayload = payload;
+
+    qDebug().noquote() << QString("[ModbusMain] enqueue request id=%1 payload=%2")
+                              .arg(req.requestId, QString::fromLatin1(req.pduOrPayload));
+    m_modbusController->enqueueRequest(req);
+}
+
+void MainWindow::handleModbusResponse(const ModbusResponse &response)
+{
+    const QString line = QString("[ModbusMain] response id=%1 success=%2 elapsed=%3ms req=%4 resp=%5 err=%6")
+                             .arg(response.requestId)
+                             .arg(response.success)
+                             .arg(response.elapsedMs)
+                             .arg(QString::fromLatin1(response.requestFrame.toHex(' ')))
+                             .arg(QString::fromLatin1(response.responseFrame.toHex(' ')))
+                             .arg(response.errorText);
+    qDebug().noquote() << line;
+    if (m_testResultLabel)
+        m_testResultLabel->setText(QString("Last Result: %1").arg(line));
 }
 
 void MainWindow::refreshPollGroupList()

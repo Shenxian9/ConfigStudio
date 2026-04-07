@@ -38,6 +38,7 @@
 #include "runtimesimulator.h"
 #include "serialdatasource.h"
 #include "modbusmappingdefs.h"
+#include "modbusworker.h"
 #include "virtualkeyboardhost.h"
 namespace Ui {
 class MainWindow;
@@ -104,6 +105,8 @@ private:
     void saveCurrentPoint();
     void updatePointEditorByKind();
     void injectDebugModbusSamples();
+    void sendTestRequest();
+    void handleModbusResponse(const ModbusResponse &response);
 
     void showProperties(CanvasItem *item);
     void clearProperties();
@@ -149,6 +152,7 @@ private:
 
     SerialDataSource *m_serialDataSource = nullptr;
     SerialVariableMapper *m_serialMapper = nullptr;
+    ModbusController *m_modbusController = nullptr;
     ModbusMappingConfig m_modbusMappingConfig;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
 
@@ -196,6 +200,11 @@ private:
     QComboBox *m_pointWriteStrategyCombo = nullptr;
     QTextEdit *m_pointDescriptionEdit = nullptr;
     int m_currentPointIndex = -1;
+
+    QLineEdit *m_testPayloadEdit = nullptr;
+    QLabel *m_testResultLabel = nullptr;
+    int m_testReqSeq = 0;
+    bool m_workerPortOpen = false;
 };
 
 
