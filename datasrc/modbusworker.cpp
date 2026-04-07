@@ -7,6 +7,13 @@
 #include <QTimer>
 
 namespace {
+quint8 byteAtOrZero(const QByteArray &bytes, int idx)
+{
+    if (idx < 0 || idx >= bytes.size())
+        return 0;
+    return static_cast<quint8>(bytes.at(idx));
+}
+
 quint16 modbusCrc16(const QByteArray &data)
 {
     quint16 crc = 0xFFFF;
@@ -129,10 +136,10 @@ void ModbusWorker::startCurrentRequest()
             if (!m_busy)
                 return;
             if (m_current.req.type == ModbusRequestType::ReadHoldingRegisters) {
-                const quint16 addr = (static_cast<quint8>(m_current.req.pduOrPayload.value(0)) << 8)
-                                     | static_cast<quint8>(m_current.req.pduOrPayload.value(1));
-                const quint16 qty = (static_cast<quint8>(m_current.req.pduOrPayload.value(2)) << 8)
-                                    | static_cast<quint8>(m_current.req.pduOrPayload.value(3));
+                const quint16 addr = (byteAtOrZero(m_current.req.pduOrPayload, 0) << 8)
+                                     | byteAtOrZero(m_current.req.pduOrPayload, 1);
+                const quint16 qty = (byteAtOrZero(m_current.req.pduOrPayload, 2) << 8)
+                                    | byteAtOrZero(m_current.req.pduOrPayload, 3);
                 QByteArray mock;
                 mock.append(static_cast<char>(m_current.req.slaveId));
                 mock.append(static_cast<char>(m_current.req.functionCode));
