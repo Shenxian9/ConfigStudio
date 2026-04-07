@@ -39,6 +39,7 @@
 #include "serialdatasource.h"
 #include "modbusmappingdefs.h"
 #include "modbusworker.h"
+#include "singlegrouppollrunner.h"
 #include "virtualkeyboardhost.h"
 namespace Ui {
 class MainWindow;
@@ -107,6 +108,8 @@ private:
     void injectDebugModbusSamples();
     void sendTestRequest();
     void handleModbusResponse(const ModbusResponse &response);
+    void startSinglePoll();
+    void stopSinglePoll();
 
     void showProperties(CanvasItem *item);
     void clearProperties();
@@ -153,6 +156,7 @@ private:
     SerialDataSource *m_serialDataSource = nullptr;
     SerialVariableMapper *m_serialMapper = nullptr;
     ModbusController *m_modbusController = nullptr;
+    SingleGroupPollRunner *m_singlePollRunner = nullptr;
     ModbusMappingConfig m_modbusMappingConfig;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
 
@@ -203,6 +207,8 @@ private:
 
     QLineEdit *m_testPayloadEdit = nullptr;
     QLabel *m_testResultLabel = nullptr;
+    QPushButton *m_startPollBtn = nullptr;
+    QPushButton *m_stopPollBtn = nullptr;
     int m_testReqSeq = 0;
     bool m_workerPortOpen = false;
 };

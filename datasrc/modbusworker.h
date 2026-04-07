@@ -11,6 +11,7 @@
 
 enum class ModbusRequestType {
     TestRawRequest,
+    ReadHoldingRegisters,
 };
 
 struct ModbusRequest {
@@ -73,6 +74,8 @@ private:
     void startCurrentRequest();
     void completeCurrent(bool success, const QString &errorText = QString());
     bool isMockMode() const;
+    QByteArray buildFrame(const ModbusRequest &req) const;
+    bool responseComplete(const QByteArray &buffer, const ModbusRequest &req) const;
 
     SerialPortConfig m_config;
     QSerialPort *m_serial = nullptr;

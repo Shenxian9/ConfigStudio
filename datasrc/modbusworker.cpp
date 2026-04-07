@@ -6,6 +6,23 @@
 #include <QThread>
 #include <QTimer>
 
+namespace {
+quint16 modbusCrc16(const QByteArray &data)
+{
+    quint16 crc = 0xFFFF;
+    for (unsigned char byte : data) {
+        crc ^= byte;
+        for (int i = 0; i < 8; ++i) {
+            const bool lsb = crc & 0x0001;
+            crc >>= 1;
+            if (lsb)
+                crc ^= 0xA001;
+        }
+    }
+    return crc;
+}
+}
+
 ModbusWorker::ModbusWorker(QObject *parent)
     : QObject(parent)
 {
@@ -91,7 +108,7 @@ void ModbusWorker::tryProcessNext()
     m_busy = true;
     m_current.req = m_queue.dequeue();
     m_current.retriesLeft = qMax(0, m_current.req.retryCount);
-    m_current.txFrame = m_current.req.pduOrPayload;
+    m_current.txFrame = buildFrame(m_current.req);
     m_rxBuffer.clear();
 
     emit workerLog(QString("[ModbusWorker] start request id=%1 remainingQueue=%2")
@@ -111,7 +128,27 @@ void ModbusWorker::startCurrentRequest()
         QTimer::singleShot(30, this, [this]() {
             if (!m_busy)
                 return;
-            m_rxBuffer = QByteArray("MOCK:") + m_current.txFrame;
+            if (m_current.req.type == ModbusRequestType::ReadHoldingRegisters) {
+                const quint16 addr = (static_cast<quint8>(m_current.req.pduOrPayload.value(0)) << 8)
+                                     | static_cast<quint8>(m_current.req.pduOrPayload.value(1));
+                const quint16 qty = (static_cast<quint8>(m_current.req.pduOrPayload.value(2)) << 8)
+                                    | static_cast<quint8>(m_current.req.pduOrPayload.value(3));
+                QByteArray mock;
+                mock.append(static_cast<char>(m_current.req.slaveId));
+                mock.append(static_cast<char>(m_current.req.functionCode));
+                mock.append(static_cast<char>(qty * 2));
+                for (quint16 i = 0; i < qty; ++i) {
+                    const quint16 val = addr + i + 1;
+                    mock.append(static_cast<char>((val >> 8) & 0xFF));
+                    mock.append(static_cast<char>(val & 0xFF));
+                }
+                const quint16 crc = modbusCrc16(mock);
+                mock.append(static_cast<char>(crc & 0xFF));
+                mock.append(static_cast<char>((crc >> 8) & 0xFF));
+                m_rxBuffer = mock;
+            } else {
+                m_rxBuffer = QByteArray("MOCK:") + m_current.txFrame;
+            }
             completeCurrent(true);
         });
         return;
@@ -145,12 +182,7 @@ void ModbusWorker::onReadyRead()
                    .arg(m_current.req.requestId)
                    .arg(m_rxBuffer.size()));
 
-    if (m_config.frameTerminator.isEmpty()) {
-        completeCurrent(true);
-        return;
-    }
-
-    if (m_rxBuffer.contains(m_config.frameTerminator))
+    if (responseComplete(m_rxBuffer, m_current.req))
         completeCurrent(true);
 }
 
@@ -214,6 +246,38 @@ void ModbusWorker::completeCurrent(bool success, const QString &errorText)
 bool ModbusWorker::isMockMode() const
 {
     return m_config.portName.compare("mock", Qt::CaseInsensitive) == 0;
+}
+
+QByteArray ModbusWorker::buildFrame(const ModbusRequest &req) const
+{
+    if (req.type == ModbusRequestType::ReadHoldingRegisters) {
+        QByteArray frame;
+        frame.append(static_cast<char>(req.slaveId));
+        frame.append(static_cast<char>(req.functionCode));
+        frame.append(req.pduOrPayload);
+        const quint16 crc = modbusCrc16(frame);
+        frame.append(static_cast<char>(crc & 0xFF));
+        frame.append(static_cast<char>((crc >> 8) & 0xFF));
+        return frame;
+    }
+    return req.pduOrPayload;
+}
+
+bool ModbusWorker::responseComplete(const QByteArray &buffer, const ModbusRequest &req) const
+{
+    if (req.type != ModbusRequestType::ReadHoldingRegisters) {
+        if (m_config.frameTerminator.isEmpty())
+            return !buffer.isEmpty();
+        return buffer.contains(m_config.frameTerminator);
+    }
+
+    if (buffer.size() < 5)
+        return false;
+    const quint8 fc = static_cast<quint8>(buffer.at(1));
+    if (fc & 0x80)
+        return buffer.size() >= 5;
+    const int byteCount = static_cast<quint8>(buffer.at(2));
+    return buffer.size() >= byteCount + 5;
 }
 
 ModbusController::ModbusController(QObject *parent)

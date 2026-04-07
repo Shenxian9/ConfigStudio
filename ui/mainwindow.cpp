@@ -309,6 +309,7 @@ void MainWindow::setupDataWorkspace()
     m_serialDataSource = new SerialDataSource(this);
     m_serialMapper = new SerialVariableMapper(m_variableModel, this);
     m_modbusController = new ModbusController(this);
+    m_singlePollRunner = new SingleGroupPollRunner(m_modbusController, &m_modbusMappingConfig, m_bindingMgr, this);
     m_modbusMappingConfig.connection = m_serialDataSource->config();
     m_modbusController->applyConnectionConfig(m_modbusMappingConfig.connection);
     m_dataSourceTreeModel = new QStandardItemModel(this);
@@ -350,10 +351,12 @@ void MainWindow::setupDataWorkspace()
     });
     connect(ui->pushButton_9, &QPushButton::clicked, this, [this]() {
         qDebug().noquote() << "[ModbusMain] request close worker port";
+        stopSinglePoll();
         m_modbusController->closePort();
     });
     connect(ui->pushButton_7, &QPushButton::clicked, this, [this]() {
         m_modbusController->closePort();
+        stopSinglePoll();
         m_serialDataSource->close();
         m_serialMapper->clearBindings();
         SerialPortConfig cfg;
@@ -601,6 +604,9 @@ void MainWindow::setupDataWorkspacePanels()
 
         auto *buttons = new QHBoxLayout();
         auto *testBtn = new QPushButton("Send Test Request", m_mappingPanel);
+        m_startPollBtn = new QPushButton("Start Poll", m_mappingPanel);
+        m_stopPollBtn = new QPushButton("Stop Poll", m_mappingPanel);
+        m_stopPollBtn->setEnabled(false);
         m_testPayloadEdit = new QLineEdit(m_mappingPanel);
         m_testPayloadEdit->setPlaceholderText("hex/raw payload, e.g. 01 03 00 00 00 01");
         m_testResultLabel = new QLabel("Last Result: N/A", m_mappingPanel);
@@ -609,6 +615,8 @@ void MainWindow::setupDataWorkspacePanels()
         auto *cancelBtn = new QPushButton("Close", m_mappingPanel);
         buttons->addWidget(m_testPayloadEdit, 1);
         buttons->addWidget(testBtn);
+        buttons->addWidget(m_startPollBtn);
+        buttons->addWidget(m_stopPollBtn);
         buttons->addStretch();
         buttons->addWidget(okBtn);
         buttons->addWidget(cancelBtn);
@@ -647,6 +655,8 @@ void MainWindow::setupDataWorkspacePanels()
         });
         connect(pointCancelBtn, &QPushButton::clicked, this, &MainWindow::clearPointForm);
         connect(testBtn, &QPushButton::clicked, this, &MainWindow::sendTestRequest);
+        connect(m_startPollBtn, &QPushButton::clicked, this, &MainWindow::startSinglePoll);
+        connect(m_stopPollBtn, &QPushButton::clicked, this, &MainWindow::stopSinglePoll);
 
         connect(okBtn, &QPushButton::clicked, this, &MainWindow::applyMappingFromPanel);
         connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
@@ -664,6 +674,7 @@ void MainWindow::refreshDataSourceTree()
     auto *root = new QStandardItem(QString("Modbus RTU: %1").arg(cfg.portName));
 
     root->appendRow(new QStandardItem(QString("Worker Status: %1").arg(m_workerPortOpen ? "Running" : "Stopped")));
+    root->appendRow(new QStandardItem(QString("Single Poll: %1").arg(m_singlePollRunner && m_singlePollRunner->isRunning() ? "Running" : "Stopped")));
     root->appendRow(new QStandardItem(QString("Baud/Data/Parity/Stop: %1 / %2 / %3 / %4")
                                           .arg(cfg.baudRate)
                                           .arg(static_cast<int>(cfg.dataBits))
@@ -915,6 +926,27 @@ void MainWindow::handleModbusResponse(const ModbusResponse &response)
     qDebug().noquote() << line;
     if (m_testResultLabel)
         m_testResultLabel->setText(QString("Last Result: %1").arg(line));
+}
+
+void MainWindow::startSinglePoll()
+{
+    if (!m_singlePollRunner)
+        return;
+    qDebug().noquote() << "[ModbusMain] start single-group poll";
+    if (m_singlePollRunner->start()) {
+        if (m_startPollBtn) m_startPollBtn->setEnabled(false);
+        if (m_stopPollBtn) m_stopPollBtn->setEnabled(true);
+    }
+}
+
+void MainWindow::stopSinglePoll()
+{
+    if (!m_singlePollRunner)
+        return;
+    qDebug().noquote() << "[ModbusMain] stop single-group poll";
+    m_singlePollRunner->stop();
+    if (m_startPollBtn) m_startPollBtn->setEnabled(true);
+    if (m_stopPollBtn) m_stopPollBtn->setEnabled(false);
 }
 
 void MainWindow::refreshPollGroupList()
