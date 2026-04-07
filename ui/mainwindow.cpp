@@ -360,6 +360,8 @@ void MainWindow::setupDataWorkspace()
     ui->pushButton_9->setEnabled(false);
 
     setupDataWorkspacePanels();
+    if (qEnvironmentVariableIsSet("CONFIGSTUDIO_MODBUS_SEED"))
+        injectDebugModbusSamples();
     refreshDataSourceTree();
 }
 
@@ -594,10 +596,12 @@ void MainWindow::setupDataWorkspacePanels()
         connect(pollDeleteBtn, &QPushButton::clicked, this, [this]() {
             if (m_currentPollGroupIndex < 0 || m_currentPollGroupIndex >= m_modbusMappingConfig.pollGroups.size())
                 return;
-            m_modbusMappingConfig.pollGroups.removeAt(m_currentPollGroupIndex);
+            const QString id = m_modbusMappingConfig.pollGroups.at(m_currentPollGroupIndex).id;
+            removePollGroupById(m_modbusMappingConfig, id);
             clearPollGroupForm();
             refreshPollGroupList();
             refreshPollGroupCombo();
+            qDebug().noquote() << QString("[PollGroup] delete id=%1 total=%2").arg(id).arg(m_modbusMappingConfig.pollGroups.size());
             refreshDataSourceTreeDeferred();
         });
         connect(pollCancelBtn, &QPushButton::clicked, this, &MainWindow::clearPollGroupForm);
@@ -609,9 +613,11 @@ void MainWindow::setupDataWorkspacePanels()
         connect(pointDeleteBtn, &QPushButton::clicked, this, [this]() {
             if (m_currentPointIndex < 0 || m_currentPointIndex >= m_modbusMappingConfig.points.size())
                 return;
-            m_modbusMappingConfig.points.removeAt(m_currentPointIndex);
+            const QString id = m_modbusMappingConfig.points.at(m_currentPointIndex).id;
+            removePointById(m_modbusMappingConfig, id);
             clearPointForm();
             refreshPointList();
+            qDebug().noquote() << QString("[PointEditor] delete id=%1 total=%2").arg(id).arg(m_modbusMappingConfig.points.size());
             refreshDataSourceTreeDeferred();
         });
         connect(pointCancelBtn, &QPushButton::clicked, this, &MainWindow::clearPointForm);
@@ -665,6 +671,9 @@ void MainWindow::refreshDataSourceTree()
                 .arg(point.pollGroupId.isEmpty() ? "-" : point.pollGroupId)));
     }
     root->appendRow(mappingRoot);
+    qDebug().noquote() << QString("[ModbusConfig] refresh tree groups=%1 points=%2")
+                              .arg(m_modbusMappingConfig.pollGroups.size())
+                              .arg(m_modbusMappingConfig.points.size());
 
     m_dataSourceTreeModel->appendRow(root);
     ui->treeView->expandAll();
@@ -834,6 +843,9 @@ void MainWindow::applyMappingFromPanel()
 {
     if (!m_mappingPanel)
         return;
+    qDebug().noquote() << QString("[ModbusConfig] apply clicked groups=%1 points=%2")
+                              .arg(m_modbusMappingConfig.pollGroups.size())
+                              .arg(m_modbusMappingConfig.points.size());
     hideDataWorkspacePanels();
     refreshDataSourceTreeDeferred();
 }
@@ -846,6 +858,7 @@ void MainWindow::refreshPollGroupList()
     m_pollGroupList->clear();
     for (const auto &group : m_modbusMappingConfig.pollGroups)
         m_pollGroupList->addItem(QString("%1 (%2)").arg(group.id, group.name));
+    qDebug().noquote() << QString("[PollGroup] refresh list total=%1").arg(m_modbusMappingConfig.pollGroups.size());
 }
 
 void MainWindow::refreshPointList()
@@ -854,8 +867,12 @@ void MainWindow::refreshPointList()
         return;
     QSignalBlocker blocker(m_pointList);
     m_pointList->clear();
-    for (const auto &point : m_modbusMappingConfig.points)
-        m_pointList->addItem(QString("%1 [%2]").arg(point.id, toDisplayString(point.kind)));
+    for (const auto &point : m_modbusMappingConfig.points) {
+        m_pointList->addItem(QString("%1 | var=%2 | kind=%3 | group=%4")
+                                 .arg(point.id, point.varId, toDisplayString(point.kind),
+                                      point.pollGroupId.isEmpty() ? "-" : point.pollGroupId));
+    }
+    qDebug().noquote() << QString("[PointEditor] refresh list total=%1").arg(m_modbusMappingConfig.points.size());
 }
 
 void MainWindow::refreshPollGroupCombo()
@@ -916,12 +933,48 @@ void MainWindow::clearPointForm()
         m_pointList->setCurrentRow(-1);
 }
 
-void MainWindow::loadPollGroupToForm(int index)
+PollGroupDefinition MainWindow::buildPollGroupFromUi() const
 {
-    if (index < 0 || index >= m_modbusMappingConfig.pollGroups.size())
+    PollGroupDefinition group;
+    group.id = m_pollGroupIdEdit ? m_pollGroupIdEdit->text().trimmed() : QString();
+    group.name = m_pollGroupNameEdit ? m_pollGroupNameEdit->text().trimmed() : QString();
+    group.enabled = m_pollGroupEnabledCheck ? m_pollGroupEnabledCheck->isChecked() : true;
+    group.intervalMs = m_pollGroupIntervalSpin ? m_pollGroupIntervalSpin->value() : 1000;
+    group.priority = m_pollGroupPrioritySpin ? m_pollGroupPrioritySpin->value() : 0;
+    group.description = m_pollGroupDescriptionEdit ? m_pollGroupDescriptionEdit->toPlainText().trimmed() : QString();
+    return group;
+}
+
+ModbusPointDefinition MainWindow::buildPointFromUi() const
+{
+    ModbusPointDefinition point;
+    point.id = m_pointIdEdit ? m_pointIdEdit->text().trimmed() : QString();
+    point.name = m_pointNameEdit ? m_pointNameEdit->text().trimmed() : QString();
+    point.varId = m_pointVarIdEdit ? m_pointVarIdEdit->text().trimmed() : QString();
+    point.enabled = m_pointEnabledCheck ? m_pointEnabledCheck->isChecked() : true;
+    point.kind = m_pointKindCombo ? static_cast<ModbusPointKind>(m_pointKindCombo->currentIndex()) : ModbusPointKind::ReadOnly;
+    point.slaveId = m_pointSlaveIdSpin ? m_pointSlaveIdSpin->value() : 1;
+    point.functionCode = m_pointFunctionCodeSpin ? m_pointFunctionCodeSpin->value() : 3;
+    point.address = m_pointAddressSpin ? m_pointAddressSpin->value() : 0;
+    point.quantity = m_pointQuantitySpin ? m_pointQuantitySpin->value() : 1;
+    point.readable = m_pointReadableCheck ? m_pointReadableCheck->isChecked() : true;
+    point.writable = m_pointWritableCheck ? m_pointWritableCheck->isChecked() : false;
+    point.dataType = m_pointDataTypeCombo ? m_pointDataTypeCombo->currentText() : QStringLiteral("u16");
+    point.byteOrder = m_pointByteOrderCombo ? m_pointByteOrderCombo->currentText() : QStringLiteral("BigEndian");
+    point.wordOrder = m_pointWordOrderCombo ? m_pointWordOrderCombo->currentText() : QStringLiteral("Normal");
+    point.scale = m_pointScaleSpin ? m_pointScaleSpin->value() : 1.0;
+    point.offset = m_pointOffsetSpin ? m_pointOffsetSpin->value() : 0.0;
+    point.pollGroupId = m_pointPollGroupCombo ? m_pointPollGroupCombo->currentData().toString() : QString();
+    point.writeStrategy = m_pointWriteStrategyCombo ? m_pointWriteStrategyCombo->currentText() : QStringLiteral("immediate");
+    point.description = m_pointDescriptionEdit ? m_pointDescriptionEdit->toPlainText().trimmed() : QString();
+    applyKindDefaults(point);
+    return point;
+}
+
+void MainWindow::loadPollGroupToUi(const PollGroupDefinition &group)
+{
+    if (!m_pollGroupIdEdit)
         return;
-    const auto &group = m_modbusMappingConfig.pollGroups.at(index);
-    m_currentPollGroupIndex = index;
     m_pollGroupIdEdit->setText(group.id);
     m_pollGroupNameEdit->setText(group.name);
     m_pollGroupEnabledCheck->setChecked(group.enabled);
@@ -930,12 +983,10 @@ void MainWindow::loadPollGroupToForm(int index)
     m_pollGroupDescriptionEdit->setPlainText(group.description);
 }
 
-void MainWindow::loadPointToForm(int index)
+void MainWindow::loadPointToUi(const ModbusPointDefinition &point)
 {
-    if (index < 0 || index >= m_modbusMappingConfig.points.size())
+    if (!m_pointIdEdit)
         return;
-    const auto &point = m_modbusMappingConfig.points.at(index);
-    m_currentPointIndex = index;
     m_pointIdEdit->setText(point.id);
     m_pointNameEdit->setText(point.name);
     m_pointVarIdEdit->setText(point.varId);
@@ -960,78 +1011,70 @@ void MainWindow::loadPointToForm(int index)
     updatePointEditorByKind();
 }
 
+void MainWindow::loadPollGroupToForm(int index)
+{
+    if (index < 0 || index >= m_modbusMappingConfig.pollGroups.size())
+        return;
+    const auto &group = m_modbusMappingConfig.pollGroups.at(index);
+    m_currentPollGroupIndex = index;
+    loadPollGroupToUi(group);
+    qDebug().noquote() << QString("[PollGroup] load index=%1 id=%2 name=%3 interval=%4 enabled=%5")
+                              .arg(index)
+                              .arg(group.id, group.name)
+                              .arg(group.intervalMs)
+                              .arg(group.enabled);
+}
+
+void MainWindow::loadPointToForm(int index)
+{
+    if (index < 0 || index >= m_modbusMappingConfig.points.size())
+        return;
+    const auto &point = m_modbusMappingConfig.points.at(index);
+    m_currentPointIndex = index;
+    loadPointToUi(point);
+    qDebug().noquote() << QString("[PointEditor] load index=%1 id=%2 varId=%3 kind=%4 slave=%5 fc=%6 addr=%7 qty=%8 group=%9")
+                              .arg(index)
+                              .arg(point.id, point.varId, toDisplayString(point.kind))
+                              .arg(point.slaveId)
+                              .arg(point.functionCode)
+                              .arg(point.address)
+                              .arg(point.quantity)
+                              .arg(point.pollGroupId);
+}
+
 void MainWindow::saveCurrentPollGroup()
 {
-    PollGroupDefinition group;
-    group.id = m_pollGroupIdEdit->text().trimmed();
-    group.name = m_pollGroupNameEdit->text().trimmed();
+    const PollGroupDefinition group = buildPollGroupFromUi();
     if (group.id.isEmpty())
         return;
-    group.enabled = m_pollGroupEnabledCheck->isChecked();
-    group.intervalMs = m_pollGroupIntervalSpin->value();
-    group.priority = m_pollGroupPrioritySpin->value();
-    group.description = m_pollGroupDescriptionEdit->toPlainText().trimmed();
-
-    int target = m_currentPollGroupIndex;
-    if (target < 0 || target >= m_modbusMappingConfig.pollGroups.size()) {
-        for (int i = 0; i < m_modbusMappingConfig.pollGroups.size(); ++i) {
-            if (m_modbusMappingConfig.pollGroups.at(i).id == group.id) {
-                target = i;
-                break;
-            }
-        }
-    }
-    if (target >= 0 && target < m_modbusMappingConfig.pollGroups.size())
-        m_modbusMappingConfig.pollGroups[target] = group;
-    else
-        m_modbusMappingConfig.pollGroups.append(group);
+    upsertPollGroup(m_modbusMappingConfig, group);
 
     refreshPollGroupList();
     refreshPollGroupCombo();
+    qDebug().noquote() << QString("[PollGroup] save success id=%1 name=%2 interval=%3 enabled=%4 total=%5")
+                              .arg(group.id, group.name)
+                              .arg(group.intervalMs)
+                              .arg(group.enabled)
+                              .arg(m_modbusMappingConfig.pollGroups.size());
     refreshDataSourceTreeDeferred();
 }
 
 void MainWindow::saveCurrentPoint()
 {
-    ModbusPointDefinition point;
-    point.id = m_pointIdEdit->text().trimmed();
-    point.name = m_pointNameEdit->text().trimmed();
-    point.varId = m_pointVarIdEdit->text().trimmed();
+    ModbusPointDefinition point = buildPointFromUi();
     if (point.id.isEmpty())
         return;
-    point.enabled = m_pointEnabledCheck->isChecked();
-    point.kind = static_cast<ModbusPointKind>(m_pointKindCombo->currentIndex());
-    point.slaveId = m_pointSlaveIdSpin->value();
-    point.functionCode = m_pointFunctionCodeSpin->value();
-    point.address = m_pointAddressSpin->value();
-    point.quantity = m_pointQuantitySpin->value();
-    point.readable = m_pointReadableCheck->isChecked();
-    point.writable = m_pointWritableCheck->isChecked();
-    point.dataType = m_pointDataTypeCombo->currentText();
-    point.byteOrder = m_pointByteOrderCombo->currentText();
-    point.wordOrder = m_pointWordOrderCombo->currentText();
-    point.scale = m_pointScaleSpin->value();
-    point.offset = m_pointOffsetSpin->value();
-    point.pollGroupId = m_pointPollGroupCombo->currentData().toString();
-    point.writeStrategy = m_pointWriteStrategyCombo->currentText();
-    point.description = m_pointDescriptionEdit->toPlainText().trimmed();
-    applyKindDefaults(point);
-
-    int target = m_currentPointIndex;
-    if (target < 0 || target >= m_modbusMappingConfig.points.size()) {
-        for (int i = 0; i < m_modbusMappingConfig.points.size(); ++i) {
-            if (m_modbusMappingConfig.points.at(i).id == point.id) {
-                target = i;
-                break;
-            }
-        }
-    }
-    if (target >= 0 && target < m_modbusMappingConfig.points.size())
-        m_modbusMappingConfig.points[target] = point;
-    else
-        m_modbusMappingConfig.points.append(point);
+    upsertPoint(m_modbusMappingConfig, point);
 
     refreshPointList();
+    qDebug().noquote() << QString("[PointEditor] save success id=%1 varId=%2 kind=%3 slave=%4 fc=%5 addr=%6 qty=%7 group=%8 total=%9")
+                              .arg(point.id, point.varId, toDisplayString(point.kind))
+                              .arg(point.slaveId)
+                              .arg(point.functionCode)
+                              .arg(point.address)
+                              .arg(point.quantity)
+                              .arg(point.pollGroupId)
+                              .arg(m_modbusMappingConfig.points.size());
     refreshDataSourceTreeDeferred();
 }
 
@@ -1056,6 +1099,52 @@ void MainWindow::updatePointEditorByKind()
         m_pointReadableCheck->setChecked(false);
         m_pointWritableCheck->setChecked(true);
     }
+}
+
+void MainWindow::injectDebugModbusSamples()
+{
+    PollGroupDefinition fast;
+    fast.id = "fast_1";
+    fast.name = "Fast Poll";
+    fast.intervalMs = 200;
+    fast.priority = 1;
+    upsertPollGroup(m_modbusMappingConfig, fast);
+
+    ModbusPointDefinition pFlow;
+    pFlow.id = "p_flow";
+    pFlow.name = "Flow Read";
+    pFlow.varId = "flow";
+    pFlow.kind = ModbusPointKind::ReadOnly;
+    pFlow.functionCode = 3;
+    pFlow.address = 100;
+    pFlow.pollGroupId = "fast_1";
+    applyKindDefaults(pFlow);
+    upsertPoint(m_modbusMappingConfig, pFlow);
+
+    ModbusPointDefinition pZeroCut;
+    pZeroCut.id = "p_zero_cut";
+    pZeroCut.name = "Zero Cut";
+    pZeroCut.varId = "zero_cut";
+    pZeroCut.kind = ModbusPointKind::ReadWrite;
+    pZeroCut.functionCode = 6;
+    pZeroCut.address = 101;
+    pZeroCut.pollGroupId = "fast_1";
+    pZeroCut.writeStrategy = "debounce";
+    applyKindDefaults(pZeroCut);
+    upsertPoint(m_modbusMappingConfig, pZeroCut);
+
+    ModbusPointDefinition cmdClear;
+    cmdClear.id = "cmd_clear";
+    cmdClear.name = "Clear Command";
+    cmdClear.varId = "clear";
+    cmdClear.kind = ModbusPointKind::Command;
+    cmdClear.functionCode = 6;
+    cmdClear.address = 200;
+    cmdClear.writeStrategy = "submit";
+    applyKindDefaults(cmdClear);
+    upsertPoint(m_modbusMappingConfig, cmdClear);
+
+    qDebug().noquote() << "[ModbusConfig] debug seed injected (set CONFIGSTUDIO_MODBUS_SEED=1 to enable)";
 }
 
 void MainWindow::showProperties(CanvasItem *item)

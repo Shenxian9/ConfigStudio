@@ -58,5 +58,11 @@ struct ModbusMappingConfig {
 
 QString toDisplayString(ModbusPointKind kind);
 void applyKindDefaults(ModbusPointDefinition &def);
+int findPollGroupIndexById(const ModbusMappingConfig &config, const QString &id);
+int findPointIndexById(const ModbusMappingConfig &config, const QString &id);
+bool upsertPollGroup(ModbusMappingConfig &config, const PollGroupDefinition &group);
+bool upsertPoint(ModbusMappingConfig &config, const ModbusPointDefinition &point);
+bool removePollGroupById(ModbusMappingConfig &config, const QString &id);
+bool removePointById(ModbusMappingConfig &config, const QString &id);
 
 #endif // MODBUSMAPPINGDEFS_H

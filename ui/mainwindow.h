@@ -96,9 +96,14 @@ private:
     void clearPointForm();
     void loadPollGroupToForm(int index);
     void loadPointToForm(int index);
+    PollGroupDefinition buildPollGroupFromUi() const;
+    ModbusPointDefinition buildPointFromUi() const;
+    void loadPollGroupToUi(const PollGroupDefinition &group);
+    void loadPointToUi(const ModbusPointDefinition &point);
     void saveCurrentPollGroup();
     void saveCurrentPoint();
     void updatePointEditorByKind();
+    void injectDebugModbusSamples();
 
     void showProperties(CanvasItem *item);
     void clearProperties();
