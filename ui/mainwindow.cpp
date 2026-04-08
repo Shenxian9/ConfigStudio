@@ -273,6 +273,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->variableView->verticalHeader()->setDefaultSectionSize(40);
     connect(ui->variableView->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &MainWindow::updateVariableActionButtons);
+    connect(ui->variableView->selectionModel(), &QItemSelectionModel::currentChanged,
+            this, [this](const QModelIndex &, const QModelIndex &) { updateVariableActionButtons(); });
 
 
 
@@ -1080,14 +1082,16 @@ void MainWindow::deleteSelectedVariable()
     const int row = current.row();
     if (!m_variableModel->removeVariableAt(row))
         return;
-    ui->variableView->clearSelection();
+    auto *selection = ui->variableView->selectionModel();
+    selection->setCurrentIndex(QModelIndex(), QItemSelectionModel::NoUpdate);
+    selection->clearSelection();
     updateVariableActionButtons();
 }
 
 void MainWindow::updateVariableActionButtons()
 {
     const bool hasSelection = ui->variableView && ui->variableView->selectionModel()
-                              && ui->variableView->selectionModel()->currentIndex().isValid();
+                              && !ui->variableView->selectionModel()->selectedRows().isEmpty();
     ui->pushButton_11->setEnabled(hasSelection);
     ui->pushButton_12->setEnabled(hasSelection);
 }
