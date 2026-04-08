@@ -463,7 +463,9 @@ void MainWindow::setupDataWorkspacePanels()
         serialForm->addRow("DataBits", m_dataBitsCombo);
         serialForm->addRow("Parity", m_parityCombo);
         serialForm->addRow("StopBits", m_stopBitsCombo);
-        layout->addWidget(serialGroup);
+        auto *groupRow = new QHBoxLayout();
+        groupRow->setSpacing(12);
+        groupRow->addWidget(serialGroup);
 
         auto *modbusGroup = new QGroupBox("Modbus Parameters", m_serialConfigPanel);
         auto *modbusForm = new QFormLayout(modbusGroup);
@@ -498,7 +500,8 @@ void MainWindow::setupDataWorkspacePanels()
         modbusForm->addRow("Retry Count", m_retrySpin);
         modbusForm->addRow("Poll Interval (ms)", m_pollIntervalSpin);
         modbusForm->addRow("Default Function Code", m_functionCodeCombo);
-        layout->addWidget(modbusGroup);
+        groupRow->addWidget(modbusGroup);
+        layout->addLayout(groupRow);
 
         auto *hint = new QLabel("Phase 1 only consolidates the device-level entry. Register-level mapping will move into the variable model in phase 2. Default Function Code is temporarily retained and not used for real protocol scheduling.", m_serialConfigPanel);
         hint->setWordWrap(true);
@@ -572,6 +575,8 @@ void MainWindow::setupDataWorkspacePanels()
         m_variableReadOnlyCheck = new QCheckBox("Read Only", m_variableEditorPanel);
         m_variableReadOnlyCheck->setObjectName("variableReadOnlyCheck");
         m_variableReadOnlyCheck->setChecked(true);
+        m_variableReadOnlyCheck->setMinimumHeight(46);
+        m_variableReadOnlyCheck->setStyleSheet("QCheckBox::indicator { width: 32px; height: 32px; }");
         m_variableEndianCombo = new OptionCycleButton(m_variableEditorPanel);
         m_variableEndianCombo->setObjectName("variableEndianCombo");
         m_variableEndianCombo->addItems({"BigEndian", "BigEndianWordSwap", "LittleEndian", "LittleEndianByteSwap"});
@@ -642,6 +647,12 @@ void MainWindow::registerTouchInput(QWidget *editor)
     editor->setMinimumWidth(260);
     m_touchInputs.insert(editor);
     editor->installEventFilter(this);
+    m_touchInputTargets.insert(editor, editor);
+    const auto children = editor->findChildren<QWidget*>();
+    for (QWidget *child : children) {
+        child->installEventFilter(this);
+        m_touchInputTargets.insert(child, editor);
+    }
 
     if (auto *line = qobject_cast<QLineEdit*>(editor))
         line->setReadOnly(true);
@@ -727,8 +738,13 @@ void MainWindow::showTouchInputPopup(const QString &title, const QString &value,
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    QWidget *w = qobject_cast<QWidget*>(watched);
-    if (!w || !m_touchInputs.contains(w))
+    QWidget *watchedWidget = qobject_cast<QWidget*>(watched);
+    QWidget *w = nullptr;
+    if (watchedWidget && m_touchInputs.contains(watchedWidget))
+        w = watchedWidget;
+    else
+        w = m_touchInputTargets.value(watched, nullptr);
+    if (!w)
         return QWidget::eventFilter(watched, event);
 
     if (event->type() != QEvent::MouseButtonPress)
@@ -999,9 +1015,15 @@ void MainWindow::applyVariableFromPanel()
     var.unit = m_variableUnitEdit->text().trimmed();
     var.scale = m_variableScaleSpin->value();
     var.readOnly = m_variableReadOnlyCheck->isChecked();
-    var.endianness = m_variableEndianCombo->currentText() == "BigEndianWordSwap"
-                         ? Endianness::BigEndianWordSwap
-                         : Endianness::BigEndian;
+    const QString endianText = m_variableEndianCombo->currentText();
+    if (endianText == "BigEndianWordSwap")
+        var.endianness = Endianness::BigEndianWordSwap;
+    else if (endianText == "LittleEndian")
+        var.endianness = Endianness::LittleEndian;
+    else if (endianText == "LittleEndianByteSwap")
+        var.endianness = Endianness::LittleEndianByteSwap;
+    else
+        var.endianness = Endianness::BigEndian;
 
     if (m_variableEditorRow >= 0 && m_variableEditorRow < m_variableModel->rowCount({})) {
         m_variableModel->setVariableAt(m_variableEditorRow, var);

@@ -25,6 +25,7 @@
 #include <QPointer>
 #include <QStandardItemModel>
 #include <QSet>
+#include <QHash>
 #include <functional>
 class QLabel;
 
@@ -182,6 +183,7 @@ private:
     OptionCycleButton *m_variableEndianCombo = nullptr;
     int m_variableEditorRow = -1;
     QSet<QWidget*> m_touchInputs;
+    QHash<QObject*, QWidget*> m_touchInputTargets;
     QWidget *m_touchInputPanel = nullptr;
     QLineEdit *m_touchInputEdit = nullptr;
     std::function<void (const QString&)> m_touchInputApply;
