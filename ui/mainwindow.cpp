@@ -17,7 +17,6 @@
 #include <QTableWidget>
 #include <QTreeView>
 #include <QHeaderView>
-#include <QMessageBox>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -354,7 +353,7 @@ void MainWindow::setupDataWorkspace()
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::errorOccurred, this, [this](const QString &err) {
         m_lastCommStatus = err;
-        QMessageBox::warning(this, tr("Modbus RTU Data Source"), err);
+        showErrorNotice(tr("Modbus RTU Data Source"), err);
         refreshDataSourceTreeDeferred();
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableReadSucceeded, this, [this](const QString &varId, const QVariant &value) {
@@ -367,7 +366,7 @@ void MainWindow::setupDataWorkspace()
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableWriteFailed, this, [this](const QString &varId, const QString &reason) {
         m_lastCommStatus = QString("Write Fail %1: %2").arg(varId, reason);
-        QMessageBox::warning(this, tr("Modbus Write Failed"), m_lastCommStatus);
+        showErrorNotice(tr("Modbus Write Failed"), m_lastCommStatus);
         refreshDataSourceTreeDeferred();
     });
 
@@ -651,6 +650,57 @@ void MainWindow::setupDataWorkspacePanels()
         connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
     }
 
+}
+
+void MainWindow::ensureErrorNoticePanel()
+{
+    if (m_errorNoticePanel)
+        return;
+
+    m_errorNoticePanel = new QFrame(this);
+    m_errorNoticePanel->setFrameShape(QFrame::StyledPanel);
+    m_errorNoticePanel->setStyleSheet("QFrame { background: white; border: 2px solid #d97a7a; border-radius: 8px; }");
+    m_errorNoticePanel->hide();
+
+    auto *layout = new QVBoxLayout(m_errorNoticePanel);
+    m_errorNoticeTitleLabel = new QLabel(m_errorNoticePanel);
+    QFont titleFont = m_errorNoticeTitleLabel->font();
+    titleFont.setBold(true);
+    titleFont.setPointSize(14);
+    m_errorNoticeTitleLabel->setFont(titleFont);
+    layout->addWidget(m_errorNoticeTitleLabel);
+
+    m_errorNoticeMessageLabel = new QLabel(m_errorNoticePanel);
+    m_errorNoticeMessageLabel->setWordWrap(true);
+    QFont msgFont = m_errorNoticeMessageLabel->font();
+    msgFont.setPointSize(12);
+    m_errorNoticeMessageLabel->setFont(msgFont);
+    layout->addWidget(m_errorNoticeMessageLabel);
+
+    auto *okBtn = new QPushButton("OK", m_errorNoticePanel);
+    okBtn->setMinimumHeight(38);
+    okBtn->setFocusPolicy(Qt::NoFocus);
+    layout->addWidget(okBtn);
+    connect(okBtn, &QPushButton::clicked, m_errorNoticePanel, &QWidget::hide);
+}
+
+void MainWindow::showErrorNotice(const QString &title, const QString &message)
+{
+    ensureErrorNoticePanel();
+    if (!m_errorNoticePanel || !m_errorNoticeTitleLabel || !m_errorNoticeMessageLabel)
+        return;
+
+    m_errorNoticeTitleLabel->setText(title);
+    m_errorNoticeMessageLabel->setText(message);
+
+    const int margin = 14;
+    const int panelW = qMin(width() - margin * 2, 560);
+    const int panelH = 190;
+    m_errorNoticePanel->setGeometry((width() - panelW) / 2,
+                                    qMax(10, (height() - panelH) / 2 - height() / 8),
+                                    panelW, panelH);
+    m_errorNoticePanel->raise();
+    m_errorNoticePanel->show();
 }
 
 void MainWindow::applyDataSourceMode()
@@ -1015,20 +1065,20 @@ void MainWindow::applyVariableFromPanel()
     const QString varId = m_variableIdEdit->text().trimmed();
     const QString varName = m_variableNameEdit->text().trimmed();
     if (varId.isEmpty()) {
-        QMessageBox::warning(this, tr("Variable Config"), tr("Variable ID cannot be empty."));
+        showErrorNotice(tr("Variable Config"), tr("Variable ID cannot be empty."));
         return;
     }
     if (varName.isEmpty()) {
-        QMessageBox::warning(this, tr("Variable Config"), tr("Name cannot be empty."));
+        showErrorNotice(tr("Variable Config"), tr("Name cannot be empty."));
         return;
     }
     if (m_variableAddressSpin->value() < 0 || m_variableCountSpin->value() < 1 ||
         m_variableScaleSpin->value() <= 0.0 || m_variableBitOffsetSpin->value() < 0) {
-        QMessageBox::warning(this, tr("Variable Config"), tr("Invalid numeric fields."));
+        showErrorNotice(tr("Variable Config"), tr("Invalid numeric fields."));
         return;
     }
     if (m_variableModel->hasVariableId(varId, m_variableEditorRow)) {
-        QMessageBox::warning(this, tr("Variable Config"), tr("Variable ID already exists."));
+        showErrorNotice(tr("Variable Config"), tr("Variable ID already exists."));
         return;
     }
 

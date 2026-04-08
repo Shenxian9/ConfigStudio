@@ -100,6 +100,8 @@ private:
     void setupDataWorkspacePanels();
     void refreshDataSourceTree();
     void refreshDataSourceTreeDeferred();
+    void ensureErrorNoticePanel();
+    void showErrorNotice(const QString &title, const QString &message);
     void hideDataWorkspacePanels();
     void fillVariableEditorFromRow(int row);
     void registerTouchInput(QWidget *editor);
@@ -182,6 +184,9 @@ private:
     QCheckBox *m_variableReadOnlyCheck = nullptr;
     OptionCycleButton *m_variableEndianCombo = nullptr;
     int m_variableEditorRow = -1;
+    QFrame *m_errorNoticePanel = nullptr;
+    QLabel *m_errorNoticeTitleLabel = nullptr;
+    QLabel *m_errorNoticeMessageLabel = nullptr;
     QSet<QWidget*> m_touchInputs;
     QHash<QObject*, QWidget*> m_touchInputTargets;
     QWidget *m_touchInputPanel = nullptr;
