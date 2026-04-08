@@ -23,6 +23,10 @@
 #include <QFrame>
 #include <QPointer>
 #include <QStandardItemModel>
+#include <QListWidget>
+#include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QTextEdit>
 
 #include "componentpalette.h"
 #include "palettebinder.h"
@@ -33,6 +37,9 @@
 #include "variablemodel.h"
 #include "runtimesimulator.h"
 #include "serialdatasource.h"
+#include "modbusmappingdefs.h"
+#include "modbusworker.h"
+#include "singlegrouppollrunner.h"
 #include "virtualkeyboardhost.h"
 namespace Ui {
 class MainWindow;
@@ -67,7 +74,6 @@ private slots:
 
 
 
-
     void on_pushOfDatasrc_clicked();
 
     void on_pushOfDesign_clicked();
@@ -84,6 +90,26 @@ private:
     void applySerialConfigFromPanel();
     void applyMappingFromPanel();
     void prepareImeForTransientEditor();
+
+    void refreshPollGroupList();
+    void refreshPointList();
+    void refreshPollGroupCombo();
+    void clearPollGroupForm();
+    void clearPointForm();
+    void loadPollGroupToForm(int index);
+    void loadPointToForm(int index);
+    PollGroupDefinition buildPollGroupFromUi() const;
+    ModbusPointDefinition buildPointFromUi() const;
+    void loadPollGroupToUi(const PollGroupDefinition &group);
+    void loadPointToUi(const ModbusPointDefinition &point);
+    void saveCurrentPollGroup();
+    void saveCurrentPoint();
+    void updatePointEditorByKind();
+    void injectDebugModbusSamples();
+    void sendTestRequest();
+    void handleModbusResponse(const ModbusResponse &response);
+    void startSinglePoll();
+    void stopSinglePoll();
 
     void showProperties(CanvasItem *item);
     void clearProperties();
@@ -129,6 +155,9 @@ private:
 
     SerialDataSource *m_serialDataSource = nullptr;
     SerialVariableMapper *m_serialMapper = nullptr;
+    ModbusController *m_modbusController = nullptr;
+    SingleGroupPollRunner *m_singlePollRunner = nullptr;
+    ModbusMappingConfig m_modbusMappingConfig;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
 
     QWidget *m_serialConfigPanel = nullptr;
@@ -144,8 +173,44 @@ private:
     QComboBox *m_functionCodeCombo = nullptr;
 
     QWidget *m_mappingPanel = nullptr;
-    QTableWidget *m_mappingTable = nullptr;
 
+    QListWidget *m_pollGroupList = nullptr;
+    QLineEdit *m_pollGroupIdEdit = nullptr;
+    QLineEdit *m_pollGroupNameEdit = nullptr;
+    QCheckBox *m_pollGroupEnabledCheck = nullptr;
+    QSpinBox *m_pollGroupIntervalSpin = nullptr;
+    QSpinBox *m_pollGroupPrioritySpin = nullptr;
+    QTextEdit *m_pollGroupDescriptionEdit = nullptr;
+    int m_currentPollGroupIndex = -1;
+
+    QListWidget *m_pointList = nullptr;
+    QLineEdit *m_pointIdEdit = nullptr;
+    QLineEdit *m_pointNameEdit = nullptr;
+    QLineEdit *m_pointVarIdEdit = nullptr;
+    QCheckBox *m_pointEnabledCheck = nullptr;
+    QComboBox *m_pointKindCombo = nullptr;
+    QSpinBox *m_pointSlaveIdSpin = nullptr;
+    QSpinBox *m_pointFunctionCodeSpin = nullptr;
+    QSpinBox *m_pointAddressSpin = nullptr;
+    QSpinBox *m_pointQuantitySpin = nullptr;
+    QCheckBox *m_pointReadableCheck = nullptr;
+    QCheckBox *m_pointWritableCheck = nullptr;
+    QComboBox *m_pointDataTypeCombo = nullptr;
+    QComboBox *m_pointByteOrderCombo = nullptr;
+    QComboBox *m_pointWordOrderCombo = nullptr;
+    QDoubleSpinBox *m_pointScaleSpin = nullptr;
+    QDoubleSpinBox *m_pointOffsetSpin = nullptr;
+    QComboBox *m_pointPollGroupCombo = nullptr;
+    QComboBox *m_pointWriteStrategyCombo = nullptr;
+    QTextEdit *m_pointDescriptionEdit = nullptr;
+    int m_currentPointIndex = -1;
+
+    QLineEdit *m_testPayloadEdit = nullptr;
+    QLabel *m_testResultLabel = nullptr;
+    QPushButton *m_startPollBtn = nullptr;
+    QPushButton *m_stopPollBtn = nullptr;
+    int m_testReqSeq = 0;
+    bool m_workerPortOpen = false;
 };
 
 

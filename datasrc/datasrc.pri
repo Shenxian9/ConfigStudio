@@ -3,8 +3,14 @@ FORMS += \
 
 HEADERS += \
     $$PWD/datasrc.h \
-    $$PWD/serialdatasource.h
+    $$PWD/modbusworker.h \
+    $$PWD/singlegrouppollrunner.h \
+    $$PWD/serialdatasource.h \
+    $$PWD/modbusmappingdefs.h
 
 SOURCES += \
     $$PWD/datasrc.cpp \
-    $$PWD/serialdatasource.cpp
+    $$PWD/modbusworker.cpp \
+    $$PWD/singlegrouppollrunner.cpp \
+    $$PWD/serialdatasource.cpp \
+    $$PWD/modbusmappingdefs.cpp

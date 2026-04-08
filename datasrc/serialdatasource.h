@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QByteArray>
 #include <QHash>
+#include <QMetaType>
 #include <QSerialPort>
 
 class VariableModel;
@@ -24,6 +25,7 @@ struct SerialPortConfig {
     int defaultFunctionCode = 3;
     QByteArray frameTerminator = "\n";
 };
+Q_DECLARE_METATYPE(SerialPortConfig)
 
 class SerialDataSource : public QObject
 {
