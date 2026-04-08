@@ -12,8 +12,6 @@ INCLUDEPATH += ../ui
 include(../ui/ui.pri)
 INCLUDEPATH += ../canvas
 include(../canvas/canvas.pri)
-INCLUDEPATH += ../components
-include(../components/components.pri)
 INCLUDEPATH += ../model
 include(../model/model.pri)
 INCLUDEPATH += ../runtime
@@ -30,8 +28,7 @@ INCLUDEPATH += ../datasrc
 include(../datasrc/datasrc.pri)
 
 SOURCES += \
+    componentfactory_stub.cpp \
     tst_phase1_datasource.cpp
 
 RESOURCES += ../resources/resources.qrc
-
-LIBS += -lqwt

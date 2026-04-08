@@ -279,15 +279,38 @@ MainWindow::MainWindow(QWidget *parent)
 
     qDebug() << "Main model =" << m_variableModel;
     // 添加测试变量（关键是 strategy）
-    Variable v1{.id="1", .name="Temp", .deviceId="PLC1", .type="float", .unit="℃",
-                .strategy=DataStrategy::Sine};
+    Variable v1;
+    v1.id = "1";
+    v1.name = "Temp";
+    v1.deviceId = "PLC1";
+    v1.type = "float";
+    v1.unit = "℃";
+    v1.strategy = DataStrategy::Sine;
 
-    Variable v2{.id="2", .name="Pressure", .deviceId="PLC2", .type="float", .unit="Pa",
-                .strategy=DataStrategy::Random};
-    Variable v3{.id="3", .name="Age", .deviceId="PLC3", .type="float", .unit="year",
-                .strategy=DataStrategy::Square};
-    Variable v4{.id="Variable", .name="Variable", .deviceId="TEST", .type="float", .unit="",
-                .value=50.0, .strategy=DataStrategy::None};
+    Variable v2;
+    v2.id = "2";
+    v2.name = "Pressure";
+    v2.deviceId = "PLC2";
+    v2.type = "float";
+    v2.unit = "Pa";
+    v2.strategy = DataStrategy::Random;
+
+    Variable v3;
+    v3.id = "3";
+    v3.name = "Age";
+    v3.deviceId = "PLC3";
+    v3.type = "float";
+    v3.unit = "year";
+    v3.strategy = DataStrategy::Square;
+
+    Variable v4;
+    v4.id = "Variable";
+    v4.name = "Variable";
+    v4.deviceId = "TEST";
+    v4.type = "float";
+    v4.unit = "";
+    v4.value = 50.0;
+    v4.strategy = DataStrategy::None;
 
     m_variableModel->addVariable(v1);
     m_variableModel->addVariable(v2);
