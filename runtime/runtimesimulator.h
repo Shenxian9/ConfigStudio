@@ -16,6 +16,8 @@ public:
     explicit RuntimeSimulator(VariableModel* model, QObject* parent = nullptr);
 
     void start(int intervalMs = 500);
+    void stop();
+    bool isRunning() const { return m_timer.isActive(); }
 
 private slots:
     void tick();

@@ -25,6 +25,7 @@
 #include <QFrame>
 #include <QPointer>
 #include <QStandardItemModel>
+class QLabel;
 
 #include "componentpalette.h"
 #include "palettebinder.h"
@@ -35,6 +36,7 @@
 #include "variablemodel.h"
 #include "runtimesimulator.h"
 #include "serialdatasource.h"
+#include "modbusrtudatasource.h"
 #include "virtualkeyboardhost.h"
 namespace Ui {
 class MainWindow;
@@ -81,10 +83,13 @@ private slots:
     void deleteSelectedVariable();
     void applyVariableFromPanel();
     void updateVariableActionButtons();
+    void applyDataSourceMode();
 
 public:
     SerialDataSource *serialDataSourceForTest() const { return m_serialDataSource; }
     VariableModel *variableModelForTest() const { return m_variableModel; }
+    ModbusRtuDataSource *modbusDataSourceForTest() const { return m_modbusDataSource; }
+    RuntimeSimulator *runtimeSimulatorForTest() const { return m_runtimeSimulator; }
 
 private:
     void setupDataWorkspace();
@@ -138,10 +143,18 @@ private:
     bool m_darkCanvasMode = false;
 
     SerialDataSource *m_serialDataSource = nullptr;
+    ModbusRtuDataSource *m_modbusDataSource = nullptr;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
+    RuntimeSimulator *m_runtimeSimulator = nullptr;
+    QComboBox *m_dataSourceModeCombo = nullptr;
+    QLabel *m_dataSourceStatusLabel = nullptr;
+    QLabel *m_pollingStatusLabel = nullptr;
+    QLabel *m_lastCommStatusLabel = nullptr;
+    QString m_lastCommStatus;
 
     QWidget *m_serialConfigPanel = nullptr;
     QLineEdit *m_serialPortEdit = nullptr;
+    QLineEdit *m_serialDeviceEdit = nullptr;
     QComboBox *m_serialBaudCombo = nullptr;
     QComboBox *m_dataBitsCombo = nullptr;
     QComboBox *m_parityCombo = nullptr;

@@ -14,6 +14,11 @@ void RuntimeSimulator::start(int intervalMs)
     m_timer.start(intervalMs);
 }
 
+void RuntimeSimulator::stop()
+{
+    m_timer.stop();
+}
+
 void RuntimeSimulator::tick()
 {
     for (int i = 0; i < m_model->rowCount({}); ++i) {

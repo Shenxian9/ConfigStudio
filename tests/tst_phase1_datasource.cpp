@@ -15,6 +15,8 @@
 
 #include "../ui/mainwindow.h"
 
+int runPhase3ModbusReadTests(int argc, char *argv[]);
+
 class Phase1DataSourceTest : public QObject
 {
     Q_OBJECT
@@ -344,7 +346,9 @@ int main(int argc, char *argv[])
     qputenv("QT_QPA_PLATFORM", QByteArray("offscreen"));
     QApplication app(argc, argv);
     Phase1DataSourceTest tc;
-    return QTest::qExec(&tc, argc, argv);
+    const int r1 = QTest::qExec(&tc, argc, argv);
+    const int r2 = runPhase3ModbusReadTests(argc, argv);
+    return r1 == 0 && r2 == 0 ? 0 : 1;
 }
 
 #include "tst_phase1_datasource.moc"

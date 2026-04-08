@@ -320,46 +320,69 @@ MainWindow::MainWindow(QWidget *parent)
     setupDataWorkspace();
 
     // 启动仿真
-    RuntimeSimulator* sim = new RuntimeSimulator(m_variableModel, this);
-    sim->start(300);
+    m_runtimeSimulator = new RuntimeSimulator(m_variableModel, this);
+    m_runtimeSimulator->start(300);
 
 
 }
 
 void MainWindow::setupDataWorkspace()
 {
-    m_serialDataSource = new SerialDataSource(this);
+    m_serialDataSource = new SerialDataSource(this); // 保留配置承载
+    m_modbusDataSource = new ModbusRtuDataSource(this);
+    m_modbusDataSource->setVariableModel(m_variableModel);
+    m_modbusDataSource->setConfig(m_serialDataSource->config());
     m_dataSourceTreeModel = new QStandardItemModel(this);
 
     m_dataSourceTreeModel->setHorizontalHeaderLabels({"Data Sources"});
     ui->treeView->setModel(m_dataSourceTreeModel);
     ui->treeView->header()->setStretchLastSection(true);
 
-    connect(m_serialDataSource, &SerialDataSource::statusChanged, this, [this](bool opened) {
+    connect(m_modbusDataSource, &ModbusRtuDataSource::statusChanged, this, [this](bool opened) {
         ui->pushButton_8->setEnabled(!opened);
         ui->pushButton_9->setEnabled(opened);
+        if (m_dataSourceStatusLabel)
+            m_dataSourceStatusLabel->setText(opened ? "Opened" : "Stopped");
         refreshDataSourceTreeDeferred();
     });
 
-    connect(m_serialDataSource, &SerialDataSource::errorOccurred, this, [this](const QString &err) {
+    connect(m_modbusDataSource, &ModbusRtuDataSource::pollingStateChanged, this, [this](bool running) {
+        if (m_pollingStatusLabel)
+            m_pollingStatusLabel->setText(running ? "Polling" : "Idle");
+        refreshDataSourceTreeDeferred();
+    });
+
+    connect(m_modbusDataSource, &ModbusRtuDataSource::errorOccurred, this, [this](const QString &err) {
+        m_lastCommStatus = err;
+        if (m_lastCommStatusLabel)
+            m_lastCommStatusLabel->setText(err);
         QMessageBox::warning(this, tr("Modbus RTU Data Source"), err);
+        refreshDataSourceTreeDeferred();
+    });
+    connect(m_modbusDataSource, &ModbusRtuDataSource::variableReadSucceeded, this, [this](const QString &varId, const QVariant &value) {
+        m_lastCommStatus = QString("OK %1=%2").arg(varId, value.toString());
+        if (m_lastCommStatusLabel)
+            m_lastCommStatusLabel->setText(m_lastCommStatus);
         refreshDataSourceTreeDeferred();
     });
 
     connect(ui->pushButton_2, &QPushButton::clicked, this, &MainWindow::showSerialConfigDialog);
     connect(ui->pushButton_8, &QPushButton::clicked, this, [this]() {
-        if (!m_serialDataSource->open())
+        if (!m_modbusDataSource->open())
             return;
+        if (m_dataSourceModeCombo && m_dataSourceModeCombo->currentText() == "Modbus RTU")
+            m_modbusDataSource->startPolling();
         refreshDataSourceTreeDeferred();
     });
     connect(ui->pushButton_9, &QPushButton::clicked, this, [this]() {
-        m_serialDataSource->close();
+        m_modbusDataSource->close();
         refreshDataSourceTreeDeferred();
     });
     connect(ui->pushButton_7, &QPushButton::clicked, this, [this]() {
-        m_serialDataSource->close();
+        m_modbusDataSource->close();
         SerialPortConfig cfg;
         m_serialDataSource->setConfig(cfg);
+        m_modbusDataSource->setConfig(cfg);
         refreshDataSourceTreeDeferred();
     });
 
@@ -388,6 +411,7 @@ void MainWindow::setupDataWorkspace()
     updateVariableActionButtons();
 
     setupDataWorkspacePanels();
+    applyDataSourceMode();
     refreshDataSourceTree();
 }
 
@@ -415,6 +439,9 @@ void MainWindow::setupDataWorkspacePanels()
         serialForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
         serialForm->setSpacing(10);
 
+        m_serialDeviceEdit = new QLineEdit(m_serialConfigPanel);
+        m_serialDeviceEdit->setObjectName("serialDeviceEdit");
+        m_serialDeviceEdit->setPlaceholderText("default");
         m_serialPortEdit = new QLineEdit(m_serialConfigPanel);
         m_serialPortEdit->setObjectName("serialPortEdit");
         m_serialPortEdit->setPlaceholderText("/dev/ttyS2 or COM3");
@@ -431,6 +458,7 @@ void MainWindow::setupDataWorkspacePanels()
         m_stopBitsCombo->setObjectName("serialStopBitsCombo");
         m_stopBitsCombo->addItems({"1", "2"});
 
+        serialForm->addRow("Device", m_serialDeviceEdit);
         serialForm->addRow("Port", m_serialPortEdit);
         serialForm->addRow("BaudRate", m_serialBaudCombo);
         serialForm->addRow("DataBits", m_dataBitsCombo);
@@ -571,6 +599,46 @@ void MainWindow::setupDataWorkspacePanels()
         connect(applyBtn, &QPushButton::clicked, this, &MainWindow::applyVariableFromPanel);
         connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
     }
+
+    if (!m_dataSourceModeCombo) {
+        m_dataSourceModeCombo = new QComboBox(ui->DataWorkspace);
+        m_dataSourceModeCombo->setObjectName("dataSourceModeCombo");
+        m_dataSourceModeCombo->addItems({"Simulator", "Modbus RTU"});
+        m_dataSourceModeCombo->setGeometry(40, 86, 180, 36);
+        connect(m_dataSourceModeCombo, &QComboBox::currentTextChanged, this, [this]() { applyDataSourceMode(); });
+    }
+    if (!m_dataSourceStatusLabel) {
+        m_dataSourceStatusLabel = new QLabel("Stopped", ui->DataWorkspace);
+        m_dataSourceStatusLabel->setObjectName("dataSourceStatusLabel");
+        m_dataSourceStatusLabel->setGeometry(230, 86, 120, 36);
+    }
+    if (!m_pollingStatusLabel) {
+        m_pollingStatusLabel = new QLabel("Idle", ui->DataWorkspace);
+        m_pollingStatusLabel->setObjectName("pollingStatusLabel");
+        m_pollingStatusLabel->setGeometry(360, 86, 100, 36);
+    }
+    if (!m_lastCommStatusLabel) {
+        m_lastCommStatusLabel = new QLabel("", ui->DataWorkspace);
+        m_lastCommStatusLabel->setObjectName("lastCommStatusLabel");
+        m_lastCommStatusLabel->setGeometry(470, 86, 320, 36);
+    }
+}
+
+void MainWindow::applyDataSourceMode()
+{
+    const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->currentText() : QString("Simulator");
+    if (mode == "Modbus RTU") {
+        if (m_runtimeSimulator)
+            m_runtimeSimulator->stop();
+        if (m_modbusDataSource && m_modbusDataSource->isOpen())
+            m_modbusDataSource->startPolling();
+    } else {
+        if (m_modbusDataSource)
+            m_modbusDataSource->stopPolling();
+        if (m_runtimeSimulator && !m_runtimeSimulator->isRunning())
+            m_runtimeSimulator->start(300);
+    }
+    refreshDataSourceTreeDeferred();
 }
 
 void MainWindow::refreshDataSourceTree()
@@ -583,7 +651,12 @@ void MainWindow::refreshDataSourceTree()
     const SerialPortConfig cfg = m_serialDataSource->config();
     auto *root = new QStandardItem(QString("Modbus RTU: %1").arg(cfg.portName));
 
-    root->appendRow(new QStandardItem(QString("Status: %1").arg(m_serialDataSource->isOpen() ? "Running" : "Stopped")));
+    root->appendRow(new QStandardItem(QString("Mode: %1")
+                                          .arg(m_dataSourceModeCombo ? m_dataSourceModeCombo->currentText() : "Simulator")));
+    root->appendRow(new QStandardItem(QString("Status: %1")
+                                          .arg(m_modbusDataSource && m_modbusDataSource->isOpen() ? "Opened" : "Stopped")));
+    root->appendRow(new QStandardItem(QString("Polling: %1")
+                                          .arg(m_modbusDataSource && m_modbusDataSource->isPolling() ? "Running" : "Idle")));
     root->appendRow(new QStandardItem(QString("Baud/Data/Parity/Stop: %1 / %2 / %3 / %4")
                                           .arg(cfg.baudRate)
                                           .arg(static_cast<int>(cfg.dataBits))
@@ -596,6 +669,8 @@ void MainWindow::refreshDataSourceTree()
     root->appendRow(new QStandardItem(QString("Reserved Poll/FC: %1 ms / %2")
                                           .arg(cfg.pollIntervalMs)
                                           .arg(cfg.defaultFunctionCode)));
+    if (!m_lastCommStatus.isEmpty())
+        root->appendRow(new QStandardItem(QString("Last Comm: %1").arg(m_lastCommStatus)));
 
     m_dataSourceTreeModel->appendRow(root);
     ui->treeView->expandAll();
@@ -619,7 +694,7 @@ void MainWindow::prepareImeForTransientEditor()
 
 void MainWindow::showSerialConfigDialog()
 {
-    if (!m_serialDataSource || !m_serialConfigPanel || !m_serialPortEdit || !m_serialBaudCombo
+    if (!m_serialDataSource || !m_serialConfigPanel || !m_serialDeviceEdit || !m_serialPortEdit || !m_serialBaudCombo
         || !m_dataBitsCombo || !m_parityCombo || !m_stopBitsCombo || !m_slaveIdSpin
         || !m_timeoutSpin || !m_retrySpin || !m_pollIntervalSpin || !m_functionCodeCombo)
         return;
@@ -628,6 +703,7 @@ void MainWindow::showSerialConfigDialog()
 
     const SerialPortConfig cfg = m_serialDataSource->config();
     {
+        QSignalBlocker b0(m_serialDeviceEdit);
         QSignalBlocker b1(m_serialPortEdit);
         QSignalBlocker b2(m_serialBaudCombo);
         QSignalBlocker b3(m_dataBitsCombo);
@@ -638,6 +714,7 @@ void MainWindow::showSerialConfigDialog()
         QSignalBlocker b8(m_retrySpin);
         QSignalBlocker b9(m_pollIntervalSpin);
         QSignalBlocker b10(m_functionCodeCombo);
+        m_serialDeviceEdit->setText(cfg.deviceId);
         m_serialPortEdit->setText(cfg.portName);
         m_serialBaudCombo->setCurrentText(QString::number(cfg.baudRate));
         m_dataBitsCombo->setCurrentText(QString::number(static_cast<int>(cfg.dataBits)));
@@ -842,12 +919,13 @@ void MainWindow::updateVariableActionButtons()
 
 void MainWindow::applySerialConfigFromPanel()
 {
-    if (!m_serialDataSource || !m_serialPortEdit || !m_serialBaudCombo
+    if (!m_serialDataSource || !m_serialDeviceEdit || !m_serialPortEdit || !m_serialBaudCombo
         || !m_dataBitsCombo || !m_parityCombo || !m_stopBitsCombo || !m_slaveIdSpin
         || !m_timeoutSpin || !m_retrySpin || !m_pollIntervalSpin || !m_functionCodeCombo)
         return;
 
     SerialPortConfig nextCfg = m_serialDataSource->config();
+    nextCfg.deviceId = m_serialDeviceEdit->text().trimmed();
     nextCfg.portName = m_serialPortEdit->text().trimmed();
     nextCfg.baudRate = m_serialBaudCombo->currentText().toInt();
     nextCfg.dataBits = static_cast<QSerialPort::DataBits>(m_dataBitsCombo->currentText().toInt());
@@ -875,6 +953,8 @@ void MainWindow::applySerialConfigFromPanel()
         break;
     }
     m_serialDataSource->setConfig(nextCfg);
+    if (m_modbusDataSource)
+        m_modbusDataSource->setConfig(nextCfg);
 
     hideDataWorkspacePanels();
     refreshDataSourceTreeDeferred();

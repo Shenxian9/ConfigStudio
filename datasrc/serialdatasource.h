@@ -11,6 +11,7 @@
 class VariableModel;
 
 struct SerialPortConfig {
+    QString deviceId = QStringLiteral("default");
     QString portName = QStringLiteral("/dev/ttyS2");
     qint32 baudRate = QSerialPort::Baud9600;
     QSerialPort::DataBits dataBits = QSerialPort::Data8;
