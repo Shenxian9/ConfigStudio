@@ -555,9 +555,12 @@ void MainWindow::setupDataWorkspacePanels()
         title->setFont(titleFont);
         layout->addWidget(title);
 
-        auto *form = new QFormLayout();
-        form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        form->setSpacing(10);
+        auto *leftForm = new QFormLayout();
+        leftForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        leftForm->setSpacing(10);
+        auto *rightForm = new QFormLayout();
+        rightForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        rightForm->setSpacing(10);
 
         m_variableIdEdit = new QLineEdit(m_variableEditorPanel);
         m_variableIdEdit->setObjectName("variableIdEdit");
@@ -607,25 +610,36 @@ void MainWindow::setupDataWorkspacePanels()
         registerTouchInput(m_variableUnitEdit);
         registerTouchInput(m_variableScaleSpin);
 
-        form->addRow("Variable ID", m_variableIdEdit);
-        form->addRow("Name", m_variableNameEdit);
-        form->addRow("Device", m_variableDeviceEdit);
-        form->addRow("Type", m_variableTypeCombo);
-        form->addRow("Area", m_variableAreaCombo);
-        form->addRow("Address", m_variableAddressSpin);
-        form->addRow("Count", m_variableCountSpin);
-        form->addRow("Bit Offset", m_variableBitOffsetSpin);
-        form->addRow("Unit", m_variableUnitEdit);
-        form->addRow("Scale", m_variableScaleSpin);
-        form->addRow("ReadOnly", m_variableReadOnlyCheck);
-        form->addRow("Endianness", m_variableEndianCombo);
-        layout->addLayout(form);
+        leftForm->addRow("Variable ID", m_variableIdEdit);
+        leftForm->addRow("Name", m_variableNameEdit);
+        leftForm->addRow("Device", m_variableDeviceEdit);
+        leftForm->addRow("Type", m_variableTypeCombo);
+        leftForm->addRow("Area", m_variableAreaCombo);
+        leftForm->addRow("Address", m_variableAddressSpin);
+
+        rightForm->addRow("Count", m_variableCountSpin);
+        rightForm->addRow("Bit Offset", m_variableBitOffsetSpin);
+        rightForm->addRow("Unit", m_variableUnitEdit);
+        rightForm->addRow("Scale", m_variableScaleSpin);
+        rightForm->addRow("ReadOnly", m_variableReadOnlyCheck);
+        rightForm->addRow("Endianness", m_variableEndianCombo);
+
+        auto *formColumns = new QHBoxLayout();
+        formColumns->setSpacing(18);
+        formColumns->addLayout(leftForm, 1);
+        formColumns->addLayout(rightForm, 1);
+        layout->addLayout(formColumns);
 
         auto *buttons = new QHBoxLayout();
         auto *applyBtn = new QPushButton("Apply", m_variableEditorPanel);
         applyBtn->setObjectName("variableApplyButton");
         auto *cancelBtn = new QPushButton("Cancel", m_variableEditorPanel);
         cancelBtn->setObjectName("variableCancelButton");
+        for (QPushButton *btn : {applyBtn, cancelBtn}) {
+            btn->setMinimumSize(130, 50);
+            btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        }
+        buttons->setSpacing(12);
         buttons->addStretch();
         buttons->addWidget(applyBtn);
         buttons->addWidget(cancelBtn);
@@ -965,7 +979,7 @@ void MainWindow::showAddVariableDialog()
     m_variableEndianCombo->setCurrentText("BigEndian");
 
     hideDataWorkspacePanels();
-    const int panelW = qMin(width() - 32, 620);
+    const int panelW = qMin(width() - 32, 920);
     const int panelH = qMin(height() - 32, 560);
     m_variableEditorPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
     m_variableEditorPanel->show();
@@ -984,7 +998,7 @@ void MainWindow::showEditVariableDialog()
     fillVariableEditorFromRow(m_variableEditorRow);
 
     hideDataWorkspacePanels();
-    const int panelW = qMin(width() - 32, 620);
+    const int panelW = qMin(width() - 32, 920);
     const int panelH = qMin(height() - 32, 560);
     m_variableEditorPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
     m_variableEditorPanel->show();
