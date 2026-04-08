@@ -7,6 +7,7 @@
 #include <QPointer>
 #include "model/variablemodel.h"
 #include "canvas/canvasitem.h"
+#include "variablewritebackend.h"
 
 class DataBindingManager : public QObject
 {
@@ -16,6 +17,7 @@ public:
 
     void bind(const QString& varId, CanvasItem* item, const QString& property);
     void unbind(const QString& varId, CanvasItem* item, const QString& property);
+    void setWriteBackend(IVariableWriteBackend *backend) { m_writeBackend = backend; }
     bool publishValue(const QString& varId, const QVariant& value);
     bool currentValue(const QString& varId, QVariant* outValue) const;
 
@@ -30,5 +32,6 @@ private:
 
     VariableModel* m_model;
     QHash<QString, QList<Binding>> m_bindings; // varId → 多个控件
+    IVariableWriteBackend *m_writeBackend = nullptr;
 };
 #endif // DATABINDINGMANAGER_H

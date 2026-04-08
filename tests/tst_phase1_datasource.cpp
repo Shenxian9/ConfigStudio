@@ -16,6 +16,7 @@
 #include "../ui/optioncyclebutton.h"
 
 int runPhase3ModbusReadTests(int argc, char *argv[]);
+int runPhase4ModbusWriteTests(int argc, char *argv[]);
 
 class Phase1DataSourceTest : public QObject
 {
@@ -348,7 +349,8 @@ int main(int argc, char *argv[])
     Phase1DataSourceTest tc;
     const int r1 = QTest::qExec(&tc, argc, argv);
     const int r2 = runPhase3ModbusReadTests(argc, argv);
-    return r1 == 0 && r2 == 0 ? 0 : 1;
+    const int r3 = runPhase4ModbusWriteTests(argc, argv);
+    return r1 == 0 && r2 == 0 && r3 == 0 ? 0 : 1;
 }
 
 #include "tst_phase1_datasource.moc"

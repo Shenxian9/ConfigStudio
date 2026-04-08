@@ -125,6 +125,136 @@ bool ModbusRtuDataSource::processReadResultForTest(const QString &varId, const Q
     return true;
 }
 
+bool ModbusRtuDataSource::encodeSingleRegisterWriteForTest(const Variable &var, const QVariant &value, quint16 *encoded, QString *errorText) const
+{
+    return encodeSingleRegisterWrite(var, value, encoded, errorText);
+}
+
+bool ModbusRtuDataSource::encodeSingleRegisterWrite(const Variable &var, const QVariant &value, quint16 *encoded, QString *errorText) const
+{
+    if (!encoded)
+        return false;
+    const QString t = var.type.trimmed().toLower();
+    if (var.area != RegisterArea::HoldingRegister) {
+        if (errorText) *errorText = "only HoldingRegister write is supported";
+        return false;
+    }
+    if (var.readOnly) {
+        if (errorText) *errorText = "variable is readOnly";
+        return false;
+    }
+    if (var.address < 0 || var.count != 1) {
+        if (errorText) *errorText = "only single-register write is supported";
+        return false;
+    }
+    if (t == "bool") {
+        if (var.bitOffset != 0) {
+            if (errorText) *errorText = "bit-level register write is not supported in phase4";
+            return false;
+        }
+        *encoded = value.toBool() ? 1 : 0;
+        return true;
+    }
+    if (t == "uint16") {
+        bool ok = false;
+        const uint v = value.toUInt(&ok);
+        if (!ok || v > 0xFFFFu) {
+            if (errorText) *errorText = "uint16 value out of range";
+            return false;
+        }
+        *encoded = static_cast<quint16>(v);
+        return true;
+    }
+    if (t == "int16") {
+        bool ok = false;
+        const int v = value.toInt(&ok);
+        if (!ok || v < -32768 || v > 32767) {
+            if (errorText) *errorText = "int16 value out of range";
+            return false;
+        }
+        *encoded = static_cast<quint16>(static_cast<qint16>(v));
+        return true;
+    }
+    if (errorText) *errorText = "unsupported type for single-register write";
+    return false;
+}
+
+bool ModbusRtuDataSource::writeVariable(const QString &varId, const QVariant &value, QString *errorText)
+{
+    if (!m_writeEnabled) {
+        if (errorText) *errorText = "write disabled";
+        return false;
+    }
+    if (!m_model) {
+        if (errorText) *errorText = "model is null";
+        return false;
+    }
+    if (!m_serial.isOpen()) {
+        if (errorText) *errorText = "serial is not open";
+        return false;
+    }
+    const int row = m_model->rowById(varId);
+    if (row < 0) {
+        if (errorText) *errorText = "varId not found";
+        return false;
+    }
+    const Variable &var = m_model->variableAt(row);
+    quint16 encoded = 0;
+    QString encodeErr;
+    if (!encodeSingleRegisterWrite(var, value, &encoded, &encodeErr)) {
+        if (errorText) *errorText = encodeErr;
+        emit variableWriteFailed(varId, encodeErr);
+        return false;
+    }
+
+    const quint16 address = static_cast<quint16>(var.address);
+    QByteArray req;
+    req.append(static_cast<char>(m_config.slaveId));
+    req.append(static_cast<char>(0x06));
+    req.append(static_cast<char>((address >> 8) & 0xFF));
+    req.append(static_cast<char>(address & 0xFF));
+    req.append(static_cast<char>((encoded >> 8) & 0xFF));
+    req.append(static_cast<char>(encoded & 0xFF));
+    const quint16 crc = crc16(req);
+    req.append(static_cast<char>(crc & 0xFF));
+    req.append(static_cast<char>((crc >> 8) & 0xFF));
+
+    if (m_serial.write(req) != req.size() || !m_serial.waitForBytesWritten(m_config.timeoutMs)) {
+        const QString err = tr("write request failed: %1").arg(m_serial.errorString());
+        if (errorText) *errorText = err;
+        emit variableWriteFailed(varId, err);
+        emit errorOccurred(err);
+        return false;
+    }
+    if (!m_serial.waitForReadyRead(m_config.timeoutMs)) {
+        const QString err = tr("write response timeout");
+        if (errorText) *errorText = err;
+        emit variableWriteFailed(varId, err);
+        return false;
+    }
+    QByteArray resp = m_serial.readAll();
+    while (m_serial.waitForReadyRead(10))
+        resp += m_serial.readAll();
+
+    if (resp.size() < 8) {
+        const QString err = tr("write response too short");
+        if (errorText) *errorText = err;
+        emit variableWriteFailed(varId, err);
+        return false;
+    }
+    const QByteArray payload = resp.left(resp.size() - 2);
+    const quint16 recvCrc = static_cast<quint8>(resp.at(resp.size() - 2))
+                            | (static_cast<quint16>(static_cast<quint8>(resp.at(resp.size() - 1))) << 8);
+    if (crc16(payload) != recvCrc || payload.left(6) != req.left(6)) {
+        const QString err = tr("write response validation failed");
+        if (errorText) *errorText = err;
+        emit variableWriteFailed(varId, err);
+        return false;
+    }
+    emit variableWriteSucceeded(varId);
+    return true;
+}
+
 QVariant ModbusRtuDataSource::decodeRegisters(const Variable &var, const QVector<quint16> &registers, bool *ok, QString *errorText)
 {
     auto fail = [&](const QString &msg) -> QVariant {

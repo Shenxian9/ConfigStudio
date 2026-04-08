@@ -332,6 +332,7 @@ void MainWindow::setupDataWorkspace()
     m_modbusDataSource = new ModbusRtuDataSource(this);
     m_modbusDataSource->setVariableModel(m_variableModel);
     m_modbusDataSource->setConfig(m_serialDataSource->config());
+    m_bindingMgr->setWriteBackend(m_modbusDataSource);
     m_dataSourceTreeModel = new QStandardItemModel(this);
 
     m_dataSourceTreeModel->setHorizontalHeaderLabels({"Data Sources"});
@@ -356,6 +357,15 @@ void MainWindow::setupDataWorkspace()
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableReadSucceeded, this, [this](const QString &varId, const QVariant &value) {
         m_lastCommStatus = QString("OK %1=%2").arg(varId, value.toString());
+        refreshDataSourceTreeDeferred();
+    });
+    connect(m_modbusDataSource, &ModbusRtuDataSource::variableWriteSucceeded, this, [this](const QString &varId) {
+        m_lastCommStatus = QString("Write OK: %1").arg(varId);
+        refreshDataSourceTreeDeferred();
+    });
+    connect(m_modbusDataSource, &ModbusRtuDataSource::variableWriteFailed, this, [this](const QString &varId, const QString &reason) {
+        m_lastCommStatus = QString("Write Fail %1: %2").arg(varId, reason);
+        QMessageBox::warning(this, tr("Modbus Write Failed"), m_lastCommStatus);
         refreshDataSourceTreeDeferred();
     });
 
@@ -626,11 +636,15 @@ void MainWindow::applyDataSourceMode()
 {
     const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : QString("Simulator");
     if (mode == "Modbus RTU") {
+        if (m_modbusDataSource)
+            m_modbusDataSource->setWriteEnabled(true);
         if (m_runtimeSimulator)
             m_runtimeSimulator->stop();
         if (m_modbusDataSource && m_modbusDataSource->isOpen())
             m_modbusDataSource->startPolling();
     } else {
+        if (m_modbusDataSource)
+            m_modbusDataSource->setWriteEnabled(false);
         if (m_modbusDataSource)
             m_modbusDataSource->stopPolling();
         if (m_runtimeSimulator && !m_runtimeSimulator->isRunning())

@@ -70,8 +70,21 @@ bool DataBindingManager::publishValue(const QString& varId, const QVariant& valu
 {
     if (!m_model || varId.trimmed().isEmpty())
         return false;
+    QVariant oldValue;
+    const QString id = varId.trimmed();
+    m_model->valueById(id, &oldValue);
+    if (!m_model->updateValueById(id, value))
+        return false;
 
-    return m_model->updateValueById(varId.trimmed(), value);
+    if (m_writeBackend && m_writeBackend->writeEnabled()) {
+        QString err;
+        if (!m_writeBackend->writeVariable(id, value, &err)) {
+            m_model->updateValueById(id, oldValue);
+            qWarning() << "write backend failed for" << id << err;
+            return false;
+        }
+    }
+    return true;
 }
 
 
@@ -105,4 +118,3 @@ void DataBindingManager::onVariableChanged(const QString& varId, const QVariant&
     if (list.isEmpty())
         m_bindings.erase(it);
 }
-

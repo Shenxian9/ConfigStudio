@@ -29,6 +29,7 @@ include(../datasrc/datasrc.pri)
 
 SOURCES += \
     componentfactory_stub.cpp \
+    tst_phase4_modbus_write.cpp \
     tst_phase3_modbus_read.cpp \
     tst_phase1_datasource.cpp
 
