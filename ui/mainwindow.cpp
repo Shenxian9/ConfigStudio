@@ -22,7 +22,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QIntValidator>
-#include <QInputDialog>
 #include <QMouseEvent>
 #include <algorithm>
 
@@ -652,6 +651,69 @@ void MainWindow::registerTouchInput(QWidget *editor)
         dspin->setButtonSymbols(QAbstractSpinBox::NoButtons);
 }
 
+void MainWindow::showTouchInputPopup(const QString &title, const QString &value, const std::function<void (const QString &)> &apply)
+{
+    if (!m_touchInputPanel) {
+        auto *panel = new QFrame(this);
+        panel->setObjectName("touchInputPanel");
+        panel->setStyleSheet("#touchInputPanel { background:#f4f4f4; border:1px solid #666; border-radius:8px; }");
+        panel->hide();
+
+        auto *layout = new QVBoxLayout(panel);
+        layout->setContentsMargins(12, 12, 12, 12);
+        layout->setSpacing(8);
+
+        m_touchInputTitle = new QLabel("Input", panel);
+        QFont tf = m_touchInputTitle->font();
+        tf.setBold(true);
+        m_touchInputTitle->setFont(tf);
+        layout->addWidget(m_touchInputTitle);
+
+        m_touchInputEdit = new QLineEdit(panel);
+        m_touchInputEdit->setMinimumHeight(52);
+        layout->addWidget(m_touchInputEdit);
+
+        auto *buttons = new QHBoxLayout();
+        auto *okBtn = new QPushButton("Apply", panel);
+        auto *cancelBtn = new QPushButton("Cancel", panel);
+        buttons->addStretch();
+        buttons->addWidget(okBtn);
+        buttons->addWidget(cancelBtn);
+        layout->addLayout(buttons);
+
+        connect(okBtn, &QPushButton::clicked, this, [this]() {
+            if (m_touchInputApply && m_touchInputEdit)
+                m_touchInputApply(m_touchInputEdit->text());
+            if (m_touchInputPanel)
+                m_touchInputPanel->hide();
+            prepareImeForTransientEditor();
+        });
+        connect(cancelBtn, &QPushButton::clicked, this, [this]() {
+            if (m_touchInputPanel)
+                m_touchInputPanel->hide();
+            prepareImeForTransientEditor();
+        });
+        m_touchInputPanel = panel;
+    }
+
+    if (!m_touchInputPanel || !m_touchInputEdit || !m_touchInputTitle)
+        return;
+
+    m_touchInputApply = apply;
+    m_touchInputTitle->setText(title);
+    m_touchInputEdit->setText(value);
+
+    const int panelW = qMin(width() - 32, 520);
+    const int panelH = 190;
+    m_touchInputPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
+    m_touchInputPanel->show();
+    m_touchInputPanel->raise();
+    QTimer::singleShot(0, this, [this]() {
+        if (m_touchInputEdit)
+            m_touchInputEdit->setFocus(Qt::OtherFocusReason);
+    });
+}
+
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
     QWidget *w = qobject_cast<QWidget*>(watched);
@@ -662,24 +724,27 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         return QWidget::eventFilter(watched, event);
 
     if (auto *line = qobject_cast<QLineEdit*>(w)) {
-        bool ok = false;
-        const QString text = QInputDialog::getText(this, tr("Input"), tr("Value"), QLineEdit::Normal, line->text(), &ok);
-        if (ok)
+        showTouchInputPopup(tr("Input"), line->text(), [line](const QString &text) {
             line->setText(text);
+        });
         return true;
     }
     if (auto *spin = qobject_cast<QSpinBox*>(w)) {
-        bool ok = false;
-        const int v = QInputDialog::getInt(this, tr("Input"), tr("Value"), spin->value(), spin->minimum(), spin->maximum(), 1, &ok);
-        if (ok)
-            spin->setValue(v);
+        showTouchInputPopup(tr("Input Number"), QString::number(spin->value()), [spin](const QString &text) {
+            bool ok = false;
+            const int v = text.toInt(&ok);
+            if (ok)
+                spin->setValue(qBound(spin->minimum(), v, spin->maximum()));
+        });
         return true;
     }
     if (auto *dspin = qobject_cast<QDoubleSpinBox*>(w)) {
-        bool ok = false;
-        const double v = QInputDialog::getDouble(this, tr("Input"), tr("Value"), dspin->value(), dspin->minimum(), dspin->maximum(), dspin->decimals(), &ok);
-        if (ok)
-            dspin->setValue(v);
+        showTouchInputPopup(tr("Input Number"), QString::number(dspin->value()), [dspin](const QString &text) {
+            bool ok = false;
+            const double v = text.toDouble(&ok);
+            if (ok)
+                dspin->setValue(qBound(dspin->minimum(), v, dspin->maximum()));
+        });
         return true;
     }
     return QWidget::eventFilter(watched, event);

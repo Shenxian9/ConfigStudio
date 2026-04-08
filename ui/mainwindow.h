@@ -25,6 +25,7 @@
 #include <QPointer>
 #include <QStandardItemModel>
 #include <QSet>
+#include <functional>
 class QLabel;
 
 #include "componentpalette.h"
@@ -101,6 +102,7 @@ private:
     void hideDataWorkspacePanels();
     void fillVariableEditorFromRow(int row);
     void registerTouchInput(QWidget *editor);
+    void showTouchInputPopup(const QString &title, const QString &value, const std::function<void (const QString &)> &apply);
     void prepareImeForTransientEditor();
 
     void showProperties(CanvasItem *item);
@@ -180,6 +182,10 @@ private:
     OptionCycleButton *m_variableEndianCombo = nullptr;
     int m_variableEditorRow = -1;
     QSet<QWidget*> m_touchInputs;
+    QWidget *m_touchInputPanel = nullptr;
+    QLineEdit *m_touchInputEdit = nullptr;
+    QLabel *m_touchInputTitle = nullptr;
+    std::function<void (const QString&)> m_touchInputApply;
 
 };
 
