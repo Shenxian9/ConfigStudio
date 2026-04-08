@@ -655,62 +655,73 @@ void MainWindow::showTouchInputPopup(const QString &title, const QString &value,
 {
     if (!m_touchInputPanel) {
         auto *panel = new QFrame(this);
-        panel->setObjectName("touchInputPanel");
-        panel->setStyleSheet("#touchInputPanel { background:#f4f4f4; border:1px solid #666; border-radius:8px; }");
+        panel->setFrameShape(QFrame::StyledPanel);
+        panel->setStyleSheet("QFrame { background: white; border: 2px solid #7aa7d9; border-radius: 8px; }");
         panel->hide();
 
         auto *layout = new QVBoxLayout(panel);
-        layout->setContentsMargins(12, 12, 12, 12);
-        layout->setSpacing(8);
-
-        m_touchInputTitle = new QLabel("Input", panel);
-        QFont tf = m_touchInputTitle->font();
-        tf.setBold(true);
-        m_touchInputTitle->setFont(tf);
-        layout->addWidget(m_touchInputTitle);
-
         m_touchInputEdit = new QLineEdit(panel);
+        m_touchInputEdit->setAttribute(Qt::WA_InputMethodEnabled, true);
+        QFont inputFont = m_touchInputEdit->font();
+        inputFont.setPointSize(18);
+        m_touchInputEdit->setFont(inputFont);
         m_touchInputEdit->setMinimumHeight(52);
         layout->addWidget(m_touchInputEdit);
 
-        auto *buttons = new QHBoxLayout();
         auto *okBtn = new QPushButton("Apply", panel);
         auto *cancelBtn = new QPushButton("Cancel", panel);
-        buttons->addStretch();
-        buttons->addWidget(okBtn);
-        buttons->addWidget(cancelBtn);
-        layout->addLayout(buttons);
+        okBtn->setMinimumHeight(40);
+        cancelBtn->setMinimumHeight(40);
+        layout->addWidget(okBtn);
+        layout->addWidget(cancelBtn);
 
         connect(okBtn, &QPushButton::clicked, this, [this]() {
             if (m_touchInputApply && m_touchInputEdit)
                 m_touchInputApply(m_touchInputEdit->text());
             if (m_touchInputPanel)
                 m_touchInputPanel->hide();
-            prepareImeForTransientEditor();
+            QTimer::singleShot(0, []() {
+                QInputMethod *inputMethod = QGuiApplication::inputMethod();
+                if (inputMethod) {
+                    inputMethod->hide();
+                    inputMethod->reset();
+                }
+            });
         });
         connect(cancelBtn, &QPushButton::clicked, this, [this]() {
             if (m_touchInputPanel)
                 m_touchInputPanel->hide();
-            prepareImeForTransientEditor();
+            QTimer::singleShot(0, []() {
+                QInputMethod *inputMethod = QGuiApplication::inputMethod();
+                if (inputMethod) {
+                    inputMethod->hide();
+                    inputMethod->reset();
+                }
+            });
         });
         m_touchInputPanel = panel;
     }
 
-    if (!m_touchInputPanel || !m_touchInputEdit || !m_touchInputTitle)
+    if (!m_touchInputPanel || !m_touchInputEdit)
         return;
 
+    Q_UNUSED(title);
     m_touchInputApply = apply;
-    m_touchInputTitle->setText(title);
     m_touchInputEdit->setText(value);
 
-    const int panelW = qMin(width() - 32, 520);
-    const int panelH = 190;
-    m_touchInputPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
+    const int panelW = qMax(320, width() / 2);
+    const int panelH = 220;
+    const int panelX = (width() - panelW) / 2;
+    const int panelY = qMax(16, (height() - panelH) / 2 - height() / 6);
+    m_touchInputPanel->setGeometry(panelX, panelY, panelW, panelH);
     m_touchInputPanel->show();
     m_touchInputPanel->raise();
     QTimer::singleShot(0, this, [this]() {
         if (m_touchInputEdit)
             m_touchInputEdit->setFocus(Qt::OtherFocusReason);
+        QInputMethod *inputMethod = QGuiApplication::inputMethod();
+        if (inputMethod)
+            inputMethod->show();
     });
 }
 

@@ -184,7 +184,6 @@ private:
     QSet<QWidget*> m_touchInputs;
     QWidget *m_touchInputPanel = nullptr;
     QLineEdit *m_touchInputEdit = nullptr;
-    QLabel *m_touchInputTitle = nullptr;
     std::function<void (const QString&)> m_touchInputApply;
 
 };
