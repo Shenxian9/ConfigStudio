@@ -5,6 +5,7 @@ TARGET = tst_phase1_datasource
 
 DEFINES += QT_DEPRECATED_WARNINGS
 
+INCLUDEPATH += ..
 INCLUDEPATH += ../app
 include(../app/app.pri)
 INCLUDEPATH += ../ui
