@@ -440,7 +440,16 @@ void MainWindow::setupDataWorkspacePanels()
         auto *serialGroup = new QGroupBox("Serial Link Parameters", m_serialConfigPanel);
         auto *serialForm = new QFormLayout(serialGroup);
         serialForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        serialForm->setSpacing(10);
+        serialForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+        serialForm->setHorizontalSpacing(14);
+        serialForm->setVerticalSpacing(12);
+        auto addSerialRow = [serialForm](const QString &text, QWidget *editor) {
+            auto *label = new QLabel(text);
+            label->setMinimumWidth(120);
+            label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            label->setStyleSheet("color:#202020; font-weight:600;");
+            serialForm->addRow(label, editor);
+        };
 
         m_serialDeviceEdit = new QLineEdit(m_serialConfigPanel);
         m_serialDeviceEdit->setObjectName("serialDeviceEdit");
@@ -467,12 +476,12 @@ void MainWindow::setupDataWorkspacePanels()
         registerTouchInput(m_serialDeviceEdit);
         registerTouchInput(m_serialPortEdit);
 
-        serialForm->addRow("Device", m_serialDeviceEdit);
-        serialForm->addRow("Port", m_serialPortEdit);
-        serialForm->addRow("BaudRate", m_serialBaudCombo);
-        serialForm->addRow("DataBits", m_dataBitsCombo);
-        serialForm->addRow("Parity", m_parityCombo);
-        serialForm->addRow("StopBits", m_stopBitsCombo);
+        addSerialRow("Device", m_serialDeviceEdit);
+        addSerialRow("Port", m_serialPortEdit);
+        addSerialRow("BaudRate", m_serialBaudCombo);
+        addSerialRow("DataBits", m_dataBitsCombo);
+        addSerialRow("Parity", m_parityCombo);
+        addSerialRow("StopBits", m_stopBitsCombo);
         auto *groupRow = new QHBoxLayout();
         groupRow->setSpacing(12);
         groupRow->addWidget(serialGroup);
@@ -480,7 +489,16 @@ void MainWindow::setupDataWorkspacePanels()
         auto *modbusGroup = new QGroupBox("Modbus Parameters", m_serialConfigPanel);
         auto *modbusForm = new QFormLayout(modbusGroup);
         modbusForm->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        modbusForm->setSpacing(10);
+        modbusForm->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+        modbusForm->setHorizontalSpacing(14);
+        modbusForm->setVerticalSpacing(12);
+        auto addModbusRow = [modbusForm](const QString &text, QWidget *editor) {
+            auto *label = new QLabel(text);
+            label->setMinimumWidth(120);
+            label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            label->setStyleSheet("color:#202020; font-weight:600;");
+            modbusForm->addRow(label, editor);
+        };
 
         m_slaveIdSpin = new QSpinBox(m_serialConfigPanel);
         m_slaveIdSpin->setObjectName("serialSlaveIdSpin");
@@ -505,11 +523,11 @@ void MainWindow::setupDataWorkspacePanels()
         registerTouchInput(m_retrySpin);
         registerTouchInput(m_pollIntervalSpin);
 
-        modbusForm->addRow("Slave ID", m_slaveIdSpin);
-        modbusForm->addRow("Timeout (ms)", m_timeoutSpin);
-        modbusForm->addRow("Retry Count", m_retrySpin);
-        modbusForm->addRow("Poll Interval (ms)", m_pollIntervalSpin);
-        modbusForm->addRow("Default Function Code", m_functionCodeCombo);
+        addModbusRow("Slave ID", m_slaveIdSpin);
+        addModbusRow("Timeout (ms)", m_timeoutSpin);
+        addModbusRow("Retry Count", m_retrySpin);
+        addModbusRow("Poll Interval (ms)", m_pollIntervalSpin);
+        addModbusRow("Default Function Code", m_functionCodeCombo);
         groupRow->addWidget(modbusGroup);
         layout->addLayout(groupRow);
 
@@ -523,6 +541,11 @@ void MainWindow::setupDataWorkspacePanels()
         testBtn->setEnabled(false);
         auto *okBtn = new QPushButton("Apply", m_serialConfigPanel);
         auto *cancelBtn = new QPushButton("Cancel", m_serialConfigPanel);
+        for (QPushButton *btn : {testBtn, okBtn, cancelBtn}) {
+            btn->setMinimumSize(130, 50);
+            btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        }
+        buttons->setSpacing(12);
         buttons->addStretch();
         buttons->addWidget(testBtn);
         buttons->addWidget(okBtn);
@@ -552,7 +575,16 @@ void MainWindow::setupDataWorkspacePanels()
 
         auto *form = new QFormLayout();
         form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        form->setSpacing(10);
+        form->setFieldGrowthPolicy(QFormLayout::ExpandingFieldsGrow);
+        form->setHorizontalSpacing(14);
+        form->setVerticalSpacing(12);
+        auto addVariableRow = [form](const QString &text, QWidget *editor) {
+            auto *label = new QLabel(text);
+            label->setMinimumWidth(120);
+            label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            label->setStyleSheet("color:#202020; font-weight:600;");
+            form->addRow(label, editor);
+        };
 
         m_variableIdEdit = new QLineEdit(m_variableEditorPanel);
         m_variableIdEdit->setObjectName("variableIdEdit");
@@ -602,18 +634,18 @@ void MainWindow::setupDataWorkspacePanels()
         registerTouchInput(m_variableUnitEdit);
         registerTouchInput(m_variableScaleSpin);
 
-        form->addRow("Variable ID", m_variableIdEdit);
-        form->addRow("Name", m_variableNameEdit);
-        form->addRow("Device", m_variableDeviceEdit);
-        form->addRow("Type", m_variableTypeCombo);
-        form->addRow("Area", m_variableAreaCombo);
-        form->addRow("Address", m_variableAddressSpin);
-        form->addRow("Count", m_variableCountSpin);
-        form->addRow("Bit Offset", m_variableBitOffsetSpin);
-        form->addRow("Unit", m_variableUnitEdit);
-        form->addRow("Scale", m_variableScaleSpin);
-        form->addRow("ReadOnly", m_variableReadOnlyCheck);
-        form->addRow("Endianness", m_variableEndianCombo);
+        addVariableRow("Variable ID", m_variableIdEdit);
+        addVariableRow("Name", m_variableNameEdit);
+        addVariableRow("Device", m_variableDeviceEdit);
+        addVariableRow("Type", m_variableTypeCombo);
+        addVariableRow("Area", m_variableAreaCombo);
+        addVariableRow("Address", m_variableAddressSpin);
+        addVariableRow("Count", m_variableCountSpin);
+        addVariableRow("Bit Offset", m_variableBitOffsetSpin);
+        addVariableRow("Unit", m_variableUnitEdit);
+        addVariableRow("Scale", m_variableScaleSpin);
+        addVariableRow("ReadOnly", m_variableReadOnlyCheck);
+        addVariableRow("Endianness", m_variableEndianCombo);
         layout->addLayout(form);
 
         auto *buttons = new QHBoxLayout();
@@ -621,6 +653,11 @@ void MainWindow::setupDataWorkspacePanels()
         applyBtn->setObjectName("variableApplyButton");
         auto *cancelBtn = new QPushButton("Cancel", m_variableEditorPanel);
         cancelBtn->setObjectName("variableCancelButton");
+        for (QPushButton *btn : {applyBtn, cancelBtn}) {
+            btn->setMinimumSize(130, 50);
+            btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        }
+        buttons->setSpacing(12);
         buttons->addStretch();
         buttons->addWidget(applyBtn);
         buttons->addWidget(cancelBtn);
