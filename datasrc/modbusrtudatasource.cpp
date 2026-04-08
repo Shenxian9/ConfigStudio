@@ -292,7 +292,8 @@ bool ModbusRtuDataSource::parseResponse(const Variable &var, quint8 functionCode
     Q_UNUSED(addr);
     const quint8 fc = static_cast<quint8>(payload.at(1));
     if (fc == (functionCode | 0x80)) {
-        if (errorText) *errorText = tr("modbus exception code %1").arg(static_cast<int>(static_cast<quint8>(payload.value(2))));
+        const quint8 exceptionCode = payload.size() > 2 ? static_cast<quint8>(payload.at(2)) : 0;
+        if (errorText) *errorText = tr("modbus exception code %1").arg(static_cast<int>(exceptionCode));
         return false;
     }
     if (fc != functionCode) {
