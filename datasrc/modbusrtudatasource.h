@@ -50,6 +50,7 @@ private slots:
 
 private:
     static quint16 crc16(const QByteArray &payload);
+    bool deviceMatchesConfig(const QString &deviceId) const;
     bool readVariableAtRow(int row);
     bool parseResponse(const Variable &var, quint8 functionCode, const QByteArray &resp, QVector<quint16> *outRegs, QString *errorText) const;
     bool encodeSingleRegisterWrite(const Variable &var, const QVariant &value, quint16 *encoded, QString *errorText) const;

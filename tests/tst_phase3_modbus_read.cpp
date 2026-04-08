@@ -35,6 +35,7 @@ private slots:
     void decode_float32_with_endianness();
     void decode_bool_with_bitOffset();
     void pollingFilter_keepsSupportedVariablesOnly();
+    void pollingFilter_matchesDeviceIdTrimmedCaseInsensitive();
     void processReadResult_updatesVariableModel();
     void dataBindingManager_distributesModelUpdate();
     void modeSwitch_preventsDoubleDriving();
@@ -100,6 +101,23 @@ void Phase3ModbusReadTest::pollingFilter_keepsSupportedVariablesOnly()
     ds.setVariableModel(&model);
     const QVector<int> rows = ds.eligibleVariableRowsForTest();
     QCOMPARE(rows.size(), 2);
+}
+
+void Phase3ModbusReadTest::pollingFilter_matchesDeviceIdTrimmedCaseInsensitive()
+{
+    VariableModel model;
+    Variable a; a.id = "a"; a.deviceId = "  DEV-01 "; a.area = RegisterArea::HoldingRegister; a.type = "uint16"; a.count = 1; a.address = 0;
+    Variable b; b.id = "b"; b.deviceId = "dev-02"; b.area = RegisterArea::HoldingRegister; b.type = "uint16"; b.count = 1; b.address = 1;
+    model.addVariable(a);
+    model.addVariable(b);
+
+    ModbusRtuDataSource ds;
+    SerialPortConfig cfg; cfg.deviceId = "dev-01";
+    ds.setConfig(cfg);
+    ds.setVariableModel(&model);
+    const QVector<int> rows = ds.eligibleVariableRowsForTest();
+    QCOMPARE(rows.size(), 1);
+    QCOMPARE(model.variableAt(rows.first()).id, QString("a"));
 }
 
 void Phase3ModbusReadTest::processReadResult_updatesVariableModel()

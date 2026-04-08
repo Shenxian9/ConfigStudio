@@ -86,7 +86,7 @@ QVector<int> ModbusRtuDataSource::eligibleVariableRowsForTest() const
 
     for (int i = 0; i < m_model->rowCount({}); ++i) {
         const Variable &var = m_model->variableAt(i);
-        if (!m_config.deviceId.trimmed().isEmpty() && var.deviceId != m_config.deviceId)
+        if (!deviceMatchesConfig(var.deviceId))
             continue;
         if (!(var.area == RegisterArea::HoldingRegister || var.area == RegisterArea::InputRegister))
             continue;
@@ -98,6 +98,14 @@ QVector<int> ModbusRtuDataSource::eligibleVariableRowsForTest() const
         rows.append(i);
     }
     return rows;
+}
+
+bool ModbusRtuDataSource::deviceMatchesConfig(const QString &deviceId) const
+{
+    const QString cfgDevice = m_config.deviceId.trimmed();
+    if (cfgDevice.isEmpty())
+        return true;
+    return deviceId.trimmed().compare(cfgDevice, Qt::CaseInsensitive) == 0;
 }
 
 bool ModbusRtuDataSource::processReadResultForTest(const QString &varId, const QVector<quint16> &registers, QString *error)
@@ -199,6 +207,13 @@ bool ModbusRtuDataSource::writeVariable(const QString &varId, const QVariant &va
         return false;
     }
     const Variable &var = m_model->variableAt(row);
+    if (!deviceMatchesConfig(var.deviceId)) {
+        const QString err = tr("device mismatch: var=%1 config=%2")
+                                .arg(var.deviceId, m_config.deviceId);
+        if (errorText) *errorText = err;
+        emit variableWriteFailed(varId, err);
+        return false;
+    }
     quint16 encoded = 0;
     QString encodeErr;
     if (!encodeSingleRegisterWrite(var, value, &encoded, &encodeErr)) {
