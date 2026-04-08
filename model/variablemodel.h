@@ -15,12 +15,19 @@ public:
     explicit VariableModel(QObject* parent = nullptr);
 
     enum Columns {
-        ColId,          // ⭐ 新增第一列
+        ColId,
         ColName,
         ColDevice,
+        ColType,
+        ColArea,
+        ColAddress,
+        ColCount,
         ColValue,
         ColUnit,
-        ColAddress,     // 保留一个通讯核心字段
+        ColBitOffset,
+        ColScale,
+        ColReadOnly,
+        ColEndianness,
         ColLowLimit,
         ColHighLimit,
         ColStrategy,
@@ -38,6 +45,11 @@ public:
 
     void addVariable(const Variable& var);
     Variable& variableAt(int row);
+    const Variable& variableAt(int row) const;
+    bool setVariableAt(int row, const Variable &var);
+    bool removeVariableAt(int row);
+    bool hasVariableId(const QString &id, int excludeRow = -1) const;
+    int rowById(const QString &id) const;
     void updateValue(int row, const QVariant& value);
     bool updateValueById(const QString& varId, const QVariant& value);
     bool valueById(const QString& varId, QVariant* outValue) const;

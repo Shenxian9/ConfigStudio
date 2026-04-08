@@ -13,6 +13,8 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QCheckBox>
 #include <QTableWidget>
 #include <QTreeView>
 #include <QHeaderView>
@@ -269,6 +271,8 @@ MainWindow::MainWindow(QWidget *parent)
     f.setPointSize(14);     // ⭐ 13~15 是这个分辨率的最佳区间
     ui->variableView->setFont(f);
     ui->variableView->verticalHeader()->setDefaultSectionSize(40);
+    connect(ui->variableView->selectionModel(), &QItemSelectionModel::selectionChanged,
+            this, &MainWindow::updateVariableActionButtons);
 
 
 
@@ -302,15 +306,11 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::setupDataWorkspace()
 {
     m_serialDataSource = new SerialDataSource(this);
-    m_serialMapper = new SerialVariableMapper(m_variableModel, this);
     m_dataSourceTreeModel = new QStandardItemModel(this);
 
     m_dataSourceTreeModel->setHorizontalHeaderLabels({"Data Sources"});
     ui->treeView->setModel(m_dataSourceTreeModel);
     ui->treeView->header()->setStretchLastSection(true);
-
-    connect(m_serialDataSource, &SerialDataSource::frameReceived,
-            m_serialMapper, &SerialVariableMapper::onFrameReceived);
 
     connect(m_serialDataSource, &SerialDataSource::statusChanged, this, [this](bool opened) {
         ui->pushButton_8->setEnabled(!opened);
@@ -335,24 +335,34 @@ void MainWindow::setupDataWorkspace()
     });
     connect(ui->pushButton_7, &QPushButton::clicked, this, [this]() {
         m_serialDataSource->close();
-        m_serialMapper->clearBindings();
         SerialPortConfig cfg;
         m_serialDataSource->setConfig(cfg);
         refreshDataSourceTreeDeferred();
     });
 
-    connect(ui->pushButton_10, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
-    connect(ui->pushButton_11, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
-    connect(ui->pushButton_12, &QPushButton::clicked, this, [this]() { showMappingDialog(); });
+    ui->pushButton_2->setObjectName("dataSourceConfigButton");
+    ui->pushButton_7->setObjectName("dataSourceRemoveButton");
+    ui->pushButton_8->setObjectName("dataSourceOpenButton");
+    ui->pushButton_9->setObjectName("dataSourceCloseButton");
+    ui->pushButton_10->setObjectName("addVariableButton");
+    ui->pushButton_11->setObjectName("deleteVariableButton");
+    ui->pushButton_12->setObjectName("editVariableButton");
 
     ui->pushButton_2->setText("Add/Config Modbus RTU");
     ui->pushButton_7->setText("Remove Modbus RTU");
-    ui->pushButton_10->setText("Add/Edit Mapping");
-    ui->pushButton_11->setText("Delete Mapping");
-    ui->pushButton_12->setText("Data Mapping");
+    ui->pushButton_8->setText("Open");
+    ui->pushButton_9->setText("Close");
+    ui->pushButton_10->setText("Add Variable");
+    ui->pushButton_11->setText("Delete Variable");
+    ui->pushButton_12->setText("Edit Variable");
+
+    connect(ui->pushButton_10, &QPushButton::clicked, this, &MainWindow::showAddVariableDialog);
+    connect(ui->pushButton_11, &QPushButton::clicked, this, &MainWindow::deleteSelectedVariable);
+    connect(ui->pushButton_12, &QPushButton::clicked, this, &MainWindow::showEditVariableDialog);
 
     ui->pushButton_8->setEnabled(true);
     ui->pushButton_9->setEnabled(false);
+    updateVariableActionButtons();
 
     setupDataWorkspacePanels();
     refreshDataSourceTree();
@@ -383,14 +393,19 @@ void MainWindow::setupDataWorkspacePanels()
         serialForm->setSpacing(10);
 
         m_serialPortEdit = new QLineEdit(m_serialConfigPanel);
+        m_serialPortEdit->setObjectName("serialPortEdit");
         m_serialPortEdit->setPlaceholderText("/dev/ttyS2 or COM3");
         m_serialBaudCombo = new QComboBox(m_serialConfigPanel);
+        m_serialBaudCombo->setObjectName("serialBaudCombo");
         m_serialBaudCombo->addItems({"1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"});
         m_dataBitsCombo = new QComboBox(m_serialConfigPanel);
+        m_dataBitsCombo->setObjectName("serialDataBitsCombo");
         m_dataBitsCombo->addItems({"5", "6", "7", "8"});
         m_parityCombo = new QComboBox(m_serialConfigPanel);
+        m_parityCombo->setObjectName("serialParityCombo");
         m_parityCombo->addItems({"None", "Even", "Odd"});
         m_stopBitsCombo = new QComboBox(m_serialConfigPanel);
+        m_stopBitsCombo->setObjectName("serialStopBitsCombo");
         m_stopBitsCombo->addItems({"1", "2"});
 
         serialForm->addRow("Port", m_serialPortEdit);
@@ -406,16 +421,21 @@ void MainWindow::setupDataWorkspacePanels()
         modbusForm->setSpacing(10);
 
         m_slaveIdSpin = new QSpinBox(m_serialConfigPanel);
+        m_slaveIdSpin->setObjectName("serialSlaveIdSpin");
         m_slaveIdSpin->setRange(1, 247);
         m_timeoutSpin = new QSpinBox(m_serialConfigPanel);
+        m_timeoutSpin->setObjectName("serialTimeoutSpin");
         m_timeoutSpin->setRange(50, 60000);
         m_timeoutSpin->setSingleStep(50);
         m_retrySpin = new QSpinBox(m_serialConfigPanel);
+        m_retrySpin->setObjectName("serialRetrySpin");
         m_retrySpin->setRange(0, 10);
         m_pollIntervalSpin = new QSpinBox(m_serialConfigPanel);
+        m_pollIntervalSpin->setObjectName("serialPollIntervalSpin");
         m_pollIntervalSpin->setRange(50, 60000);
         m_pollIntervalSpin->setSingleStep(50);
         m_functionCodeCombo = new QComboBox(m_serialConfigPanel);
+        m_functionCodeCombo->setObjectName("serialFunctionCodeCombo");
         m_functionCodeCombo->addItems({"03 - Read Holding Registers", "04 - Read Input Registers", "06 - Write Single Register", "10 - Write Multiple Registers"});
 
         modbusForm->addRow("Slave ID", m_slaveIdSpin);
@@ -425,7 +445,7 @@ void MainWindow::setupDataWorkspacePanels()
         modbusForm->addRow("Default Function Code", m_functionCodeCombo);
         layout->addWidget(modbusGroup);
 
-        auto *hint = new QLabel("Register table and actual Modbus transactions will be added in a later step.", m_serialConfigPanel);
+        auto *hint = new QLabel("Phase 1 only consolidates the device-level entry. Register-level mapping will move into the variable model in phase 2. Default Function Code is temporarily retained and not used for real protocol scheduling.", m_serialConfigPanel);
         hint->setWordWrap(true);
         hint->setStyleSheet("color:#666;");
         layout->addWidget(hint);
@@ -445,71 +465,94 @@ void MainWindow::setupDataWorkspacePanels()
         connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
     }
 
-    if (!m_mappingPanel) {
-        m_mappingPanel = new QFrame(this);
-        m_mappingPanel->setObjectName("mappingPanel");
-        m_mappingPanel->setStyleSheet("#mappingPanel { background: #f7f7f7; border: 1px solid #888; border-radius: 6px; }");
-        m_mappingPanel->hide();
+    if (!m_variableEditorPanel) {
+        m_variableEditorPanel = new QFrame(this);
+        m_variableEditorPanel->setObjectName("variableEditorPanel");
+        m_variableEditorPanel->setStyleSheet("#variableEditorPanel { background: #f7f7f7; border: 1px solid #888; border-radius: 6px; }");
+        m_variableEditorPanel->hide();
 
-        auto *layout = new QVBoxLayout(m_mappingPanel);
+        auto *layout = new QVBoxLayout(m_variableEditorPanel);
         layout->setContentsMargins(12, 12, 12, 12);
         layout->setSpacing(8);
 
-        auto *title = new QLabel("Modbus Key -> Variable Mapping", m_mappingPanel);
+        auto *title = new QLabel("Variable Config / Modbus Mapping", m_variableEditorPanel);
+        QFont titleFont = title->font();
+        titleFont.setBold(true);
+        titleFont.setPointSize(titleFont.pointSize() + 1);
+        title->setFont(titleFont);
         layout->addWidget(title);
 
-        m_mappingTable = new QTableWidget(m_mappingPanel);
-        m_mappingTable->setColumnCount(2);
-        m_mappingTable->setHorizontalHeaderLabels({"Source Key", "Variable ID"});
-        m_mappingTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-        m_mappingTable->setAttribute(Qt::WA_InputMethodEnabled, false);
-        layout->addWidget(m_mappingTable);
+        auto *form = new QFormLayout();
+        form->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        form->setSpacing(10);
 
-        auto *rowButtons = new QHBoxLayout();
-        auto *addBtn = new QPushButton("Add Row", m_mappingPanel);
-        auto *delBtn = new QPushButton("Delete Row", m_mappingPanel);
-        rowButtons->addWidget(addBtn);
-        rowButtons->addWidget(delBtn);
-        rowButtons->addStretch();
-        layout->addLayout(rowButtons);
+        m_variableIdEdit = new QLineEdit(m_variableEditorPanel);
+        m_variableIdEdit->setObjectName("variableIdEdit");
+        m_variableNameEdit = new QLineEdit(m_variableEditorPanel);
+        m_variableNameEdit->setObjectName("variableNameEdit");
+        m_variableDeviceEdit = new QLineEdit(m_variableEditorPanel);
+        m_variableDeviceEdit->setObjectName("variableDeviceEdit");
+        m_variableTypeCombo = new QComboBox(m_variableEditorPanel);
+        m_variableTypeCombo->setObjectName("variableTypeCombo");
+        m_variableTypeCombo->addItems({"bool", "int16", "uint16", "int32", "uint32", "float32"});
+        m_variableAreaCombo = new QComboBox(m_variableEditorPanel);
+        m_variableAreaCombo->setObjectName("variableAreaCombo");
+        m_variableAreaCombo->addItems({"Coil", "DiscreteInput", "InputRegister", "HoldingRegister"});
+        m_variableAddressSpin = new QSpinBox(m_variableEditorPanel);
+        m_variableAddressSpin->setObjectName("variableAddressSpin");
+        m_variableAddressSpin->setRange(0, 1000000);
+        m_variableCountSpin = new QSpinBox(m_variableEditorPanel);
+        m_variableCountSpin->setObjectName("variableCountSpin");
+        m_variableCountSpin->setRange(1, 125);
+        m_variableBitOffsetSpin = new QSpinBox(m_variableEditorPanel);
+        m_variableBitOffsetSpin->setObjectName("variableBitOffsetSpin");
+        m_variableBitOffsetSpin->setRange(0, 63);
+        m_variableUnitEdit = new QLineEdit(m_variableEditorPanel);
+        m_variableUnitEdit->setObjectName("variableUnitEdit");
+        m_variableScaleSpin = new QDoubleSpinBox(m_variableEditorPanel);
+        m_variableScaleSpin->setObjectName("variableScaleSpin");
+        m_variableScaleSpin->setRange(0.000001, 1000000.0);
+        m_variableScaleSpin->setDecimals(6);
+        m_variableScaleSpin->setValue(1.0);
+        m_variableReadOnlyCheck = new QCheckBox("Read Only", m_variableEditorPanel);
+        m_variableReadOnlyCheck->setObjectName("variableReadOnlyCheck");
+        m_variableReadOnlyCheck->setChecked(true);
+        m_variableEndianCombo = new QComboBox(m_variableEditorPanel);
+        m_variableEndianCombo->setObjectName("variableEndianCombo");
+        m_variableEndianCombo->addItems({"BigEndian", "BigEndianWordSwap"});
 
-        connect(addBtn, &QPushButton::clicked, this, [this]() {
-            if (!m_mappingTable)
-                return;
-            const int newRow = m_mappingTable->rowCount();
-            m_mappingTable->insertRow(newRow);
-            auto *keyItem = new QTableWidgetItem(QString());
-            auto *idItem = new QTableWidgetItem(QString());
-            keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-            idItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-            m_mappingTable->setItem(newRow, 0, keyItem);
-            m_mappingTable->setItem(newRow, 1, idItem);
-        });
-
-        connect(delBtn, &QPushButton::clicked, this, [this]() {
-            if (!m_mappingTable)
-                return;
-            const int row = m_mappingTable->currentRow();
-            if (row >= 0)
-                m_mappingTable->removeRow(row);
-        });
+        form->addRow("Variable ID", m_variableIdEdit);
+        form->addRow("Name", m_variableNameEdit);
+        form->addRow("Device", m_variableDeviceEdit);
+        form->addRow("Type", m_variableTypeCombo);
+        form->addRow("Area", m_variableAreaCombo);
+        form->addRow("Address", m_variableAddressSpin);
+        form->addRow("Count", m_variableCountSpin);
+        form->addRow("Bit Offset", m_variableBitOffsetSpin);
+        form->addRow("Unit", m_variableUnitEdit);
+        form->addRow("Scale", m_variableScaleSpin);
+        form->addRow("ReadOnly", m_variableReadOnlyCheck);
+        form->addRow("Endianness", m_variableEndianCombo);
+        layout->addLayout(form);
 
         auto *buttons = new QHBoxLayout();
-        auto *okBtn = new QPushButton("Apply", m_mappingPanel);
-        auto *cancelBtn = new QPushButton("Cancel", m_mappingPanel);
+        auto *applyBtn = new QPushButton("Apply", m_variableEditorPanel);
+        applyBtn->setObjectName("variableApplyButton");
+        auto *cancelBtn = new QPushButton("Cancel", m_variableEditorPanel);
+        cancelBtn->setObjectName("variableCancelButton");
         buttons->addStretch();
-        buttons->addWidget(okBtn);
+        buttons->addWidget(applyBtn);
         buttons->addWidget(cancelBtn);
         layout->addLayout(buttons);
 
-        connect(okBtn, &QPushButton::clicked, this, &MainWindow::applyMappingFromPanel);
+        connect(applyBtn, &QPushButton::clicked, this, &MainWindow::applyVariableFromPanel);
         connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
     }
 }
 
 void MainWindow::refreshDataSourceTree()
 {
-    if (!m_dataSourceTreeModel || !m_serialDataSource || !m_serialMapper)
+    if (!m_dataSourceTreeModel || !m_serialDataSource)
         return;
 
     m_dataSourceTreeModel->removeRows(0, m_dataSourceTreeModel->rowCount());
@@ -530,12 +573,6 @@ void MainWindow::refreshDataSourceTree()
     root->appendRow(new QStandardItem(QString("Reserved Poll/FC: %1 ms / %2")
                                           .arg(cfg.pollIntervalMs)
                                           .arg(cfg.defaultFunctionCode)));
-
-    auto *mappingRoot = new QStandardItem("Mappings");
-    const auto mappings = m_serialMapper->bindings();
-    for (auto it = mappings.cbegin(); it != mappings.cend(); ++it)
-        mappingRoot->appendRow(new QStandardItem(QString("%1 -> %2").arg(it.key(), it.value())));
-    root->appendRow(mappingRoot);
 
     m_dataSourceTreeModel->appendRow(root);
     ui->treeView->expandAll();
@@ -623,60 +660,161 @@ void MainWindow::showSerialConfigDialog()
     });
 }
 
-void MainWindow::showMappingDialog()
-{
-    if (!m_serialMapper || !m_variableModel || !m_mappingPanel || !m_mappingTable)
-        return;
-
-    prepareImeForTransientEditor();
-
-    {
-        QSignalBlocker blocker(m_mappingTable);
-        m_mappingTable->setRowCount(0);
-    }
-
-    const auto existing = m_serialMapper->bindings();
-    int row = 0;
-    for (auto it = existing.cbegin(); it != existing.cend(); ++it) {
-        m_mappingTable->insertRow(row);
-        m_mappingTable->setItem(row, 0, new QTableWidgetItem(it.key()));
-        m_mappingTable->setItem(row, 1, new QTableWidgetItem(it.value()));
-        ++row;
-    }
-
-    for (int r = 0; r < m_mappingTable->rowCount(); ++r) {
-        auto *keyItem = m_mappingTable->item(r, 0);
-        auto *idItem = m_mappingTable->item(r, 1);
-        if (keyItem)
-            keyItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        if (idItem)
-            idItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-    }
-
-    hideDataWorkspacePanels();
-    const int panelW = qMin(width() - 32, 640);
-    const int panelH = qMin(height() - 32, 460);
-    const int panelX = (width() - panelW) / 2;
-    const int panelY = (height() - panelH) / 2;
-    m_mappingPanel->setGeometry(panelX, panelY, panelW, panelH);
-    m_mappingPanel->show();
-    m_mappingPanel->raise();
-
-    QTimer::singleShot(0, this, [this]() {
-        if (!m_mappingTable)
-            return;
-        m_mappingTable->setFocus(Qt::OtherFocusReason);
-    });
-}
-
 void MainWindow::hideDataWorkspacePanels()
 {
     if (m_serialConfigPanel)
         m_serialConfigPanel->hide();
-    if (m_mappingPanel)
-        m_mappingPanel->hide();
+    if (m_variableEditorPanel)
+        m_variableEditorPanel->hide();
 
     QTimer::singleShot(0, this, [this]() { prepareImeForTransientEditor(); });
+}
+
+void MainWindow::fillVariableEditorFromRow(int row)
+{
+    if (!m_variableModel || row < 0 || row >= m_variableModel->rowCount({}))
+        return;
+
+    const Variable var = m_variableModel->variableAt(row);
+    m_variableIdEdit->setText(var.id);
+    m_variableNameEdit->setText(var.name);
+    m_variableDeviceEdit->setText(var.deviceId);
+    m_variableTypeCombo->setCurrentText(var.type);
+    m_variableAreaCombo->setCurrentText(m_variableModel->data(m_variableModel->index(row, VariableModel::ColArea), Qt::DisplayRole).toString());
+    m_variableAddressSpin->setValue(var.address);
+    m_variableCountSpin->setValue(qMax(1, var.count));
+    m_variableBitOffsetSpin->setValue(qMax(0, var.bitOffset));
+    m_variableUnitEdit->setText(var.unit);
+    m_variableScaleSpin->setValue(var.scale > 0 ? var.scale : 1.0);
+    m_variableReadOnlyCheck->setChecked(var.readOnly);
+    m_variableEndianCombo->setCurrentText(m_variableModel->data(m_variableModel->index(row, VariableModel::ColEndianness), Qt::DisplayRole).toString());
+}
+
+void MainWindow::showAddVariableDialog()
+{
+    if (!m_variableEditorPanel)
+        return;
+
+    m_variableEditorRow = -1;
+    m_variableIdEdit->clear();
+    m_variableNameEdit->clear();
+    m_variableDeviceEdit->clear();
+    m_variableTypeCombo->setCurrentText("float32");
+    m_variableAreaCombo->setCurrentText("HoldingRegister");
+    m_variableAddressSpin->setValue(0);
+    m_variableCountSpin->setValue(1);
+    m_variableBitOffsetSpin->setValue(0);
+    m_variableUnitEdit->clear();
+    m_variableScaleSpin->setValue(1.0);
+    m_variableReadOnlyCheck->setChecked(true);
+    m_variableEndianCombo->setCurrentText("BigEndian");
+
+    hideDataWorkspacePanels();
+    const int panelW = qMin(width() - 32, 620);
+    const int panelH = qMin(height() - 32, 560);
+    m_variableEditorPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
+    m_variableEditorPanel->show();
+    m_variableEditorPanel->raise();
+}
+
+void MainWindow::showEditVariableDialog()
+{
+    if (!m_variableEditorPanel || !ui->variableView->selectionModel())
+        return;
+    const QModelIndex current = ui->variableView->selectionModel()->currentIndex();
+    if (!current.isValid())
+        return;
+
+    m_variableEditorRow = current.row();
+    fillVariableEditorFromRow(m_variableEditorRow);
+
+    hideDataWorkspacePanels();
+    const int panelW = qMin(width() - 32, 620);
+    const int panelH = qMin(height() - 32, 560);
+    m_variableEditorPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
+    m_variableEditorPanel->show();
+    m_variableEditorPanel->raise();
+}
+
+void MainWindow::applyVariableFromPanel()
+{
+    if (!m_variableModel || !m_variableIdEdit || !m_variableNameEdit)
+        return;
+
+    const QString varId = m_variableIdEdit->text().trimmed();
+    const QString varName = m_variableNameEdit->text().trimmed();
+    if (varId.isEmpty()) {
+        QMessageBox::warning(this, tr("Variable Config"), tr("Variable ID cannot be empty."));
+        return;
+    }
+    if (varName.isEmpty()) {
+        QMessageBox::warning(this, tr("Variable Config"), tr("Name cannot be empty."));
+        return;
+    }
+    if (m_variableAddressSpin->value() < 0 || m_variableCountSpin->value() < 1 ||
+        m_variableScaleSpin->value() <= 0.0 || m_variableBitOffsetSpin->value() < 0) {
+        QMessageBox::warning(this, tr("Variable Config"), tr("Invalid numeric fields."));
+        return;
+    }
+    if (m_variableModel->hasVariableId(varId, m_variableEditorRow)) {
+        QMessageBox::warning(this, tr("Variable Config"), tr("Variable ID already exists."));
+        return;
+    }
+
+    Variable var;
+    if (m_variableEditorRow >= 0 && m_variableEditorRow < m_variableModel->rowCount({}))
+        var = m_variableModel->variableAt(m_variableEditorRow);
+
+    var.id = varId;
+    var.name = varName;
+    var.deviceId = m_variableDeviceEdit->text().trimmed();
+    var.type = m_variableTypeCombo->currentText();
+    const QString area = m_variableAreaCombo->currentText();
+    var.area = area == "Coil" ? RegisterArea::Coil
+                              : (area == "DiscreteInput" ? RegisterArea::DiscreteInput
+                                                          : (area == "InputRegister" ? RegisterArea::InputRegister : RegisterArea::HoldingRegister));
+    var.address = m_variableAddressSpin->value();
+    var.count = m_variableCountSpin->value();
+    var.bitOffset = m_variableBitOffsetSpin->value();
+    var.unit = m_variableUnitEdit->text().trimmed();
+    var.scale = m_variableScaleSpin->value();
+    var.readOnly = m_variableReadOnlyCheck->isChecked();
+    var.endianness = m_variableEndianCombo->currentText() == "BigEndianWordSwap"
+                         ? Endianness::BigEndianWordSwap
+                         : Endianness::BigEndian;
+
+    if (m_variableEditorRow >= 0 && m_variableEditorRow < m_variableModel->rowCount({})) {
+        m_variableModel->setVariableAt(m_variableEditorRow, var);
+    } else {
+        m_variableModel->addVariable(var);
+        m_variableEditorRow = m_variableModel->rowCount({}) - 1;
+    }
+
+    ui->variableView->selectRow(m_variableEditorRow);
+    hideDataWorkspacePanels();
+    updateVariableActionButtons();
+}
+
+void MainWindow::deleteSelectedVariable()
+{
+    if (!m_variableModel || !ui->variableView->selectionModel())
+        return;
+    const QModelIndex current = ui->variableView->selectionModel()->currentIndex();
+    if (!current.isValid())
+        return;
+    const int row = current.row();
+    if (!m_variableModel->removeVariableAt(row))
+        return;
+    ui->variableView->clearSelection();
+    updateVariableActionButtons();
+}
+
+void MainWindow::updateVariableActionButtons()
+{
+    const bool hasSelection = ui->variableView && ui->variableView->selectionModel()
+                              && ui->variableView->selectionModel()->currentIndex().isValid();
+    ui->pushButton_11->setEnabled(hasSelection);
+    ui->pushButton_12->setEnabled(hasSelection);
 }
 
 void MainWindow::applySerialConfigFromPanel()
@@ -714,27 +852,6 @@ void MainWindow::applySerialConfigFromPanel()
         break;
     }
     m_serialDataSource->setConfig(nextCfg);
-
-    hideDataWorkspacePanels();
-    refreshDataSourceTreeDeferred();
-}
-
-void MainWindow::applyMappingFromPanel()
-{
-    if (!m_serialMapper || !m_mappingTable)
-        return;
-
-    m_serialMapper->clearBindings();
-    for (int r = 0; r < m_mappingTable->rowCount(); ++r) {
-        const QTableWidgetItem *keyItem = m_mappingTable->item(r, 0);
-        const QTableWidgetItem *idItem = m_mappingTable->item(r, 1);
-        if (!keyItem || !idItem)
-            continue;
-        const QString key = keyItem->text().trimmed();
-        const QString id = idItem->text().trimmed();
-        if (!key.isEmpty() && !id.isEmpty())
-            m_serialMapper->setBinding(key, id);
-    }
 
     hideDataWorkspacePanels();
     refreshDataSourceTreeDeferred();

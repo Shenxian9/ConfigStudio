@@ -12,6 +12,11 @@ enum class RegisterArea {
     HoldingRegister
 };
 
+enum class Endianness {
+    BigEndian,
+    BigEndianWordSwap
+};
+
 enum class DataStrategy {
     None,
     Fixed,
@@ -25,7 +30,7 @@ struct Variable {
     QString id;          // 全局唯一ID
     QString name;        // 变量名
     QString deviceId;    // 所属设备
-    QString type;        // int/float/bool
+    QString type = "float32";        // bool/int16/uint16/int32/uint32/float32
     QString unit;
 
     // 运行态
@@ -33,11 +38,14 @@ struct Variable {
     qint64 timestamp = 0;
 
     // 通讯映射
-    RegisterArea area;
+    RegisterArea area = RegisterArea::HoldingRegister;
     int address = 0;
     int count = 1;
     int bitOffset = 0;
     int bitWidth = 16;
+    double scale = 1.0;
+    bool readOnly = true;
+    Endianness endianness = Endianness::BigEndian;
 
     // 工程逻辑
     double lowLimit = 0;

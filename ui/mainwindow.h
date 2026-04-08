@@ -15,6 +15,8 @@
 #include <QLineEdit>
 #include <QComboBox>
 #include <QSpinBox>
+#include <QDoubleSpinBox>
+#include <QCheckBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -72,17 +74,25 @@ private slots:
 
     void on_pushOfDesign_clicked();
     void on_pushOfL_D_clicked();
+    void showSerialConfigDialog();
+    void applySerialConfigFromPanel();
+    void showAddVariableDialog();
+    void showEditVariableDialog();
+    void deleteSelectedVariable();
+    void applyVariableFromPanel();
+    void updateVariableActionButtons();
+
+public:
+    SerialDataSource *serialDataSourceForTest() const { return m_serialDataSource; }
+    VariableModel *variableModelForTest() const { return m_variableModel; }
 
 private:
     void setupDataWorkspace();
     void setupDataWorkspacePanels();
     void refreshDataSourceTree();
     void refreshDataSourceTreeDeferred();
-    void showSerialConfigDialog();
-    void showMappingDialog();
     void hideDataWorkspacePanels();
-    void applySerialConfigFromPanel();
-    void applyMappingFromPanel();
+    void fillVariableEditorFromRow(int row);
     void prepareImeForTransientEditor();
 
     void showProperties(CanvasItem *item);
@@ -128,7 +138,6 @@ private:
     bool m_darkCanvasMode = false;
 
     SerialDataSource *m_serialDataSource = nullptr;
-    SerialVariableMapper *m_serialMapper = nullptr;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
 
     QWidget *m_serialConfigPanel = nullptr;
@@ -143,8 +152,20 @@ private:
     QSpinBox *m_pollIntervalSpin = nullptr;
     QComboBox *m_functionCodeCombo = nullptr;
 
-    QWidget *m_mappingPanel = nullptr;
-    QTableWidget *m_mappingTable = nullptr;
+    QWidget *m_variableEditorPanel = nullptr;
+    QLineEdit *m_variableIdEdit = nullptr;
+    QLineEdit *m_variableNameEdit = nullptr;
+    QLineEdit *m_variableDeviceEdit = nullptr;
+    QComboBox *m_variableTypeCombo = nullptr;
+    QComboBox *m_variableAreaCombo = nullptr;
+    QSpinBox *m_variableAddressSpin = nullptr;
+    QSpinBox *m_variableCountSpin = nullptr;
+    QSpinBox *m_variableBitOffsetSpin = nullptr;
+    QLineEdit *m_variableUnitEdit = nullptr;
+    QDoubleSpinBox *m_variableScaleSpin = nullptr;
+    QCheckBox *m_variableReadOnlyCheck = nullptr;
+    QComboBox *m_variableEndianCombo = nullptr;
+    int m_variableEditorRow = -1;
 
 };
 
