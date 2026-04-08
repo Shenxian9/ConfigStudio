@@ -13,7 +13,6 @@
 #include <QGuiApplication>
 #include <QInputMethod>
 #include <QLineEdit>
-#include <QComboBox>
 #include <QSpinBox>
 #include <QDoubleSpinBox>
 #include <QCheckBox>
@@ -38,6 +37,7 @@ class QLabel;
 #include "serialdatasource.h"
 #include "modbusrtudatasource.h"
 #include "virtualkeyboardhost.h"
+#include "optioncyclebutton.h"
 namespace Ui {
 class MainWindow;
 }
@@ -146,7 +146,7 @@ private:
     ModbusRtuDataSource *m_modbusDataSource = nullptr;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
     RuntimeSimulator *m_runtimeSimulator = nullptr;
-    QComboBox *m_dataSourceModeCombo = nullptr;
+    OptionCycleButton *m_dataSourceModeCombo = nullptr;
     QLabel *m_dataSourceStatusLabel = nullptr;
     QLabel *m_pollingStatusLabel = nullptr;
     QLabel *m_lastCommStatusLabel = nullptr;
@@ -155,29 +155,29 @@ private:
     QWidget *m_serialConfigPanel = nullptr;
     QLineEdit *m_serialPortEdit = nullptr;
     QLineEdit *m_serialDeviceEdit = nullptr;
-    QComboBox *m_serialBaudCombo = nullptr;
-    QComboBox *m_dataBitsCombo = nullptr;
-    QComboBox *m_parityCombo = nullptr;
-    QComboBox *m_stopBitsCombo = nullptr;
+    OptionCycleButton *m_serialBaudCombo = nullptr;
+    OptionCycleButton *m_dataBitsCombo = nullptr;
+    OptionCycleButton *m_parityCombo = nullptr;
+    OptionCycleButton *m_stopBitsCombo = nullptr;
     QSpinBox *m_slaveIdSpin = nullptr;
     QSpinBox *m_timeoutSpin = nullptr;
     QSpinBox *m_retrySpin = nullptr;
     QSpinBox *m_pollIntervalSpin = nullptr;
-    QComboBox *m_functionCodeCombo = nullptr;
+    OptionCycleButton *m_functionCodeCombo = nullptr;
 
     QWidget *m_variableEditorPanel = nullptr;
     QLineEdit *m_variableIdEdit = nullptr;
     QLineEdit *m_variableNameEdit = nullptr;
     QLineEdit *m_variableDeviceEdit = nullptr;
-    QComboBox *m_variableTypeCombo = nullptr;
-    QComboBox *m_variableAreaCombo = nullptr;
+    OptionCycleButton *m_variableTypeCombo = nullptr;
+    OptionCycleButton *m_variableAreaCombo = nullptr;
     QSpinBox *m_variableAddressSpin = nullptr;
     QSpinBox *m_variableCountSpin = nullptr;
     QSpinBox *m_variableBitOffsetSpin = nullptr;
     QLineEdit *m_variableUnitEdit = nullptr;
     QDoubleSpinBox *m_variableScaleSpin = nullptr;
     QCheckBox *m_variableReadOnlyCheck = nullptr;
-    QComboBox *m_variableEndianCombo = nullptr;
+    OptionCycleButton *m_variableEndianCombo = nullptr;
     int m_variableEditorRow = -1;
 
 };

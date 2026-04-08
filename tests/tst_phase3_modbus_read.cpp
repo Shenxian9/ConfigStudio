@@ -1,6 +1,5 @@
 #include <QtTest>
 
-#include <QComboBox>
 #include <QPushButton>
 #include <QTableView>
 #include <QTreeView>
@@ -10,6 +9,7 @@
 #include "../datasrc/modbusrtudatasource.h"
 #include "../runtime/databindingmanager.h"
 #include "../ui/mainwindow.h"
+#include "../ui/optioncyclebutton.h"
 
 class TestCanvasItem : public CanvasItem
 {
@@ -131,7 +131,7 @@ void Phase3ModbusReadTest::modeSwitch_preventsDoubleDriving()
     w.show();
     QCoreApplication::processEvents();
 
-    auto *mode = w.findChild<QComboBox *>("dataSourceModeCombo");
+    auto *mode = w.findChild<OptionCycleButton *>("dataSourceModeCombo");
     QVERIFY(mode);
     mode->setCurrentText("Modbus RTU");
     QCoreApplication::processEvents();

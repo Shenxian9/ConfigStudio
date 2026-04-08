@@ -2,7 +2,6 @@
 
 #include <QAbstractItemModel>
 #include <QApplication>
-#include <QComboBox>
 #include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
@@ -14,6 +13,7 @@
 #include <QMessageBox>
 
 #include "../ui/mainwindow.h"
+#include "../ui/optioncyclebutton.h"
 
 int runPhase3ModbusReadTests(int argc, char *argv[]);
 
@@ -109,15 +109,15 @@ void Phase1DataSourceTest::addVariableFlow_writesToVariableModel()
     window.findChild<QLineEdit *>("variableIdEdit")->setText("Temp01");
     window.findChild<QLineEdit *>("variableNameEdit")->setText("Temp");
     window.findChild<QLineEdit *>("variableDeviceEdit")->setText("Dev1");
-    window.findChild<QComboBox *>("variableTypeCombo")->setCurrentText("float32");
-    window.findChild<QComboBox *>("variableAreaCombo")->setCurrentText("HoldingRegister");
+    window.findChild<OptionCycleButton *>("variableTypeCombo")->setCurrentText("float32");
+    window.findChild<OptionCycleButton *>("variableAreaCombo")->setCurrentText("HoldingRegister");
     window.findChild<QSpinBox *>("variableAddressSpin")->setValue(100);
     window.findChild<QSpinBox *>("variableCountSpin")->setValue(2);
     window.findChild<QSpinBox *>("variableBitOffsetSpin")->setValue(0);
     window.findChild<QLineEdit *>("variableUnitEdit")->setText("C");
     window.findChild<QDoubleSpinBox *>("variableScaleSpin")->setValue(1.5);
     window.findChild<QCheckBox *>("variableReadOnlyCheck")->setChecked(true);
-    window.findChild<QComboBox *>("variableEndianCombo")->setCurrentText("BigEndian");
+    window.findChild<OptionCycleButton *>("variableEndianCombo")->setCurrentText("BigEndian");
     window.findChild<QPushButton *>("variableApplyButton")->click();
     QCoreApplication::processEvents();
 
@@ -316,7 +316,7 @@ void Phase1DataSourceTest::applySerialConfigFromPanel_updatesSerialDataSourceCon
     QVERIFY(QMetaObject::invokeMethod(&window, "showSerialConfigDialog", Qt::DirectConnection));
 
     auto *portEdit = window.findChild<QLineEdit *>("serialPortEdit");
-    auto *baudCombo = window.findChild<QComboBox *>("serialBaudCombo");
+    auto *baudCombo = window.findChild<OptionCycleButton *>("serialBaudCombo");
     auto *slaveIdSpin = window.findChild<QSpinBox *>("serialSlaveIdSpin");
     auto *timeoutSpin = window.findChild<QSpinBox *>("serialTimeoutSpin");
 

@@ -11,7 +11,6 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLineEdit>
-#include <QComboBox>
 #include <QSpinBox>
 #include <QDoubleSpinBox>
 #include <QCheckBox>
@@ -445,16 +444,16 @@ void MainWindow::setupDataWorkspacePanels()
         m_serialPortEdit = new QLineEdit(m_serialConfigPanel);
         m_serialPortEdit->setObjectName("serialPortEdit");
         m_serialPortEdit->setPlaceholderText("/dev/ttyS2 or COM3");
-        m_serialBaudCombo = new QComboBox(m_serialConfigPanel);
+        m_serialBaudCombo = new OptionCycleButton(m_serialConfigPanel);
         m_serialBaudCombo->setObjectName("serialBaudCombo");
         m_serialBaudCombo->addItems({"1200", "2400", "4800", "9600", "19200", "38400", "57600", "115200"});
-        m_dataBitsCombo = new QComboBox(m_serialConfigPanel);
+        m_dataBitsCombo = new OptionCycleButton(m_serialConfigPanel);
         m_dataBitsCombo->setObjectName("serialDataBitsCombo");
         m_dataBitsCombo->addItems({"5", "6", "7", "8"});
-        m_parityCombo = new QComboBox(m_serialConfigPanel);
+        m_parityCombo = new OptionCycleButton(m_serialConfigPanel);
         m_parityCombo->setObjectName("serialParityCombo");
         m_parityCombo->addItems({"None", "Even", "Odd"});
-        m_stopBitsCombo = new QComboBox(m_serialConfigPanel);
+        m_stopBitsCombo = new OptionCycleButton(m_serialConfigPanel);
         m_stopBitsCombo->setObjectName("serialStopBitsCombo");
         m_stopBitsCombo->addItems({"1", "2"});
 
@@ -485,7 +484,7 @@ void MainWindow::setupDataWorkspacePanels()
         m_pollIntervalSpin->setObjectName("serialPollIntervalSpin");
         m_pollIntervalSpin->setRange(50, 60000);
         m_pollIntervalSpin->setSingleStep(50);
-        m_functionCodeCombo = new QComboBox(m_serialConfigPanel);
+        m_functionCodeCombo = new OptionCycleButton(m_serialConfigPanel);
         m_functionCodeCombo->setObjectName("serialFunctionCodeCombo");
         m_functionCodeCombo->addItems({"03 - Read Holding Registers", "04 - Read Input Registers", "06 - Write Single Register", "10 - Write Multiple Registers"});
 
@@ -543,10 +542,10 @@ void MainWindow::setupDataWorkspacePanels()
         m_variableNameEdit->setObjectName("variableNameEdit");
         m_variableDeviceEdit = new QLineEdit(m_variableEditorPanel);
         m_variableDeviceEdit->setObjectName("variableDeviceEdit");
-        m_variableTypeCombo = new QComboBox(m_variableEditorPanel);
+        m_variableTypeCombo = new OptionCycleButton(m_variableEditorPanel);
         m_variableTypeCombo->setObjectName("variableTypeCombo");
         m_variableTypeCombo->addItems({"bool", "int16", "uint16", "int32", "uint32", "float32"});
-        m_variableAreaCombo = new QComboBox(m_variableEditorPanel);
+        m_variableAreaCombo = new OptionCycleButton(m_variableEditorPanel);
         m_variableAreaCombo->setObjectName("variableAreaCombo");
         m_variableAreaCombo->addItems({"Coil", "DiscreteInput", "InputRegister", "HoldingRegister"});
         m_variableAddressSpin = new QSpinBox(m_variableEditorPanel);
@@ -568,7 +567,7 @@ void MainWindow::setupDataWorkspacePanels()
         m_variableReadOnlyCheck = new QCheckBox("Read Only", m_variableEditorPanel);
         m_variableReadOnlyCheck->setObjectName("variableReadOnlyCheck");
         m_variableReadOnlyCheck->setChecked(true);
-        m_variableEndianCombo = new QComboBox(m_variableEditorPanel);
+        m_variableEndianCombo = new OptionCycleButton(m_variableEditorPanel);
         m_variableEndianCombo->setObjectName("variableEndianCombo");
         m_variableEndianCombo->addItems({"BigEndian", "BigEndianWordSwap"});
 
@@ -601,11 +600,11 @@ void MainWindow::setupDataWorkspacePanels()
     }
 
     if (!m_dataSourceModeCombo) {
-        m_dataSourceModeCombo = new QComboBox(ui->DataWorkspace);
+        m_dataSourceModeCombo = new OptionCycleButton(ui->DataWorkspace);
         m_dataSourceModeCombo->setObjectName("dataSourceModeCombo");
         m_dataSourceModeCombo->addItems({"Simulator", "Modbus RTU"});
         m_dataSourceModeCombo->setGeometry(40, 86, 180, 36);
-        connect(m_dataSourceModeCombo, &QComboBox::currentTextChanged, this, [this]() { applyDataSourceMode(); });
+        connect(m_dataSourceModeCombo, &OptionCycleButton::currentTextChanged, this, [this]() { applyDataSourceMode(); });
     }
     if (!m_dataSourceStatusLabel) {
         m_dataSourceStatusLabel = new QLabel("Stopped", ui->DataWorkspace);
