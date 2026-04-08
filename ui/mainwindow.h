@@ -72,17 +72,18 @@ private slots:
 
     void on_pushOfDesign_clicked();
     void on_pushOfL_D_clicked();
+    void showSerialConfigDialog();
+    void applySerialConfigFromPanel();
+
+public:
+    SerialDataSource *serialDataSourceForTest() const { return m_serialDataSource; }
 
 private:
     void setupDataWorkspace();
     void setupDataWorkspacePanels();
     void refreshDataSourceTree();
     void refreshDataSourceTreeDeferred();
-    void showSerialConfigDialog();
-    void showMappingDialog();
     void hideDataWorkspacePanels();
-    void applySerialConfigFromPanel();
-    void applyMappingFromPanel();
     void prepareImeForTransientEditor();
 
     void showProperties(CanvasItem *item);
@@ -128,7 +129,6 @@ private:
     bool m_darkCanvasMode = false;
 
     SerialDataSource *m_serialDataSource = nullptr;
-    SerialVariableMapper *m_serialMapper = nullptr;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
 
     QWidget *m_serialConfigPanel = nullptr;
@@ -142,9 +142,6 @@ private:
     QSpinBox *m_retrySpin = nullptr;
     QSpinBox *m_pollIntervalSpin = nullptr;
     QComboBox *m_functionCodeCombo = nullptr;
-
-    QWidget *m_mappingPanel = nullptr;
-    QTableWidget *m_mappingTable = nullptr;
 
 };
 
