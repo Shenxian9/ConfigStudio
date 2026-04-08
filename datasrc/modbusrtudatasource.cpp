@@ -158,13 +158,41 @@ QVariant ModbusRtuDataSource::decodeRegisters(const Variable &var, const QVector
     if (registers.size() < 2)
         return fail("count < 2 for 32-bit type");
 
-    quint16 hi = registers[0];
-    quint16 lo = registers[1];
-    if (var.endianness == Endianness::BigEndianWordSwap) {
-        hi = registers[1];
-        lo = registers[0];
+    const quint16 r0 = registers[0];
+    const quint16 r1 = registers[1];
+    quint8 b0 = static_cast<quint8>((r0 >> 8) & 0xFF);
+    quint8 b1 = static_cast<quint8>(r0 & 0xFF);
+    quint8 b2 = static_cast<quint8>((r1 >> 8) & 0xFF);
+    quint8 b3 = static_cast<quint8>(r1 & 0xFF);
+
+    switch (var.endianness) {
+    case Endianness::BigEndianWordSwap:
+        b0 = static_cast<quint8>((r1 >> 8) & 0xFF);
+        b1 = static_cast<quint8>(r1 & 0xFF);
+        b2 = static_cast<quint8>((r0 >> 8) & 0xFF);
+        b3 = static_cast<quint8>(r0 & 0xFF);
+        break;
+    case Endianness::LittleEndian:
+        b0 = static_cast<quint8>(r1 & 0xFF);
+        b1 = static_cast<quint8>((r1 >> 8) & 0xFF);
+        b2 = static_cast<quint8>(r0 & 0xFF);
+        b3 = static_cast<quint8>((r0 >> 8) & 0xFF);
+        break;
+    case Endianness::LittleEndianByteSwap:
+        b0 = static_cast<quint8>(r0 & 0xFF);
+        b1 = static_cast<quint8>((r0 >> 8) & 0xFF);
+        b2 = static_cast<quint8>(r1 & 0xFF);
+        b3 = static_cast<quint8>((r1 >> 8) & 0xFF);
+        break;
+    case Endianness::BigEndian:
+    default:
+        break;
     }
-    const quint32 raw = (static_cast<quint32>(hi) << 16) | lo;
+
+    const quint32 raw = (static_cast<quint32>(b0) << 24)
+                        | (static_cast<quint32>(b1) << 16)
+                        | (static_cast<quint32>(b2) << 8)
+                        | static_cast<quint32>(b3);
 
     if (type == "uint32") {
         if (ok) *ok = true;

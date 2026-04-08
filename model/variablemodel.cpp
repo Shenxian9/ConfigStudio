@@ -28,6 +28,8 @@ QString endiannessToString(Endianness e)
 {
     switch (e) {
     case Endianness::BigEndianWordSwap: return "BigEndianWordSwap";
+    case Endianness::LittleEndian: return "LittleEndian";
+    case Endianness::LittleEndianByteSwap: return "LittleEndianByteSwap";
     case Endianness::BigEndian:
     default:
         return "BigEndian";
@@ -38,6 +40,10 @@ Endianness endiannessFromString(const QString &v)
 {
     if (v.trimmed().compare("BigEndianWordSwap", Qt::CaseInsensitive) == 0)
         return Endianness::BigEndianWordSwap;
+    if (v.trimmed().compare("LittleEndian", Qt::CaseInsensitive) == 0)
+        return Endianness::LittleEndian;
+    if (v.trimmed().compare("LittleEndianByteSwap", Qt::CaseInsensitive) == 0)
+        return Endianness::LittleEndianByteSwap;
     return Endianness::BigEndian;
 }
 }

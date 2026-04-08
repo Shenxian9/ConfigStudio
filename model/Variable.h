@@ -14,7 +14,9 @@ enum class RegisterArea {
 
 enum class Endianness {
     BigEndian,
-    BigEndianWordSwap
+    BigEndianWordSwap,
+    LittleEndian,
+    LittleEndianByteSwap
 };
 
 enum class DataStrategy {

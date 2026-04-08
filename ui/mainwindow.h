@@ -24,6 +24,7 @@
 #include <QFrame>
 #include <QPointer>
 #include <QStandardItemModel>
+#include <QSet>
 class QLabel;
 
 #include "componentpalette.h"
@@ -54,6 +55,7 @@ public:
 protected:
     void resizeEvent(QResizeEvent*) override;
     void setupIconButton(QPushButton* btn, const QString& iconPath);
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 
 private slots:
@@ -98,6 +100,7 @@ private:
     void refreshDataSourceTreeDeferred();
     void hideDataWorkspacePanels();
     void fillVariableEditorFromRow(int row);
+    void registerTouchInput(QWidget *editor);
     void prepareImeForTransientEditor();
 
     void showProperties(CanvasItem *item);
@@ -176,6 +179,7 @@ private:
     QCheckBox *m_variableReadOnlyCheck = nullptr;
     OptionCycleButton *m_variableEndianCombo = nullptr;
     int m_variableEditorRow = -1;
+    QSet<QWidget*> m_touchInputs;
 
 };
 

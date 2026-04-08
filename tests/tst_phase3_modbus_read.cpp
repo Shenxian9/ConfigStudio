@@ -56,6 +56,8 @@ void Phase3ModbusReadTest::decode_float32_with_endianness()
 {
     Variable f1; f1.type = "float32"; f1.endianness = Endianness::BigEndian;
     Variable f2; f2.type = "float32"; f2.endianness = Endianness::BigEndianWordSwap;
+    Variable f3; f3.type = "float32"; f3.endianness = Endianness::LittleEndian;
+    Variable f4; f4.type = "float32"; f4.endianness = Endianness::LittleEndianByteSwap;
     bool ok = false;
     const double a = ModbusRtuDataSource::decodeRegisters(f1, {0x4120, 0x0000}, &ok).toDouble();
     QVERIFY(ok);
@@ -63,6 +65,12 @@ void Phase3ModbusReadTest::decode_float32_with_endianness()
     const double b = ModbusRtuDataSource::decodeRegisters(f2, {0x0000, 0x4120}, &ok).toDouble();
     QVERIFY(ok);
     QVERIFY(qAbs(b - 10.0) < 0.001);
+    const double c = ModbusRtuDataSource::decodeRegisters(f3, {0x0000, 0x2041}, &ok).toDouble();
+    QVERIFY(ok);
+    QVERIFY(qAbs(c - 10.0) < 0.001);
+    const double d = ModbusRtuDataSource::decodeRegisters(f4, {0x2041, 0x0000}, &ok).toDouble();
+    QVERIFY(ok);
+    QVERIFY(qAbs(d - 10.0) < 0.001);
 }
 
 void Phase3ModbusReadTest::decode_bool_with_bitOffset()

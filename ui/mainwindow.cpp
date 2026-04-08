@@ -22,6 +22,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QIntValidator>
+#include <QInputDialog>
+#include <QMouseEvent>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -449,6 +451,12 @@ void MainWindow::setupDataWorkspacePanels()
         m_stopBitsCombo = new OptionCycleButton(m_serialConfigPanel);
         m_stopBitsCombo->setObjectName("serialStopBitsCombo");
         m_stopBitsCombo->addItems({"1", "2"});
+        m_serialBaudCombo->setMinimumSize(260, 46);
+        m_dataBitsCombo->setMinimumSize(260, 46);
+        m_parityCombo->setMinimumSize(260, 46);
+        m_stopBitsCombo->setMinimumSize(260, 46);
+        registerTouchInput(m_serialDeviceEdit);
+        registerTouchInput(m_serialPortEdit);
 
         serialForm->addRow("Device", m_serialDeviceEdit);
         serialForm->addRow("Port", m_serialPortEdit);
@@ -480,6 +488,11 @@ void MainWindow::setupDataWorkspacePanels()
         m_functionCodeCombo = new OptionCycleButton(m_serialConfigPanel);
         m_functionCodeCombo->setObjectName("serialFunctionCodeCombo");
         m_functionCodeCombo->addItems({"03 - Read Holding Registers", "04 - Read Input Registers", "06 - Write Single Register", "10 - Write Multiple Registers"});
+        m_functionCodeCombo->setMinimumSize(260, 46);
+        registerTouchInput(m_slaveIdSpin);
+        registerTouchInput(m_timeoutSpin);
+        registerTouchInput(m_retrySpin);
+        registerTouchInput(m_pollIntervalSpin);
 
         modbusForm->addRow("Slave ID", m_slaveIdSpin);
         modbusForm->addRow("Timeout (ms)", m_timeoutSpin);
@@ -562,7 +575,18 @@ void MainWindow::setupDataWorkspacePanels()
         m_variableReadOnlyCheck->setChecked(true);
         m_variableEndianCombo = new OptionCycleButton(m_variableEditorPanel);
         m_variableEndianCombo->setObjectName("variableEndianCombo");
-        m_variableEndianCombo->addItems({"BigEndian", "BigEndianWordSwap"});
+        m_variableEndianCombo->addItems({"BigEndian", "BigEndianWordSwap", "LittleEndian", "LittleEndianByteSwap"});
+        m_variableTypeCombo->setMinimumSize(260, 46);
+        m_variableAreaCombo->setMinimumSize(260, 46);
+        m_variableEndianCombo->setMinimumSize(260, 46);
+        registerTouchInput(m_variableIdEdit);
+        registerTouchInput(m_variableNameEdit);
+        registerTouchInput(m_variableDeviceEdit);
+        registerTouchInput(m_variableAddressSpin);
+        registerTouchInput(m_variableCountSpin);
+        registerTouchInput(m_variableBitOffsetSpin);
+        registerTouchInput(m_variableUnitEdit);
+        registerTouchInput(m_variableScaleSpin);
 
         form->addRow("Variable ID", m_variableIdEdit);
         form->addRow("Name", m_variableNameEdit);
@@ -609,6 +633,56 @@ void MainWindow::applyDataSourceMode()
             m_runtimeSimulator->start(300);
     }
     refreshDataSourceTreeDeferred();
+}
+
+void MainWindow::registerTouchInput(QWidget *editor)
+{
+    if (!editor)
+        return;
+    editor->setMinimumHeight(46);
+    editor->setMinimumWidth(260);
+    m_touchInputs.insert(editor);
+    editor->installEventFilter(this);
+
+    if (auto *line = qobject_cast<QLineEdit*>(editor))
+        line->setReadOnly(true);
+    if (auto *spin = qobject_cast<QSpinBox*>(editor))
+        spin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+    if (auto *dspin = qobject_cast<QDoubleSpinBox*>(editor))
+        dspin->setButtonSymbols(QAbstractSpinBox::NoButtons);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    QWidget *w = qobject_cast<QWidget*>(watched);
+    if (!w || !m_touchInputs.contains(w))
+        return QWidget::eventFilter(watched, event);
+
+    if (event->type() != QEvent::MouseButtonPress)
+        return QWidget::eventFilter(watched, event);
+
+    if (auto *line = qobject_cast<QLineEdit*>(w)) {
+        bool ok = false;
+        const QString text = QInputDialog::getText(this, tr("Input"), tr("Value"), QLineEdit::Normal, line->text(), &ok);
+        if (ok)
+            line->setText(text);
+        return true;
+    }
+    if (auto *spin = qobject_cast<QSpinBox*>(w)) {
+        bool ok = false;
+        const int v = QInputDialog::getInt(this, tr("Input"), tr("Value"), spin->value(), spin->minimum(), spin->maximum(), 1, &ok);
+        if (ok)
+            spin->setValue(v);
+        return true;
+    }
+    if (auto *dspin = qobject_cast<QDoubleSpinBox*>(w)) {
+        bool ok = false;
+        const double v = QInputDialog::getDouble(this, tr("Input"), tr("Value"), dspin->value(), dspin->minimum(), dspin->maximum(), dspin->decimals(), &ok);
+        if (ok)
+            dspin->setValue(v);
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void MainWindow::refreshDataSourceTree()
