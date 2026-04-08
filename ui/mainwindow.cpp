@@ -340,28 +340,21 @@ void MainWindow::setupDataWorkspace()
     connect(m_modbusDataSource, &ModbusRtuDataSource::statusChanged, this, [this](bool opened) {
         ui->pushButton_8->setEnabled(!opened);
         ui->pushButton_9->setEnabled(opened);
-        if (m_dataSourceStatusLabel)
-            m_dataSourceStatusLabel->setText(opened ? "Opened" : "Stopped");
         refreshDataSourceTreeDeferred();
     });
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::pollingStateChanged, this, [this](bool running) {
-        if (m_pollingStatusLabel)
-            m_pollingStatusLabel->setText(running ? "Polling" : "Idle");
+        Q_UNUSED(running);
         refreshDataSourceTreeDeferred();
     });
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::errorOccurred, this, [this](const QString &err) {
         m_lastCommStatus = err;
-        if (m_lastCommStatusLabel)
-            m_lastCommStatusLabel->setText(err);
         QMessageBox::warning(this, tr("Modbus RTU Data Source"), err);
         refreshDataSourceTreeDeferred();
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableReadSucceeded, this, [this](const QString &varId, const QVariant &value) {
         m_lastCommStatus = QString("OK %1=%2").arg(varId, value.toString());
-        if (m_lastCommStatusLabel)
-            m_lastCommStatusLabel->setText(m_lastCommStatus);
         refreshDataSourceTreeDeferred();
     });
 
@@ -369,7 +362,7 @@ void MainWindow::setupDataWorkspace()
     connect(ui->pushButton_8, &QPushButton::clicked, this, [this]() {
         if (!m_modbusDataSource->open())
             return;
-        if (m_dataSourceModeCombo && m_dataSourceModeCombo->currentText() == "Modbus RTU")
+        if (m_dataSourceModeCombo && m_dataSourceModeCombo->text() == "Modbus RTU")
             m_modbusDataSource->startPolling();
         refreshDataSourceTreeDeferred();
     });
@@ -392,6 +385,14 @@ void MainWindow::setupDataWorkspace()
     ui->pushButton_10->setObjectName("addVariableButton");
     ui->pushButton_11->setObjectName("deleteVariableButton");
     ui->pushButton_12->setObjectName("editVariableButton");
+    ui->dataSourceModeCombo->setObjectName("dataSourceModeCombo");
+    m_dataSourceModeCombo = ui->dataSourceModeCombo;
+    connect(m_dataSourceModeCombo, &QPushButton::clicked, this, [this]() {
+        if (!m_dataSourceModeCombo)
+            return;
+        m_dataSourceModeCombo->setText(m_dataSourceModeCombo->text() == "Simulator" ? "Modbus RTU" : "Simulator");
+        applyDataSourceMode();
+    });
 
     connect(ui->pushButton_10, &QPushButton::clicked, this, &MainWindow::showAddVariableDialog);
     connect(ui->pushButton_11, &QPushButton::clicked, this, &MainWindow::deleteSelectedVariable);
@@ -591,34 +592,11 @@ void MainWindow::setupDataWorkspacePanels()
         connect(cancelBtn, &QPushButton::clicked, this, &MainWindow::hideDataWorkspacePanels);
     }
 
-    if (!m_dataSourceModeCombo) {
-        m_dataSourceModeCombo = new OptionCycleButton(ui->widget_5);
-        m_dataSourceModeCombo->setObjectName("dataSourceModeCombo");
-        m_dataSourceModeCombo->addItems({"Simulator", "Modbus RTU"});
-        if (ui->gridLayout_3)
-            ui->gridLayout_3->addWidget(m_dataSourceModeCombo, 1, 3);
-        connect(m_dataSourceModeCombo, &OptionCycleButton::currentTextChanged, this, [this]() { applyDataSourceMode(); });
-    }
-    if (!m_dataSourceStatusLabel) {
-        m_dataSourceStatusLabel = new QLabel("Stopped", ui->DataWorkspace);
-        m_dataSourceStatusLabel->setObjectName("dataSourceStatusLabel");
-        m_dataSourceStatusLabel->setGeometry(230, 86, 120, 36);
-    }
-    if (!m_pollingStatusLabel) {
-        m_pollingStatusLabel = new QLabel("Idle", ui->DataWorkspace);
-        m_pollingStatusLabel->setObjectName("pollingStatusLabel");
-        m_pollingStatusLabel->setGeometry(360, 86, 100, 36);
-    }
-    if (!m_lastCommStatusLabel) {
-        m_lastCommStatusLabel = new QLabel("", ui->DataWorkspace);
-        m_lastCommStatusLabel->setObjectName("lastCommStatusLabel");
-        m_lastCommStatusLabel->setGeometry(470, 86, 320, 36);
-    }
 }
 
 void MainWindow::applyDataSourceMode()
 {
-    const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->currentText() : QString("Simulator");
+    const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : QString("Simulator");
     if (mode == "Modbus RTU") {
         if (m_runtimeSimulator)
             m_runtimeSimulator->stop();
@@ -644,7 +622,7 @@ void MainWindow::refreshDataSourceTree()
     auto *root = new QStandardItem(QString("Modbus RTU: %1").arg(cfg.portName));
 
     root->appendRow(new QStandardItem(QString("Mode: %1")
-                                          .arg(m_dataSourceModeCombo ? m_dataSourceModeCombo->currentText() : "Simulator")));
+                                          .arg(m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : "Simulator")));
     root->appendRow(new QStandardItem(QString("Status: %1")
                                           .arg(m_modbusDataSource && m_modbusDataSource->isOpen() ? "Opened" : "Stopped")));
     root->appendRow(new QStandardItem(QString("Polling: %1")

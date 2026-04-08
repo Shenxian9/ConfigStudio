@@ -146,10 +146,7 @@ private:
     ModbusRtuDataSource *m_modbusDataSource = nullptr;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
     RuntimeSimulator *m_runtimeSimulator = nullptr;
-    OptionCycleButton *m_dataSourceModeCombo = nullptr;
-    QLabel *m_dataSourceStatusLabel = nullptr;
-    QLabel *m_pollingStatusLabel = nullptr;
-    QLabel *m_lastCommStatusLabel = nullptr;
+    QPushButton *m_dataSourceModeCombo = nullptr;
     QString m_lastCommStatus;
 
     QWidget *m_serialConfigPanel = nullptr;
