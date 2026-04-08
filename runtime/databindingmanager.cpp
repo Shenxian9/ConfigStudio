@@ -1,5 +1,6 @@
 #include "databindingmanager.h"
 #include <QDebug>
+#include <QtGlobal>
 #include <algorithm>
 
 DataBindingManager::DataBindingManager(VariableModel* model, QObject* parent)
@@ -73,6 +74,20 @@ bool DataBindingManager::publishValue(const QString& varId, const QVariant& valu
     QVariant oldValue;
     const QString id = varId.trimmed();
     m_model->valueById(id, &oldValue);
+    auto valuesEquivalent = [](const QVariant &a, const QVariant &b) -> bool {
+        if (!a.isValid() && !b.isValid())
+            return true;
+        if (a.userType() == QMetaType::Double || b.userType() == QMetaType::Double) {
+            bool okA = false, okB = false;
+            const double da = a.toDouble(&okA);
+            const double db = b.toDouble(&okB);
+            if (okA && okB)
+                return qFuzzyCompare(da + 1.0, db + 1.0);
+        }
+        return a == b;
+    };
+    if (valuesEquivalent(oldValue, value))
+        return true;
     if (!m_model->updateValueById(id, value))
         return false;
 
