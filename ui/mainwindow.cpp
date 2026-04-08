@@ -393,14 +393,6 @@ void MainWindow::setupDataWorkspace()
     ui->pushButton_11->setObjectName("deleteVariableButton");
     ui->pushButton_12->setObjectName("editVariableButton");
 
-    ui->pushButton_2->setText("Add/Config Modbus RTU");
-    ui->pushButton_7->setText("Remove Modbus RTU");
-    ui->pushButton_8->setText("Open");
-    ui->pushButton_9->setText("Close");
-    ui->pushButton_10->setText("Add Variable");
-    ui->pushButton_11->setText("Delete Variable");
-    ui->pushButton_12->setText("Edit Variable");
-
     connect(ui->pushButton_10, &QPushButton::clicked, this, &MainWindow::showAddVariableDialog);
     connect(ui->pushButton_11, &QPushButton::clicked, this, &MainWindow::deleteSelectedVariable);
     connect(ui->pushButton_12, &QPushButton::clicked, this, &MainWindow::showEditVariableDialog);
@@ -600,10 +592,11 @@ void MainWindow::setupDataWorkspacePanels()
     }
 
     if (!m_dataSourceModeCombo) {
-        m_dataSourceModeCombo = new OptionCycleButton(ui->DataWorkspace);
+        m_dataSourceModeCombo = new OptionCycleButton(ui->widget_5);
         m_dataSourceModeCombo->setObjectName("dataSourceModeCombo");
         m_dataSourceModeCombo->addItems({"Simulator", "Modbus RTU"});
-        m_dataSourceModeCombo->setGeometry(40, 86, 180, 36);
+        if (ui->gridLayout_3)
+            ui->gridLayout_3->addWidget(m_dataSourceModeCombo, 1, 3);
         connect(m_dataSourceModeCombo, &OptionCycleButton::currentTextChanged, this, [this]() { applyDataSourceMode(); });
     }
     if (!m_dataSourceStatusLabel) {
