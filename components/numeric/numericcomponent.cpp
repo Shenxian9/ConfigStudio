@@ -10,6 +10,7 @@
 #include <QPalette>
 #include <QFontMetrics>
 #include <QEvent>
+#include <QtMath>
 
 static QString textColorNameForProperty(const QColor &c)
 {
@@ -46,7 +47,14 @@ NumericComponent::NumericComponent(QWidget *parent)
 
 void NumericComponent::updateText()
 {
-    QString txt = QString::number(m_value, 'f', m_decimals);
+    QString txt;
+    if (m_decimals >= 0) {
+        txt = QString::number(m_value, 'f', m_decimals);
+    } else {
+        const double factor = qPow(10.0, -m_decimals);
+        const double rounded = qRound64(m_value / factor) * factor;
+        txt = QString::number(rounded, 'f', 0);
+    }
     if (!m_unit.isEmpty())
         txt += " " + m_unit;
 
@@ -58,7 +66,6 @@ QVariantMap NumericComponent::properties() const
     QVariantMap map;
     map["value"]    = m_value;
     map["decimals"] = m_decimals;
-    map["precision"] = m_decimals;
     map["unit"]     = m_unit;
     map["fontSize"] = m_label->font().pointSize();
     const QFont f = m_label->font();
@@ -85,8 +92,8 @@ void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_value = v.toDouble();
         updateText();                 // ⭐ 运行态数据入口
     }
-    else if (key == "decimals" || key == "precision") {
-        m_decimals = qMax(0, v.toInt());
+    else if (key == "decimals") {
+        m_decimals = v.toInt();
         updateText();
     }
     else if (key == "unit") {

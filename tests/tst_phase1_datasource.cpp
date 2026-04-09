@@ -5,6 +5,7 @@
 #include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
+#include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTableView>
@@ -37,7 +38,7 @@ private slots:
     void dataSourceTree_doesNotContainMappingsNode();
     void applySerialConfigFromPanel_updatesSerialDataSourceConfig();
     void slider_stepProperty_quantizesValue();
-    void numeric_precisionProperty_updatesDecimals();
+    void numeric_negativeDecimals_roundByPowersOfTen();
 };
 
 namespace {
@@ -354,13 +355,20 @@ void Phase1DataSourceTest::slider_stepProperty_quantizesValue()
     QCOMPARE(slider.properties().value("value").toDouble(), 14.0);
 }
 
-void Phase1DataSourceTest::numeric_precisionProperty_updatesDecimals()
+void Phase1DataSourceTest::numeric_negativeDecimals_roundByPowersOfTen()
 {
     NumericComponent numeric;
-    numeric.setPropertyValue("precision", 3);
-    numeric.setPropertyValue("value", 12.34567);
-    QCOMPARE(numeric.properties().value("precision").toInt(), 3);
-    QCOMPARE(numeric.properties().value("decimals").toInt(), 3);
+    numeric.setPropertyValue("decimals", -1);
+    numeric.setPropertyValue("value", 126.0);
+    auto *label = numeric.findChild<QLabel *>();
+    QVERIFY(label);
+    QCOMPARE(label->text(), QString("130"));
+    QCOMPARE(numeric.properties().value("decimals").toInt(), -1);
+    QCOMPARE(numeric.properties().value("value").toDouble(), 126.0);
+
+    numeric.setPropertyValue("decimals", -2);
+    QCOMPARE(label->text(), QString("100"));
+    QCOMPARE(numeric.properties().value("decimals").toInt(), -2);
 }
 
 int main(int argc, char *argv[])
