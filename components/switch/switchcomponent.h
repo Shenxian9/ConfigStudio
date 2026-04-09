@@ -3,8 +3,28 @@
 
 #pragma once
 #include "canvas/canvasitem.h"
-#include <QCheckBox>
 #include <QLabel>
+#include <QWidget>
+class QMouseEvent;
+
+class SwitchVisual : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit SwitchVisual(QWidget *parent = nullptr);
+    bool isChecked() const { return m_checked; }
+    void setChecked(bool checked);
+
+signals:
+    void toggled(bool checked);
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+
+private:
+    bool m_checked = false;
+};
 
 class SwitchComponent : public CanvasItem {
     Q_OBJECT
@@ -20,7 +40,7 @@ public:
 
 private:
     QLabel     *m_title;
-    QCheckBox  *m_switch;
+    SwitchVisual *m_switch;
 };
 
 #endif
