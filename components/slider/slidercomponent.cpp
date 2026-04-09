@@ -23,6 +23,7 @@ SliderComponent::SliderComponent(QWidget *parent)
     m_slider->setOrientation(Qt::Horizontal);
     m_slider->setScale(0, 100);
     m_slider->setValue(50);
+    m_slider->setHandleSize(QSize(24, 40));
     m_slider->installEventFilter(this);
 
     // ⭐ 绑定 Slider 值变化，实时更新 Label
@@ -171,4 +172,9 @@ void SliderComponent::resizeEvent(QResizeEvent *event)
     m_title->setGeometry(0, titleY, w, titleH);
     m_slider->setGeometry(0, sliderY, w, sliderH);
     m_valueLabel->setGeometry(0, valueY, w, qMax(minSectionH, h - valueY));
+
+    // 按缩放动态调整手柄尺寸（宽=滑动方向长度，高=垂直厚度），增强触控命中。
+    const int handleW = qBound(24, w / 9, 64);
+    const int handleH = qBound(30, sliderH * 2 / 3, 72);
+    m_slider->setHandleSize(QSize(handleW, handleH));
 }
