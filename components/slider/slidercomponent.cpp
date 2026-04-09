@@ -175,6 +175,6 @@ void SliderComponent::resizeEvent(QResizeEvent *event)
 
     // 按缩放动态调整手柄尺寸（宽=滑动方向长度，高=垂直厚度），增强触控命中。
     const int handleW = qMax(20, w / 9);
-    const int handleH = qMax(20, sliderH * 3 / 5);
+    const int handleH = qMax(20, sliderH * 2 / 5);
     m_slider->setHandleSize(QSize(handleW, handleH));
 }
