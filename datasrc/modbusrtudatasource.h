@@ -27,6 +27,7 @@ public:
     void startPolling();
     void stopPolling();
     bool isPolling() const { return m_polling; }
+    bool readPollingEnabledForTest() const;
     void setWriteEnabled(bool enabled) { m_writeEnabled = enabled; }
     bool writeEnabled() const override { return m_writeEnabled; }
     bool writeVariable(const QString &varId, const QVariant &value, QString *errorText) override;
@@ -51,6 +52,7 @@ private slots:
 private:
     static quint16 crc16(const QByteArray &payload);
     bool deviceMatchesConfig(const QString &deviceId) const;
+    bool readPollingEnabled() const;
     bool readVariableAtRow(int row);
     bool parseResponse(const Variable &var, quint8 functionCode, const QByteArray &resp, QVector<quint16> *outRegs, QString *errorText) const;
     bool encodeSingleRegisterWrite(const Variable &var, const QVariant &value, quint16 *encoded, QString *errorText) const;

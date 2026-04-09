@@ -36,6 +36,7 @@ private slots:
     void decode_bool_with_bitOffset();
     void pollingFilter_keepsSupportedVariablesOnly();
     void pollingFilter_matchesDeviceIdTrimmedCaseInsensitive();
+    void pollingDisabled_forWriteOnlyFunctionCodes();
     void processReadResult_updatesVariableModel();
     void dataBindingManager_distributesModelUpdate();
     void modeSwitch_preventsDoubleDriving();
@@ -118,6 +119,23 @@ void Phase3ModbusReadTest::pollingFilter_matchesDeviceIdTrimmedCaseInsensitive()
     const QVector<int> rows = ds.eligibleVariableRowsForTest();
     QCOMPARE(rows.size(), 1);
     QCOMPARE(model.variableAt(rows.first()).id, QString("a"));
+}
+
+void Phase3ModbusReadTest::pollingDisabled_forWriteOnlyFunctionCodes()
+{
+    ModbusRtuDataSource ds;
+    SerialPortConfig cfg;
+    cfg.defaultFunctionCode = 6;
+    ds.setConfig(cfg);
+    QVERIFY(!ds.readPollingEnabledForTest());
+
+    cfg.defaultFunctionCode = 16;
+    ds.setConfig(cfg);
+    QVERIFY(!ds.readPollingEnabledForTest());
+
+    cfg.defaultFunctionCode = 3;
+    ds.setConfig(cfg);
+    QVERIFY(ds.readPollingEnabledForTest());
 }
 
 void Phase3ModbusReadTest::processReadResult_updatesVariableModel()

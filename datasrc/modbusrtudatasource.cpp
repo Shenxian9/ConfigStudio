@@ -13,8 +13,11 @@ ModbusRtuDataSource::ModbusRtuDataSource(QObject *parent)
 void ModbusRtuDataSource::setConfig(const SerialPortConfig &config)
 {
     m_config = config;
-    if (m_polling)
+    if (m_polling && !readPollingEnabled()) {
+        stopPolling();
+    } else if (m_polling) {
         m_pollTimer.start(qMax(50, m_config.pollIntervalMs));
+    }
 }
 
 void ModbusRtuDataSource::setVariableModel(VariableModel *model)
@@ -61,6 +64,8 @@ void ModbusRtuDataSource::startPolling()
 {
     if (!m_serial.isOpen() || !m_model)
         return;
+    if (!readPollingEnabled())
+        return;
     if (m_polling)
         return;
     m_polling = true;
@@ -100,12 +105,22 @@ QVector<int> ModbusRtuDataSource::eligibleVariableRowsForTest() const
     return rows;
 }
 
+bool ModbusRtuDataSource::readPollingEnabledForTest() const
+{
+    return readPollingEnabled();
+}
+
 bool ModbusRtuDataSource::deviceMatchesConfig(const QString &deviceId) const
 {
     const QString cfgDevice = m_config.deviceId.trimmed();
     if (cfgDevice.isEmpty())
         return true;
     return deviceId.trimmed().compare(cfgDevice, Qt::CaseInsensitive) == 0;
+}
+
+bool ModbusRtuDataSource::readPollingEnabled() const
+{
+    return m_config.defaultFunctionCode == 3 || m_config.defaultFunctionCode == 4;
 }
 
 bool ModbusRtuDataSource::processReadResultForTest(const QString &varId, const QVector<quint16> &registers, QString *error)
@@ -361,6 +376,10 @@ void ModbusRtuDataSource::pollNextVariable()
 {
     if (!m_polling || !m_serial.isOpen() || !m_model)
         return;
+    if (!readPollingEnabled()) {
+        stopPolling();
+        return;
+    }
 
     const QVector<int> rows = eligibleVariableRowsForTest();
     if (rows.isEmpty())
