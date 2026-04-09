@@ -77,13 +77,13 @@ bool DataBindingManager::publishValue(const QString& varId, const QVariant& valu
     auto valuesEquivalent = [](const QVariant &a, const QVariant &b) -> bool {
         if (!a.isValid() && !b.isValid())
             return true;
-        if (a.userType() == QMetaType::Double || b.userType() == QMetaType::Double) {
-            bool okA = false, okB = false;
-            const double da = a.toDouble(&okA);
-            const double db = b.toDouble(&okB);
-            if (okA && okB)
-                return qFuzzyCompare(da + 1.0, db + 1.0);
-        }
+        bool okA = false, okB = false;
+        const double da = a.toDouble(&okA);
+        const double db = b.toDouble(&okB);
+        if (okA && okB)
+            return qFuzzyCompare(da + 1.0, db + 1.0);
+        if (a.userType() == QMetaType::QString || b.userType() == QMetaType::QString)
+            return a.toString().trimmed() == b.toString().trimmed();
         return a == b;
     };
     if (valuesEquivalent(oldValue, value))

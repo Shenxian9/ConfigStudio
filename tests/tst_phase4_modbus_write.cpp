@@ -47,6 +47,7 @@ private slots:
     void encoding_bool_uint16_int16();
     void publishValue_inModbusMode_triggersWrite();
     void publishSameValue_doesNotRepeatWrite();
+    void publishEquivalentNumeric_doesNotRepeatWrite();
     void writeSuccess_keepsValue();
     void writeFailed_rollsBack();
     void simulatorMode_doesNotWrite();
@@ -123,6 +124,22 @@ void Phase4ModbusWriteTest::publishSameValue_doesNotRepeatWrite()
     QVERIFY(mgr.publishValue("W1R", 20));
     QCOMPARE(backend.callCount, 1);
     QVERIFY(mgr.publishValue("W1R", 20));
+    QCOMPARE(backend.callCount, 1);
+}
+
+void Phase4ModbusWriteTest::publishEquivalentNumeric_doesNotRepeatWrite()
+{
+    VariableModel model;
+    Variable v; v.id = "W1N"; v.value = 10.0; model.addVariable(v);
+    DataBindingManager mgr(&model);
+    FakeWriteBackend backend;
+    backend.enabled = true;
+    backend.shouldSucceed = true;
+    mgr.setWriteBackend(&backend);
+
+    QVERIFY(mgr.publishValue("W1N", QString("20.0")));
+    QCOMPARE(backend.callCount, 1);
+    QVERIFY(mgr.publishValue("W1N", 20));
     QCOMPARE(backend.callCount, 1);
 }
 
