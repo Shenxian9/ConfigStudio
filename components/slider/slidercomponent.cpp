@@ -128,18 +128,30 @@ void SliderComponent::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
 
-    int w = width();
-    int h = height();
+    const int w = width();
+    const int h = height();
 
-    int titleH = 24;      // 标题高度
-    int valueH = 24;      // 数值显示高度
-    int sliderTopGap = 8;
-    int sliderBottomGap = 6;
-    int sliderH = qMax(56, h - titleH - valueH - sliderTopGap - sliderBottomGap);
+    // 三段布局（标题 / slider / 数值）之间采用同一动态间距，随缩放自然拉伸。
+    const int minSectionH = 20;
+    const int gap = qBound(4, h / 22, 14);
+    int titleH = qBound(minSectionH, h / 6, 34);
+    int valueH = qBound(minSectionH, h / 6, 34);
+    int sliderH = h - titleH - valueH - gap * 2;
 
-    m_title->setGeometry(0, 0, w, titleH);
-    m_valueLabel->setGeometry(0, h - valueH, w, valueH);
+    if (sliderH < 40) {
+        const int lack = 40 - sliderH;
+        const int cutTitle = qMin(titleH - minSectionH, (lack + 1) / 2);
+        const int cutValue = qMin(valueH - minSectionH, lack / 2);
+        titleH -= cutTitle;
+        valueH -= cutValue;
+        sliderH = qMax(40, h - titleH - valueH - gap * 2);
+    }
 
-    // ⭐ 加宽滑轨可触区域，提升触控拖动命中率。
-    m_slider->setGeometry(0, titleH + sliderTopGap, w, sliderH);
+    const int titleY = 0;
+    const int sliderY = titleY + titleH + gap;
+    const int valueY = sliderY + sliderH + gap;
+
+    m_title->setGeometry(0, titleY, w, titleH);
+    m_slider->setGeometry(0, sliderY, w, sliderH);
+    m_valueLabel->setGeometry(0, valueY, w, qMax(minSectionH, h - valueY));
 }
