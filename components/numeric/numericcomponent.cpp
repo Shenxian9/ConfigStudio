@@ -58,6 +58,7 @@ QVariantMap NumericComponent::properties() const
     QVariantMap map;
     map["value"]    = m_value;
     map["decimals"] = m_decimals;
+    map["precision"] = m_decimals;
     map["unit"]     = m_unit;
     map["fontSize"] = m_label->font().pointSize();
     const QFont f = m_label->font();
@@ -84,7 +85,7 @@ void NumericComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_value = v.toDouble();
         updateText();                 // ⭐ 运行态数据入口
     }
-    else if (key == "decimals") {
+    else if (key == "decimals" || key == "precision") {
         m_decimals = qMax(0, v.toInt());
         updateText();
     }

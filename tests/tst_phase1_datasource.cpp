@@ -15,6 +15,7 @@
 #include "../ui/mainwindow.h"
 #include "../ui/optioncyclebutton.h"
 #include "../components/slider/slidercomponent.h"
+#include "../components/numeric/numericcomponent.h"
 
 int runPhase3ModbusReadTests(int argc, char *argv[]);
 int runPhase4ModbusWriteTests(int argc, char *argv[]);
@@ -36,6 +37,7 @@ private slots:
     void dataSourceTree_doesNotContainMappingsNode();
     void applySerialConfigFromPanel_updatesSerialDataSourceConfig();
     void slider_stepProperty_quantizesValue();
+    void numeric_precisionProperty_updatesDecimals();
 };
 
 namespace {
@@ -350,6 +352,15 @@ void Phase1DataSourceTest::slider_stepProperty_quantizesValue()
     slider.setPropertyValue("step", 2.0);
     slider.setPropertyValue("value", 13.0);
     QCOMPARE(slider.properties().value("value").toDouble(), 14.0);
+}
+
+void Phase1DataSourceTest::numeric_precisionProperty_updatesDecimals()
+{
+    NumericComponent numeric;
+    numeric.setPropertyValue("precision", 3);
+    numeric.setPropertyValue("value", 12.34567);
+    QCOMPARE(numeric.properties().value("precision").toInt(), 3);
+    QCOMPARE(numeric.properties().value("decimals").toInt(), 3);
 }
 
 int main(int argc, char *argv[])
