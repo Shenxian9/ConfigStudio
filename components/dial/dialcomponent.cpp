@@ -12,13 +12,21 @@ DialComponent::DialComponent(QWidget *parent)
     m_title->setAlignment(Qt::AlignCenter);
     m_title->setGeometry(0, 0, width(), 20);
 
+    m_valueLabel = new QLabel(this);
+    m_valueLabel->setAlignment(Qt::AlignCenter);
+
     m_dial = new QwtDial(this);
-    m_dial->setGeometry(0, 20, width(), height() - 20);
+    m_dial->setGeometry(0, 20, width(), height() - 42);
 
     m_dial->setScale(0, 100);
     m_dial->setValue(30);
     m_dial->setWrapping(false);
     m_dial->setReadOnly(true);
+    connect(m_dial, &QwtDial::valueChanged, this, [this](double v) {
+        if (m_valueLabel)
+            m_valueLabel->setText(QString::number(v, 'f', 1));
+    });
+    m_valueLabel->setText(QString::number(m_dial->value(), 'f', 1));
 
     m_dial->setNeedle(new QwtDialSimpleNeedle(
         QwtDialSimpleNeedle::Arrow, true, Qt::red));
@@ -102,8 +110,11 @@ void DialComponent::resizeEvent(QResizeEvent* event)
     if (m_title)
         m_title->setGeometry(0, 0, width(), 20); // 顶部标题固定高度
 
+    const int valueH = 22;
     if (m_dial)
-        m_dial->setGeometry(0, 20, width(), height() - 20); // 剩余部分给表盘
+        m_dial->setGeometry(0, 20, width(), qMax(20, height() - 20 - valueH)); // 中间给表盘
+    if (m_valueLabel)
+        m_valueLabel->setGeometry(0, height() - valueH, width(), valueH); // 底部显示数值
 }
 
 void DialComponent::changeEvent(QEvent *event)
@@ -192,4 +203,3 @@ void DialComponent::applyDialPalette()
     m_dial->setPalette(dialPalette);
     m_dial->update();
 }
-

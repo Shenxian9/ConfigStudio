@@ -29,6 +29,7 @@ private:
 
     QwtDial *m_dial;
     QLabel  *m_title;
+    QLabel  *m_valueLabel;
 
     QString m_varId;
 };
