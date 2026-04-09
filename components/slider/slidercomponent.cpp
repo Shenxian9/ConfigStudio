@@ -29,8 +29,14 @@ SliderComponent::SliderComponent(QWidget *parent)
         m_valueLabel->setText(QString::number(v, 'f', 1));
         emit valueChanged(v);
 
-        if (!m_updatingFromBinding && m_bindingMgr && !m_varId.isEmpty())
-            m_bindingMgr->publishValue(m_varId, v);
+        if (m_updatingFromBinding || !m_bindingMgr || m_varId.isEmpty())
+            return;
+        if (m_userInteracting) {
+            m_pendingUserValue = v;
+            m_hasPendingUserValue = true;
+            return;
+        }
+        m_bindingMgr->publishValue(m_varId, v);
     });
 
     // 初始化显示
@@ -99,11 +105,16 @@ bool SliderComponent::eventFilter(QObject *watched, QEvent *event)
         case QEvent::MouseButtonPress:
         case QEvent::TouchBegin:
             m_userInteracting = true;
+            m_hasPendingUserValue = false;
             break;
         case QEvent::MouseButtonRelease:
         case QEvent::TouchEnd:
         case QEvent::Leave:
             m_userInteracting = false;
+            if (m_hasPendingUserValue && m_bindingMgr && !m_varId.isEmpty()) {
+                m_bindingMgr->publishValue(m_varId, m_pendingUserValue);
+                m_hasPendingUserValue = false;
+            }
             break;
         default:
             break;
@@ -130,4 +141,3 @@ void SliderComponent::resizeEvent(QResizeEvent *event)
     // ⭐ Slider 保持原有高度，刻度不会被遮挡
     m_slider->setGeometry(0, titleH +15, w, sliderH);
 }
-

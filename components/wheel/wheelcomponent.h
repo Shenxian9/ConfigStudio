@@ -27,6 +27,8 @@ private:
     QString m_varId;
     bool m_updatingFromBinding = false;
     bool m_userInteracting = false;
+    bool m_hasPendingUserValue = false;
+    double m_pendingUserValue = 0.0;
 };
 
 #endif
