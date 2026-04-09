@@ -111,18 +111,27 @@ void TextComponent::resizeEvent(QResizeEvent *event)
     const int availH = qMax(1, height() - 8);
 
     QFont f = m_label->font();
-    int pointSize = qMax(1, int(availH * 0.72));
-    f.setPointSize(pointSize);
-
+    const int maxPointSize = qMax(1, int(availH * 0.72));
     const QString text = m_label->text().isEmpty() ? QStringLiteral(" ") : m_label->text();
-    while (pointSize > 1) {
+    int lo = 1;
+    int hi = maxPointSize;
+    int best = 1;
+    while (lo <= hi) {
+        const int mid = (lo + hi) / 2;
+        f.setPointSize(mid);
         QFontMetrics fm(f);
         if (fm.horizontalAdvance(text) <= availW && fm.height() <= availH)
-            break;
-        --pointSize;
-        f.setPointSize(pointSize);
+        {
+            best = mid;
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
     }
-    m_label->setFont(f);
+    if (m_label->font().pointSize() != best) {
+        f.setPointSize(best);
+        m_label->setFont(f);
+    }
 }
 
 void TextComponent::changeEvent(QEvent *event)
