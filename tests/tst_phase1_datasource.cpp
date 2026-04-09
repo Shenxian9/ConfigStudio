@@ -14,6 +14,7 @@
 
 #include "../ui/mainwindow.h"
 #include "../ui/optioncyclebutton.h"
+#include "../components/slider/slidercomponent.h"
 
 int runPhase3ModbusReadTests(int argc, char *argv[]);
 int runPhase4ModbusWriteTests(int argc, char *argv[]);
@@ -34,6 +35,7 @@ private slots:
     void dataSourceButtons_areVisibleAndStateIsCorrect();
     void dataSourceTree_doesNotContainMappingsNode();
     void applySerialConfigFromPanel_updatesSerialDataSourceConfig();
+    void slider_stepProperty_quantizesValue();
 };
 
 namespace {
@@ -340,6 +342,14 @@ void Phase1DataSourceTest::applySerialConfigFromPanel_updatesSerialDataSourceCon
     QCOMPARE(cfg.baudRate, 19200);
     QCOMPARE(cfg.slaveId, 7);
     QCOMPARE(cfg.timeoutMs, 2200);
+}
+
+void Phase1DataSourceTest::slider_stepProperty_quantizesValue()
+{
+    SliderComponent slider;
+    slider.setPropertyValue("step", 2.0);
+    slider.setPropertyValue("value", 13.0);
+    QCOMPARE(slider.properties().value("value").toDouble(), 14.0);
 }
 
 int main(int argc, char *argv[])

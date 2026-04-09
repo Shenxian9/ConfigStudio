@@ -1,6 +1,7 @@
 #include "runtime/databindingmanager.h"
 
 #include <QEvent>
+#include <QtMath>
 
 #include "slidercomponent.h"
 
@@ -26,6 +27,15 @@ SliderComponent::SliderComponent(QWidget *parent)
 
     // ⭐ 绑定 Slider 值变化，实时更新 Label
     connect(m_slider, &QwtSlider::valueChanged, this, [this](double v){
+        if (m_step > 0.0) {
+            const double snapped = qRound64(v / m_step) * m_step;
+            if (!qFuzzyCompare(snapped + 1.0, v + 1.0) && !m_updatingFromBinding) {
+                m_updatingFromBinding = true;
+                m_slider->setValue(snapped);
+                m_updatingFromBinding = false;
+            }
+            v = snapped;
+        }
         m_valueLabel->setText(QString::number(v, 'f', 1));
         emit valueChanged(v);
 
@@ -50,6 +60,7 @@ QVariantMap SliderComponent::properties() const
     map["min"]   = m_slider->lowerBound();
     map["max"]   = m_slider->upperBound();
     map["value"] = m_slider->value();
+    map["step"]  = m_step;
     map["varId"] = m_varId;
     return map;
 }
@@ -67,6 +78,10 @@ void SliderComponent::setPropertyValue(const QString& key, const QVariant& v)
     }
     else if (key == "max") {
         m_slider->setScale(min, v.toDouble());
+    }
+    else if (key == "step") {
+        const double nextStep = v.toDouble();
+        m_step = nextStep <= 0.0 ? 1.0 : nextStep;
     }
     else if (key == "value") {
         if (m_userInteracting)
@@ -90,6 +105,8 @@ void SliderComponent::setPropertyValue(const QString& key, const QVariant& v)
 
 void SliderComponent::setValue(double val)
 {
+    if (m_step > 0.0)
+        val = qRound64(val / m_step) * m_step;
     m_updatingFromBinding = true;
     m_slider->setValue(val);
     m_updatingFromBinding = false;

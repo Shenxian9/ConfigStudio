@@ -30,6 +30,7 @@ private:
     QLabel    *m_title;
 
     QString m_varId;
+    double m_step = 1.0;
     bool m_updatingFromBinding = false;
     bool m_userInteracting = false;
     bool m_hasPendingUserValue = false;
