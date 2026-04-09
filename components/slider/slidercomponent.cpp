@@ -7,7 +7,7 @@
 SliderComponent::SliderComponent(QWidget *parent)
     : CanvasItem(parent)
 {
-    resize(300, 120);
+    resize(360, 150);
 
     // 顶部标题
     m_title = new QLabel("Slider", this);
@@ -131,13 +131,15 @@ void SliderComponent::resizeEvent(QResizeEvent *event)
     int w = width();
     int h = height();
 
-    int titleH = 20;      // 标题高度
-    int valueH = 20;      // 数值显示高度
-    int sliderH = h - titleH - valueH-30; // Slider 剩余高度
+    int titleH = 24;      // 标题高度
+    int valueH = 24;      // 数值显示高度
+    int sliderTopGap = 8;
+    int sliderBottomGap = 6;
+    int sliderH = qMax(56, h - titleH - valueH - sliderTopGap - sliderBottomGap);
 
     m_title->setGeometry(0, 0, w, titleH);
-    m_valueLabel->setGeometry(0, h-valueH, w, valueH);
+    m_valueLabel->setGeometry(0, h - valueH, w, valueH);
 
-    // ⭐ Slider 保持原有高度，刻度不会被遮挡
-    m_slider->setGeometry(0, titleH +15, w, sliderH);
+    // ⭐ 加宽滑轨可触区域，提升触控拖动命中率。
+    m_slider->setGeometry(0, titleH + sliderTopGap, w, sliderH);
 }
