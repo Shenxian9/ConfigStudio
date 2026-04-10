@@ -252,6 +252,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->variableView->setModel(m_variableModel);
     ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->variableView->horizontalHeader()->setStretchLastSection(true);
+    ui->variableView->horizontalHeader()->setSectionResizeMode(VariableModel::ColValue, QHeaderView::Interactive);
+    ui->variableView->setColumnWidth(VariableModel::ColValue, 240);
 
     // ⭐ 2. 垂直表头隐藏（更干净）
     ui->variableView->verticalHeader()->setVisible(false);
@@ -796,6 +798,8 @@ void MainWindow::updateVariableViewColumns()
         const bool visible = baseVisibleColumns.contains(col) || (showStrategy && col == VariableModel::ColStrategy);
         ui->variableView->setColumnHidden(col, !visible);
     }
+    ui->variableView->horizontalHeader()->setSectionResizeMode(VariableModel::ColValue, QHeaderView::Interactive);
+    ui->variableView->setColumnWidth(VariableModel::ColValue, qMax(240, ui->variableView->columnWidth(VariableModel::ColValue)));
 }
 
 void MainWindow::registerTouchInput(QWidget *editor)
