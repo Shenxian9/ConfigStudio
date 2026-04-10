@@ -339,6 +339,12 @@ void MainWindow::setupDataWorkspace()
     m_dataSourceTreeModel->setHorizontalHeaderLabels({"Data Sources"});
     ui->treeView->setModel(m_dataSourceTreeModel);
     ui->treeView->header()->setStretchLastSection(true);
+    m_modbusConfigs.clear();
+    m_modbusConfigs.push_back(m_serialDataSource->config());
+
+    connect(ui->treeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]() {
+        updateDataSourceActionButtons();
+    });
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::statusChanged, this, [this](bool opened) {
         ui->pushButton_8->setEnabled(!opened);
@@ -383,10 +389,30 @@ void MainWindow::setupDataWorkspace()
         refreshDataSourceTreeDeferred();
     });
     connect(ui->pushButton_7, &QPushButton::clicked, this, [this]() {
+        const int row = selectedDataSourceRow();
+        if (row < 0 || row >= m_modbusConfigs.size())
+            return;
+
         m_modbusDataSource->close();
-        SerialPortConfig cfg;
-        m_serialDataSource->setConfig(cfg);
-        m_modbusDataSource->setConfig(cfg);
+        m_modbusConfigs.removeAt(row);
+        if (m_modbusConfigs.isEmpty()) {
+            const SerialPortConfig emptyCfg;
+            m_serialDataSource->setConfig(emptyCfg);
+            m_modbusDataSource->setConfig(emptyCfg);
+            if (ui->treeView && ui->treeView->selectionModel()) {
+                ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
+                ui->treeView->selectionModel()->clearSelection();
+            }
+        } else {
+            const int nextRow = qBound(0, row, m_modbusConfigs.size() - 1);
+            const SerialPortConfig cfg = m_modbusConfigs.at(nextRow);
+            m_serialDataSource->setConfig(cfg);
+            m_modbusDataSource->setConfig(cfg);
+            if (ui->treeView && ui->treeView->selectionModel()) {
+                const QModelIndex idx = m_dataSourceTreeModel->index(nextRow, 0);
+                ui->treeView->selectionModel()->setCurrentIndex(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+            }
+        }
         refreshDataSourceTreeDeferred();
     });
 
@@ -413,6 +439,7 @@ void MainWindow::setupDataWorkspace()
     ui->pushButton_8->setEnabled(true);
     ui->pushButton_9->setEnabled(false);
     updateVariableActionButtons();
+    updateDataSourceActionButtons();
 
     setupDataWorkspacePanels();
     applyDataSourceMode();
@@ -862,39 +889,64 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
+int MainWindow::selectedDataSourceRow() const
+{
+    if (!ui->treeView || !ui->treeView->selectionModel())
+        return -1;
+
+    const QModelIndex current = ui->treeView->selectionModel()->currentIndex();
+    if (!current.isValid())
+        return -1;
+
+    return current.parent().isValid() ? current.parent().row() : current.row();
+}
+
+void MainWindow::updateDataSourceActionButtons()
+{
+    if (!ui->pushButton_7)
+        return;
+    ui->pushButton_7->setEnabled(selectedDataSourceRow() >= 0);
+}
+
 void MainWindow::refreshDataSourceTree()
 {
     if (!m_dataSourceTreeModel || !m_serialDataSource)
         return;
 
     m_dataSourceTreeModel->removeRows(0, m_dataSourceTreeModel->rowCount());
+    for (int i = 0; i < m_modbusConfigs.size(); ++i) {
+        const SerialPortConfig cfg = m_modbusConfigs.at(i);
+        const QString titlePort = cfg.portName.trimmed().isEmpty() ? QStringLiteral("<unset>") : cfg.portName.trimmed();
+        auto *root = new QStandardItem(QString("Modbus RTU %1: %2").arg(i + 1).arg(titlePort));
 
-    const SerialPortConfig cfg = m_serialDataSource->config();
-    auto *root = new QStandardItem(QString("Modbus RTU: %1").arg(cfg.portName));
+        const bool isActive = (cfg.deviceId == m_serialDataSource->config().deviceId
+                               && cfg.portName == m_serialDataSource->config().portName
+                               && cfg.slaveId == m_serialDataSource->config().slaveId);
+        root->appendRow(new QStandardItem(QString("Mode: %1")
+                                              .arg(m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : "Simulator")));
+        root->appendRow(new QStandardItem(QString("Status: %1")
+                                              .arg(isActive && m_modbusDataSource && m_modbusDataSource->isOpen() ? "Opened" : "Stopped")));
+        root->appendRow(new QStandardItem(QString("Polling: %1")
+                                              .arg(isActive && m_modbusDataSource && m_modbusDataSource->isPolling() ? "Running" : "Idle")));
+        root->appendRow(new QStandardItem(QString("Baud/Data/Parity/Stop: %1 / %2 / %3 / %4")
+                                              .arg(cfg.baudRate)
+                                              .arg(static_cast<int>(cfg.dataBits))
+                                              .arg(static_cast<int>(cfg.parity))
+                                              .arg(static_cast<int>(cfg.stopBits))));
+        root->appendRow(new QStandardItem(QString("Slave ID: %1, Timeout: %2 ms, Retry: %3")
+                                              .arg(cfg.slaveId)
+                                              .arg(cfg.timeoutMs)
+                                              .arg(cfg.retryCount)));
+        root->appendRow(new QStandardItem(QString("Reserved Poll/FC: %1 ms / %2")
+                                              .arg(cfg.pollIntervalMs)
+                                              .arg(cfg.defaultFunctionCode)));
+        if (isActive && !m_lastCommStatus.isEmpty())
+            root->appendRow(new QStandardItem(QString("Last Comm: %1").arg(m_lastCommStatus)));
 
-    root->appendRow(new QStandardItem(QString("Mode: %1")
-                                          .arg(m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : "Simulator")));
-    root->appendRow(new QStandardItem(QString("Status: %1")
-                                          .arg(m_modbusDataSource && m_modbusDataSource->isOpen() ? "Opened" : "Stopped")));
-    root->appendRow(new QStandardItem(QString("Polling: %1")
-                                          .arg(m_modbusDataSource && m_modbusDataSource->isPolling() ? "Running" : "Idle")));
-    root->appendRow(new QStandardItem(QString("Baud/Data/Parity/Stop: %1 / %2 / %3 / %4")
-                                          .arg(cfg.baudRate)
-                                          .arg(static_cast<int>(cfg.dataBits))
-                                          .arg(static_cast<int>(cfg.parity))
-                                          .arg(static_cast<int>(cfg.stopBits))));
-    root->appendRow(new QStandardItem(QString("Slave ID: %1, Timeout: %2 ms, Retry: %3")
-                                          .arg(cfg.slaveId)
-                                          .arg(cfg.timeoutMs)
-                                          .arg(cfg.retryCount)));
-    root->appendRow(new QStandardItem(QString("Reserved Poll/FC: %1 ms / %2")
-                                          .arg(cfg.pollIntervalMs)
-                                          .arg(cfg.defaultFunctionCode)));
-    if (!m_lastCommStatus.isEmpty())
-        root->appendRow(new QStandardItem(QString("Last Comm: %1").arg(m_lastCommStatus)));
-
-    m_dataSourceTreeModel->appendRow(root);
+        m_dataSourceTreeModel->appendRow(root);
+    }
     ui->treeView->expandAll();
+    updateDataSourceActionButtons();
 }
 
 void MainWindow::refreshDataSourceTreeDeferred()
@@ -922,7 +974,10 @@ void MainWindow::showSerialConfigDialog()
 
     prepareImeForTransientEditor();
 
-    const SerialPortConfig cfg = m_serialDataSource->config();
+    m_editingDataSourceRow = selectedDataSourceRow();
+    const SerialPortConfig cfg = (m_editingDataSourceRow >= 0 && m_editingDataSourceRow < m_modbusConfigs.size())
+                                     ? m_modbusConfigs.at(m_editingDataSourceRow)
+                                     : SerialPortConfig{};
     {
         QSignalBlocker b0(m_serialDeviceEdit);
         QSignalBlocker b1(m_serialPortEdit);
@@ -1153,7 +1208,7 @@ void MainWindow::applySerialConfigFromPanel()
         || !m_timeoutSpin || !m_retrySpin || !m_pollIntervalSpin || !m_functionCodeCombo)
         return;
 
-    SerialPortConfig nextCfg = m_serialDataSource->config();
+    SerialPortConfig nextCfg;
     nextCfg.deviceId = m_serialDeviceEdit->text().trimmed();
     nextCfg.portName = m_serialPortEdit->text().trimmed();
     nextCfg.baudRate = m_serialBaudCombo->currentText().toInt();
@@ -1181,9 +1236,22 @@ void MainWindow::applySerialConfigFromPanel()
         nextCfg.defaultFunctionCode = 3;
         break;
     }
+    if (m_editingDataSourceRow >= 0 && m_editingDataSourceRow < m_modbusConfigs.size()) {
+        m_modbusConfigs[m_editingDataSourceRow] = nextCfg;
+    } else {
+        m_modbusConfigs.push_back(nextCfg);
+        m_editingDataSourceRow = m_modbusConfigs.size() - 1;
+    }
+
     m_serialDataSource->setConfig(nextCfg);
     if (m_modbusDataSource)
         m_modbusDataSource->setConfig(nextCfg);
+
+    if (ui->treeView && ui->treeView->selectionModel()) {
+        const QModelIndex idx = m_dataSourceTreeModel->index(m_editingDataSourceRow, 0);
+        ui->treeView->selectionModel()->setCurrentIndex(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    }
+    m_editingDataSourceRow = -1;
 
     hideDataWorkspacePanels();
     refreshDataSourceTreeDeferred();

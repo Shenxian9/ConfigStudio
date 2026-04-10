@@ -26,6 +26,7 @@
 #include <QStandardItemModel>
 #include <QSet>
 #include <QHash>
+#include <QVector>
 #include <functional>
 class QLabel;
 
@@ -98,6 +99,8 @@ public:
 private:
     void setupDataWorkspace();
     void setupDataWorkspacePanels();
+    int selectedDataSourceRow() const;
+    void updateDataSourceActionButtons();
     void refreshDataSourceTree();
     void refreshDataSourceTreeDeferred();
     void ensureErrorNoticePanel();
@@ -156,6 +159,8 @@ private:
     RuntimeSimulator *m_runtimeSimulator = nullptr;
     QPushButton *m_dataSourceModeCombo = nullptr;
     QString m_lastCommStatus;
+    QVector<SerialPortConfig> m_modbusConfigs;
+    int m_editingDataSourceRow = -1;
 
     QWidget *m_serialConfigPanel = nullptr;
     QLineEdit *m_serialPortEdit = nullptr;
