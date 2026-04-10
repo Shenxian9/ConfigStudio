@@ -3,6 +3,7 @@
 #include <QtEndian>
 #include <QDataStream>
 #include <cstring>
+#include <limits>
 
 ModbusRtuDataSource::ModbusRtuDataSource(QObject *parent)
     : QObject(parent)
@@ -153,6 +154,11 @@ bool ModbusRtuDataSource::encodeSingleRegisterWriteForTest(const Variable &var, 
     return encodeSingleRegisterWrite(var, value, encoded, errorText);
 }
 
+bool ModbusRtuDataSource::encodeWriteRegistersForTest(const Variable &var, const QVariant &value, QVector<quint16> *encoded, QString *errorText) const
+{
+    return encodeWriteRegisters(var, value, encoded, errorText);
+}
+
 bool ModbusRtuDataSource::encodeSingleRegisterWrite(const Variable &var, const QVariant &value, quint16 *encoded, QString *errorText) const
 {
     if (!encoded)
@@ -202,6 +208,95 @@ bool ModbusRtuDataSource::encodeSingleRegisterWrite(const Variable &var, const Q
     return false;
 }
 
+bool ModbusRtuDataSource::encodeWriteRegisters(const Variable &var, const QVariant &value, QVector<quint16> *encoded, QString *errorText) const
+{
+    if (!encoded)
+        return false;
+    encoded->clear();
+    if (var.area != RegisterArea::HoldingRegister) {
+        if (errorText) *errorText = "only HoldingRegister write is supported";
+        return false;
+    }
+    if (var.readOnly) {
+        if (errorText) *errorText = "variable is readOnly";
+        return false;
+    }
+    if (var.address < 0 || var.count < 1) {
+        if (errorText) *errorText = "invalid register range";
+        return false;
+    }
+
+    quint16 oneReg = 0;
+    if (var.count == 1) {
+        if (!encodeSingleRegisterWrite(var, value, &oneReg, errorText))
+            return false;
+        encoded->append(oneReg);
+        return true;
+    }
+    if (var.count != 2) {
+        if (errorText) *errorText = "only 1 or 2 registers write is supported";
+        return false;
+    }
+
+    const QString t = var.type.trimmed().toLower();
+    quint32 raw = 0;
+    if (t == "uint32") {
+        bool ok = false;
+        const quint64 v = value.toULongLong(&ok);
+        if (!ok || v > 0xFFFFFFFFull) {
+            if (errorText) *errorText = "uint32 value out of range";
+            return false;
+        }
+        raw = static_cast<quint32>(v);
+    } else if (t == "int32") {
+        bool ok = false;
+        const qlonglong v = value.toLongLong(&ok);
+        if (!ok || v < std::numeric_limits<qint32>::min() || v > std::numeric_limits<qint32>::max()) {
+            if (errorText) *errorText = "int32 value out of range";
+            return false;
+        }
+        raw = static_cast<quint32>(static_cast<qint32>(v));
+    } else if (t == "float32") {
+        bool ok = false;
+        const float f = value.toFloat(&ok);
+        if (!ok) {
+            if (errorText) *errorText = "float32 value invalid";
+            return false;
+        }
+        std::memcpy(&raw, &f, sizeof(float));
+    } else {
+        if (errorText) *errorText = "unsupported type for 2-register write";
+        return false;
+    }
+
+    const quint8 b0 = static_cast<quint8>((raw >> 24) & 0xFF);
+    const quint8 b1 = static_cast<quint8>((raw >> 16) & 0xFF);
+    const quint8 b2 = static_cast<quint8>((raw >> 8) & 0xFF);
+    const quint8 b3 = static_cast<quint8>(raw & 0xFF);
+    quint16 r0 = static_cast<quint16>((b0 << 8) | b1);
+    quint16 r1 = static_cast<quint16>((b2 << 8) | b3);
+    switch (var.endianness) {
+    case Endianness::BigEndianWordSwap:
+        r0 = static_cast<quint16>((b2 << 8) | b3);
+        r1 = static_cast<quint16>((b0 << 8) | b1);
+        break;
+    case Endianness::LittleEndian:
+        r0 = static_cast<quint16>((b3 << 8) | b2);
+        r1 = static_cast<quint16>((b1 << 8) | b0);
+        break;
+    case Endianness::LittleEndianByteSwap:
+        r0 = static_cast<quint16>((b1 << 8) | b0);
+        r1 = static_cast<quint16>((b3 << 8) | b2);
+        break;
+    case Endianness::BigEndian:
+    default:
+        break;
+    }
+    encoded->append(r0);
+    encoded->append(r1);
+    return true;
+}
+
 bool ModbusRtuDataSource::writeVariable(const QString &varId, const QVariant &value, QString *errorText)
 {
     if (!m_writeEnabled) {
@@ -229,22 +324,38 @@ bool ModbusRtuDataSource::writeVariable(const QString &varId, const QVariant &va
         emit variableWriteFailed(varId, err);
         return false;
     }
-    quint16 encoded = 0;
+    QVector<quint16> regs;
     QString encodeErr;
-    if (!encodeSingleRegisterWrite(var, value, &encoded, &encodeErr)) {
+    if (!encodeWriteRegisters(var, value, &regs, &encodeErr)) {
         if (errorText) *errorText = encodeErr;
         emit variableWriteFailed(varId, encodeErr);
         return false;
     }
 
     const quint16 address = static_cast<quint16>(var.address);
+    const bool useMulti = (regs.size() > 1) || m_config.defaultFunctionCode == 16;
+    if (useMulti && regs.size() == 1 && m_config.defaultFunctionCode == 16) {
+        // FC16 允许写 1 寄存器，按配置强制多寄存器指令。
+    }
     QByteArray req;
     req.append(static_cast<char>(m_config.slaveId));
-    req.append(static_cast<char>(0x06));
+    req.append(static_cast<char>(useMulti ? 0x10 : 0x06));
     req.append(static_cast<char>((address >> 8) & 0xFF));
     req.append(static_cast<char>(address & 0xFF));
-    req.append(static_cast<char>((encoded >> 8) & 0xFF));
-    req.append(static_cast<char>(encoded & 0xFF));
+    if (useMulti) {
+        const quint16 quantity = static_cast<quint16>(regs.size());
+        req.append(static_cast<char>((quantity >> 8) & 0xFF));
+        req.append(static_cast<char>(quantity & 0xFF));
+        req.append(static_cast<char>(quantity * 2));
+        for (quint16 reg : regs) {
+            req.append(static_cast<char>((reg >> 8) & 0xFF));
+            req.append(static_cast<char>(reg & 0xFF));
+        }
+    } else {
+        const quint16 encoded = regs.first();
+        req.append(static_cast<char>((encoded >> 8) & 0xFF));
+        req.append(static_cast<char>(encoded & 0xFF));
+    }
     const quint16 crc = crc16(req);
     req.append(static_cast<char>(crc & 0xFF));
     req.append(static_cast<char>((crc >> 8) & 0xFF));

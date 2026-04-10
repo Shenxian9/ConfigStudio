@@ -45,6 +45,7 @@ class Phase4ModbusWriteTest : public QObject
 private slots:
     void writableValidation_rules();
     void encoding_bool_uint16_int16();
+    void encoding_float32_count2_forWriteMultiple();
     void publishValue_inModbusMode_triggersWrite();
     void publishSameValue_doesNotRepeatWrite();
     void publishEquivalentNumeric_doesNotRepeatWrite();
@@ -93,6 +94,20 @@ void Phase4ModbusWriteTest::encoding_bool_uint16_int16()
     Variable i; i.area = RegisterArea::HoldingRegister; i.type = "int16"; i.readOnly = false; i.count = 1;
     QVERIFY(ds.encodeSingleRegisterWriteForTest(i, -1, &encoded, &err)); QCOMPARE(encoded, static_cast<quint16>(0xFFFF));
     QVERIFY(ds.encodeSingleRegisterWriteForTest(i, -123, &encoded, &err)); QCOMPARE(encoded, static_cast<quint16>(static_cast<qint16>(-123)));
+}
+
+void Phase4ModbusWriteTest::encoding_float32_count2_forWriteMultiple()
+{
+    ModbusRtuDataSource ds;
+    QVector<quint16> regs;
+    QString err;
+
+    Variable f; f.area = RegisterArea::HoldingRegister; f.type = "float32"; f.readOnly = false; f.count = 2;
+    f.endianness = Endianness::BigEndian;
+    QVERIFY(ds.encodeWriteRegistersForTest(f, 10.0, &regs, &err));
+    QCOMPARE(regs.size(), 2);
+    QCOMPARE(regs[0], static_cast<quint16>(0x4120));
+    QCOMPARE(regs[1], static_cast<quint16>(0x0000));
 }
 
 void Phase4ModbusWriteTest::publishValue_inModbusMode_triggersWrite()

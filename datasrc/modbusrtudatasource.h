@@ -35,6 +35,7 @@ public:
     QVector<int> eligibleVariableRowsForTest() const;
     bool processReadResultForTest(const QString &varId, const QVector<quint16> &registers, QString *error = nullptr);
     bool encodeSingleRegisterWriteForTest(const Variable &var, const QVariant &value, quint16 *encoded, QString *errorText = nullptr) const;
+    bool encodeWriteRegistersForTest(const Variable &var, const QVariant &value, QVector<quint16> *encoded, QString *errorText = nullptr) const;
     static QVariant decodeRegisters(const Variable &var, const QVector<quint16> &registers, bool *ok, QString *errorText = nullptr);
 
 signals:
@@ -54,6 +55,7 @@ private:
     bool deviceMatchesConfig(const QString &deviceId) const;
     bool readPollingEnabled() const;
     bool readVariableAtRow(int row);
+    bool encodeWriteRegisters(const Variable &var, const QVariant &value, QVector<quint16> *encoded, QString *errorText) const;
     bool parseResponse(const Variable &var, quint8 functionCode, const QByteArray &resp, QVector<quint16> *outRegs, QString *errorText) const;
     bool encodeSingleRegisterWrite(const Variable &var, const QVariant &value, quint16 *encoded, QString *errorText) const;
 
