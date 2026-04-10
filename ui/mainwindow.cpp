@@ -352,6 +352,7 @@ void MainWindow::setupDataWorkspace()
     ui->treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     QScroller::grabGesture(ui->treeView->viewport(), QScroller::LeftMouseButtonGesture);
     ui->treeView->setStyleSheet(
+        "QTreeView { padding-bottom: 88px; }"
         "QTreeView::item { min-height: 46px; padding: 6px 2px; }"
         "QTreeView::branch { min-width: 30px; min-height: 46px; }");
     ui->treeView->viewport()->installEventFilter(this);
