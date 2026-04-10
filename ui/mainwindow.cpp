@@ -148,6 +148,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    qApp->installEventFilter(this);
     propDiagLog(QString("MainWindow init, platform=%1").arg(QGuiApplication::platformName()));
     QScreen *screen = QApplication::primaryScreen();
     QSize size = screen->size();
@@ -352,7 +353,6 @@ void MainWindow::setupDataWorkspace()
     ui->treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     QScroller::grabGesture(ui->treeView->viewport(), QScroller::LeftMouseButtonGesture);
     ui->treeView->setStyleSheet(
-        "QTreeView { padding-bottom: 88px; }"
         "QTreeView::item { min-height: 46px; padding: 6px 2px; }"
         "QTreeView::branch { min-width: 30px; min-height: 46px; }");
     ui->treeView->viewport()->installEventFilter(this);
@@ -867,6 +867,20 @@ void MainWindow::showTouchInputPopup(const QString &title, const QString &value,
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (event->type() == QEvent::MouseButtonPress && ui->treeView && ui->treeView->selectionModel()) {
+        QWidget *watchedWidget = qobject_cast<QWidget*>(watched);
+        const bool inThisWindow = watchedWidget && (watchedWidget == this || this->isAncestorOf(watchedWidget));
+        const bool inDataSourceTree = watchedWidget
+                                      && (watchedWidget == ui->treeView
+                                          || watchedWidget == ui->treeView->viewport()
+                                          || ui->treeView->isAncestorOf(watchedWidget));
+        if (inThisWindow && !inDataSourceTree && selectedDataSourceRow() >= 0) {
+            ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
+            ui->treeView->selectionModel()->clearSelection();
+            updateDataSourceActionButtons();
+        }
+    }
+
     if (ui->treeView && watched == ui->treeView->viewport() && event->type() == QEvent::MouseButtonPress) {
         const auto *mouseEvent = static_cast<QMouseEvent*>(event);
         const QModelIndex clickedIndex = ui->treeView->indexAt(mouseEvent->pos());
@@ -1446,6 +1460,8 @@ void MainWindow::onPropertyChanged(int row, int col)
 
 MainWindow::~MainWindow()
 {
+    if (qApp)
+        qApp->removeEventFilter(this);
     delete ui;
 }
 
