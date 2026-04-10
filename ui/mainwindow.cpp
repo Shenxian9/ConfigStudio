@@ -250,8 +250,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->variableView->setModel(m_variableModel);
     ui->variableView->setModel(m_variableModel);
-    ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-    ui->variableView->horizontalHeader()->setStretchLastSection(false);
+    ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->variableView->horizontalHeader()->setStretchLastSection(true);
 
     // ⭐ 2. 垂直表头隐藏（更干净）
     ui->variableView->verticalHeader()->setVisible(false);
@@ -271,7 +271,6 @@ MainWindow::MainWindow(QWidget *parent)
     f.setPointSize(14);     // ⭐ 13~15 是这个分辨率的最佳区间
     ui->variableView->setFont(f);
     ui->variableView->verticalHeader()->setDefaultSectionSize(40);
-    ui->variableView->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->variableView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->variableView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->variableView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -796,8 +795,6 @@ void MainWindow::updateVariableViewColumns()
     for (int col = 0; col < m_variableModel->columnCount({}); ++col) {
         const bool visible = baseVisibleColumns.contains(col) || (showStrategy && col == VariableModel::ColStrategy);
         ui->variableView->setColumnHidden(col, !visible);
-        if (visible)
-            ui->variableView->horizontalHeader()->setSectionResizeMode(col, QHeaderView::ResizeToContents);
     }
 }
 
