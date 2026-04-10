@@ -339,6 +339,15 @@ void MainWindow::setupDataWorkspace()
     m_dataSourceTreeModel->setHorizontalHeaderLabels({"Data Sources"});
     ui->treeView->setModel(m_dataSourceTreeModel);
     ui->treeView->header()->setStretchLastSection(true);
+    QFont dataSourceTreeFont = ui->treeView->font();
+    dataSourceTreeFont.setPointSize(qMax(12, dataSourceTreeFont.pointSize() + 2));
+    ui->treeView->setFont(dataSourceTreeFont);
+    ui->treeView->setIconSize(QSize(28, 28));
+    ui->treeView->setIndentation(28);
+    ui->treeView->header()->setMinimumSectionSize(260);
+    ui->treeView->setStyleSheet(
+        "QTreeView::item { min-height: 46px; padding: 6px 2px; }"
+        "QTreeView::branch { min-width: 30px; min-height: 46px; }");
     m_modbusConfigs.clear();
     m_modbusConfigs.push_back(m_serialDataSource->config());
 
