@@ -354,6 +354,7 @@ void MainWindow::setupDataWorkspace()
     ui->treeView->setStyleSheet(
         "QTreeView::item { min-height: 46px; padding: 6px 2px; }"
         "QTreeView::branch { min-width: 30px; min-height: 46px; }");
+    ui->treeView->viewport()->installEventFilter(this);
     m_modbusConfigs.clear();
     m_modbusConfigs.push_back(m_serialDataSource->config());
 
@@ -865,6 +866,17 @@ void MainWindow::showTouchInputPopup(const QString &title, const QString &value,
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
+    if (ui->treeView && watched == ui->treeView->viewport() && event->type() == QEvent::MouseButtonPress) {
+        const auto *mouseEvent = static_cast<QMouseEvent*>(event);
+        const QModelIndex clickedIndex = ui->treeView->indexAt(mouseEvent->pos());
+        if (!clickedIndex.isValid() && ui->treeView->selectionModel()) {
+            ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
+            ui->treeView->selectionModel()->clearSelection();
+            updateDataSourceActionButtons();
+            return true;
+        }
+    }
+
     QWidget *watchedWidget = qobject_cast<QWidget*>(watched);
     QWidget *w = nullptr;
     if (watchedWidget && m_touchInputs.contains(watchedWidget))
