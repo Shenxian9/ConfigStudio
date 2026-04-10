@@ -110,6 +110,7 @@ private:
     void registerTouchInput(QWidget *editor);
     void showTouchInputPopup(const QString &title, const QString &value, const std::function<void (const QString &)> &apply);
     void prepareImeForTransientEditor();
+    void updateVariableViewColumns();
 
     void showProperties(CanvasItem *item);
     void clearProperties();

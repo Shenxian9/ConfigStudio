@@ -250,9 +250,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->variableView->setModel(m_variableModel);
     ui->variableView->setModel(m_variableModel);
-
-    // ⭐ 1. 表头拉伸铺满
-    ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    ui->variableView->horizontalHeader()->setStretchLastSection(false);
 
     // ⭐ 2. 垂直表头隐藏（更干净）
     ui->variableView->verticalHeader()->setVisible(false);
@@ -272,10 +271,16 @@ MainWindow::MainWindow(QWidget *parent)
     f.setPointSize(14);     // ⭐ 13~15 是这个分辨率的最佳区间
     ui->variableView->setFont(f);
     ui->variableView->verticalHeader()->setDefaultSectionSize(40);
+    ui->variableView->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->variableView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->variableView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->variableView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    QScroller::grabGesture(ui->variableView->viewport(), QScroller::LeftMouseButtonGesture);
     connect(ui->variableView->selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &MainWindow::updateVariableActionButtons);
     connect(ui->variableView->selectionModel(), &QItemSelectionModel::currentChanged,
             this, [this](const QModelIndex &, const QModelIndex &) { updateVariableActionButtons(); });
+    updateVariableViewColumns();
 
 
 
@@ -765,7 +770,35 @@ void MainWindow::applyDataSourceMode()
         if (m_runtimeSimulator && !m_runtimeSimulator->isRunning())
             m_runtimeSimulator->start(300);
     }
+    updateVariableViewColumns();
     refreshDataSourceTreeDeferred();
+}
+
+void MainWindow::updateVariableViewColumns()
+{
+    if (!ui->variableView || !ui->variableView->model() || !m_variableModel)
+        return;
+
+    const QSet<int> baseVisibleColumns = {
+        VariableModel::ColId,
+        VariableModel::ColName,
+        VariableModel::ColDevice,
+        VariableModel::ColType,
+        VariableModel::ColAddress,
+        VariableModel::ColCount,
+        VariableModel::ColValue,
+        VariableModel::ColBitOffset,
+        VariableModel::ColScale,
+        VariableModel::ColReadOnly
+    };
+    const bool showStrategy = m_dataSourceModeCombo && m_dataSourceModeCombo->text() == "Simulator";
+
+    for (int col = 0; col < m_variableModel->columnCount({}); ++col) {
+        const bool visible = baseVisibleColumns.contains(col) || (showStrategy && col == VariableModel::ColStrategy);
+        ui->variableView->setColumnHidden(col, !visible);
+        if (visible)
+            ui->variableView->horizontalHeader()->setSectionResizeMode(col, QHeaderView::ResizeToContents);
+    }
 }
 
 void MainWindow::registerTouchInput(QWidget *editor)
