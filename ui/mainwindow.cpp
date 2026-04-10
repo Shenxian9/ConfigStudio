@@ -22,6 +22,7 @@
 #include <QLabel>
 #include <QIntValidator>
 #include <QMouseEvent>
+#include <QScroller>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -340,11 +341,16 @@ void MainWindow::setupDataWorkspace()
     ui->treeView->setModel(m_dataSourceTreeModel);
     ui->treeView->header()->setStretchLastSection(true);
     QFont dataSourceTreeFont = ui->treeView->font();
-    dataSourceTreeFont.setPointSize(qMax(12, dataSourceTreeFont.pointSize() + 2));
+    dataSourceTreeFont.setPointSize(qMax(14, dataSourceTreeFont.pointSize() + 4));
     ui->treeView->setFont(dataSourceTreeFont);
     ui->treeView->setIconSize(QSize(28, 28));
     ui->treeView->setIndentation(28);
     ui->treeView->header()->setMinimumSectionSize(260);
+    ui->treeView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->treeView->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+    ui->treeView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    ui->treeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    QScroller::grabGesture(ui->treeView->viewport(), QScroller::LeftMouseButtonGesture);
     ui->treeView->setStyleSheet(
         "QTreeView::item { min-height: 46px; padding: 6px 2px; }"
         "QTreeView::branch { min-width: 30px; min-height: 46px; }");
