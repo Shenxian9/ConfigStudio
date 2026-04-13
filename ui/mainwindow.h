@@ -51,7 +51,7 @@ class MainWindow : public QWidget
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(bool landscapeMode = true, QWidget *parent = nullptr);
     // void MainWindow::onItemSelected(CanvasItem *item);
     ~MainWindow();
 
@@ -141,6 +141,7 @@ private:
     void applyCanvasTheme(bool darkMode);
     void enforceCanvasFrameRatio();
     void refreshActionButtonIcons();
+    void applyWorkspaceOrientation();
 
     VariableModel* m_variableModel;
     DataBindingManager* m_bindingMgr;
@@ -154,6 +155,7 @@ private:
     int m_pendingPropertyRow = -1;
 
     bool m_darkCanvasMode = false;
+    bool m_landscapeMode = true;
 
     SerialDataSource *m_serialDataSource = nullptr;
     ModbusRtuDataSource *m_modbusDataSource = nullptr;
