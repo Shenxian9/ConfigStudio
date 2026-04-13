@@ -564,7 +564,12 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
         emit variableReadFailed(var.id, err);
         emit errorOccurred(err);
         ++m_consecutivePollFailures;
-        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(2000, 150 * m_consecutivePollFailures);
+        const int backoffMs = qMin(2000, 150 * m_consecutivePollFailures);
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + backoffMs;
+        emit errorOccurred(tr("串口通信异常，进入失败退避：变量=%1 退避=%2ms 连续失败=%3")
+                           .arg(var.id)
+                           .arg(backoffMs)
+                           .arg(m_consecutivePollFailures));
         return false;
     }
 
@@ -573,7 +578,12 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
         const QString err = tr("read timeout for %1").arg(var.id);
         emit variableReadFailed(var.id, err);
         ++m_consecutivePollFailures;
-        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(3000, 200 * m_consecutivePollFailures);
+        const int backoffMs = qMin(3000, 200 * m_consecutivePollFailures);
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + backoffMs;
+        emit errorOccurred(tr("串口通信异常，进入失败退避：变量=%1 退避=%2ms 连续失败=%3")
+                           .arg(var.id)
+                           .arg(backoffMs)
+                           .arg(m_consecutivePollFailures));
         return false;
     }
     resp += m_serial.readAll();
@@ -586,7 +596,12 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
         emit variableReadFailed(var.id, error);
         emit errorOccurred(error);
         ++m_consecutivePollFailures;
-        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(3000, 200 * m_consecutivePollFailures);
+        const int backoffMs = qMin(3000, 200 * m_consecutivePollFailures);
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + backoffMs;
+        emit errorOccurred(tr("串口通信异常，进入失败退避：变量=%1 退避=%2ms 连续失败=%3")
+                           .arg(var.id)
+                           .arg(backoffMs)
+                           .arg(m_consecutivePollFailures));
         return false;
     }
 
@@ -596,7 +611,12 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
     if (!ok) {
         emit variableReadFailed(var.id, decodeError);
         ++m_consecutivePollFailures;
-        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(3000, 200 * m_consecutivePollFailures);
+        const int backoffMs = qMin(3000, 200 * m_consecutivePollFailures);
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + backoffMs;
+        emit errorOccurred(tr("串口通信异常，进入失败退避：变量=%1 退避=%2ms 连续失败=%3")
+                           .arg(var.id)
+                           .arg(backoffMs)
+                           .arg(m_consecutivePollFailures));
         return false;
     }
     m_consecutivePollFailures = 0;

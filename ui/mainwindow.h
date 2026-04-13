@@ -161,6 +161,7 @@ private:
     RuntimeSimulator *m_runtimeSimulator = nullptr;
     QPushButton *m_dataSourceModeCombo = nullptr;
     QString m_lastCommStatus;
+    QSet<QString> m_loggedFirstReadVarIds;
     QVector<SerialPortConfig> m_modbusConfigs;
     int m_editingDataSourceRow = -1;
 

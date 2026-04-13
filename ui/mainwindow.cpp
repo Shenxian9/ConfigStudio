@@ -352,7 +352,16 @@ void MainWindow::setupDataWorkspace()
     connect(m_modbusDataSource, &ModbusRtuDataSource::statusChanged, this, [this](bool opened) {
         ui->pushButton_8->setEnabled(!opened);
         ui->pushButton_9->setEnabled(opened);
-        appendConnectionLog(opened ? tr("首次连接建立成功") : tr("连接已关闭"));
+        if (opened) {
+            const SerialPortConfig cfg = m_serialDataSource ? m_serialDataSource->config() : SerialPortConfig{};
+            m_loggedFirstReadVarIds.clear();
+            appendConnectionLog(tr("连接建立成功：端口=%1 波特率=%2 从站=%3")
+                                .arg(cfg.portName)
+                                .arg(cfg.baudRate)
+                                .arg(cfg.slaveId));
+        } else {
+            appendConnectionLog(tr("连接关闭：串口已关闭"));
+        }
         refreshDataSourceTreeDeferred();
     });
 
@@ -363,22 +372,31 @@ void MainWindow::setupDataWorkspace()
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::errorOccurred, this, [this](const QString &err) {
         m_lastCommStatus = err;
-        appendConnectionLog(tr("串口断连错误: %1").arg(err));
+        if (err.contains(QStringLiteral("失败退避")))
+            appendConnectionLog(tr("串口断连错误（失败退避中）：%1").arg(err));
+        else
+            appendConnectionLog(tr("连接错误：%1").arg(err));
         showErrorNotice(tr("Modbus RTU Data Source"), err);
         refreshDataSourceTreeDeferred();
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableReadSucceeded, this, [this](const QString &varId, const QVariant &value) {
         m_lastCommStatus = QString("OK %1=%2").arg(varId, value.toString());
+        if (!m_loggedFirstReadVarIds.contains(varId)) {
+            m_loggedFirstReadVarIds.insert(varId);
+            appendConnectionLog(tr("首次读取成功：varId=%1 读取值=%2").arg(varId, value.toString()));
+        }
         refreshDataSourceTreeDeferred();
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableWriteSucceeded, this, [this](const QString &varId) {
         m_lastCommStatus = QString("Write OK: %1").arg(varId);
-        appendConnectionLog(tr("写入成功: %1").arg(varId));
+        QVariant cur;
+        const QString valueText = (m_variableModel && m_variableModel->valueById(varId, &cur)) ? cur.toString() : QString("N/A");
+        appendConnectionLog(tr("写入成功：varId：%1 写入值：%2").arg(varId, valueText));
         refreshDataSourceTreeDeferred();
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableWriteFailed, this, [this](const QString &varId, const QString &reason) {
         m_lastCommStatus = QString("Write Fail %1: %2").arg(varId, reason);
-        appendConnectionLog(tr("写入失败 %1: %2").arg(varId, reason));
+        appendConnectionLog(tr("写入失败：varId：%1 失败原因：%2").arg(varId, reason));
         showErrorNotice(tr("Modbus Write Failed"), m_lastCommStatus);
         refreshDataSourceTreeDeferred();
     });
