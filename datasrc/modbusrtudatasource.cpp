@@ -2,6 +2,7 @@
 
 #include <QtEndian>
 #include <QDataStream>
+#include <QDateTime>
 #include <cstring>
 #include <limits>
 
@@ -9,6 +10,19 @@ ModbusRtuDataSource::ModbusRtuDataSource(QObject *parent)
     : QObject(parent)
 {
     connect(&m_pollTimer, &QTimer::timeout, this, &ModbusRtuDataSource::pollNextVariable);
+    connect(&m_serial, &QSerialPort::errorOccurred, this, [this](QSerialPort::SerialPortError e) {
+        if (e == QSerialPort::NoError)
+            return;
+        if (e == QSerialPort::ResourceError || e == QSerialPort::DeviceNotFoundError || e == QSerialPort::PermissionError) {
+            m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + 3000;
+            m_consecutivePollFailures = qMax(m_consecutivePollFailures, 3);
+            stopPolling();
+            if (m_serial.isOpen())
+                m_serial.close();
+            emit statusChanged(false);
+            emit errorOccurred(tr("Serial disconnected: %1").arg(m_serial.errorString()));
+        }
+    });
 }
 
 void ModbusRtuDataSource::setConfig(const SerialPortConfig &config)
@@ -44,6 +58,8 @@ bool ModbusRtuDataSource::open()
         return false;
     }
 
+    m_consecutivePollFailures = 0;
+    m_pollPauseUntilMs = 0;
     emit statusChanged(true);
     return true;
 }
@@ -53,6 +69,8 @@ void ModbusRtuDataSource::close()
     stopPolling();
     if (m_serial.isOpen())
         m_serial.close();
+    m_consecutivePollFailures = 0;
+    m_pollPauseUntilMs = 0;
     emit statusChanged(false);
 }
 
@@ -487,6 +505,9 @@ void ModbusRtuDataSource::pollNextVariable()
 {
     if (!m_polling || !m_serial.isOpen() || !m_model)
         return;
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (nowMs < m_pollPauseUntilMs)
+        return;
     if (!readPollingEnabled()) {
         stopPolling();
         return;
@@ -536,18 +557,23 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
     req.append(static_cast<char>(crc & 0xFF));
     req.append(static_cast<char>((crc >> 8) & 0xFF));
 
+    const int pollIoTimeoutMs = qBound(50, m_config.timeoutMs, 150);
     m_serial.clear(QSerialPort::AllDirections);
-    if (m_serial.write(req) != req.size() || !m_serial.waitForBytesWritten(m_config.timeoutMs)) {
+    if (m_serial.write(req) != req.size() || !m_serial.waitForBytesWritten(pollIoTimeoutMs)) {
         const QString err = tr("write request failed: %1").arg(m_serial.errorString());
         emit variableReadFailed(var.id, err);
         emit errorOccurred(err);
+        ++m_consecutivePollFailures;
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(2000, 150 * m_consecutivePollFailures);
         return false;
     }
 
     QByteArray resp;
-    if (!m_serial.waitForReadyRead(m_config.timeoutMs)) {
+    if (!m_serial.waitForReadyRead(pollIoTimeoutMs)) {
         const QString err = tr("read timeout for %1").arg(var.id);
         emit variableReadFailed(var.id, err);
+        ++m_consecutivePollFailures;
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(3000, 200 * m_consecutivePollFailures);
         return false;
     }
     resp += m_serial.readAll();
@@ -559,6 +585,8 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
     if (!parseResponse(var, fc, resp, &regs, &error)) {
         emit variableReadFailed(var.id, error);
         emit errorOccurred(error);
+        ++m_consecutivePollFailures;
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(3000, 200 * m_consecutivePollFailures);
         return false;
     }
 
@@ -567,8 +595,12 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
     const QVariant value = decodeRegisters(var, regs, &ok, &decodeError);
     if (!ok) {
         emit variableReadFailed(var.id, decodeError);
+        ++m_consecutivePollFailures;
+        m_pollPauseUntilMs = QDateTime::currentMSecsSinceEpoch() + qMin(3000, 200 * m_consecutivePollFailures);
         return false;
     }
+    m_consecutivePollFailures = 0;
+    m_pollPauseUntilMs = 0;
     m_model->updateValueById(var.id, value);
     emit variableReadSucceeded(var.id, value);
     return true;

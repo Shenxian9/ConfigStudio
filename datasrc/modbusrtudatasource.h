@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QSerialPort>
 #include <QVariant>
+#include <QtGlobal>
 
 #include "serialdatasource.h"
 #include "model/variablemodel.h"
@@ -66,6 +67,8 @@ private:
     bool m_polling = false;
     bool m_writeEnabled = false;
     int m_nextRowCursor = 0;
+    int m_consecutivePollFailures = 0;
+    qint64 m_pollPauseUntilMs = 0;
 };
 
 #endif // MODBUSRTUDATASOURCE_H
