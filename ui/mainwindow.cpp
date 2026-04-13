@@ -20,6 +20,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QTextEdit>
 #include <QTextCursor>
 #include <QIntValidator>
 #include <QMouseEvent>
@@ -150,6 +151,12 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     qApp->installEventFilter(this);
+    if (ui->connectionLogView) {
+        ui->connectionLogView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        ui->connectionLogView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        ui->connectionLogView->setLineWrapMode(QTextEdit::WidgetWidth);
+        QScroller::grabGesture(ui->connectionLogView->viewport(), QScroller::LeftMouseButtonGesture);
+    }
     propDiagLog(QString("MainWindow init, platform=%1").arg(QGuiApplication::platformName()));
     QScreen *screen = QApplication::primaryScreen();
     QSize size = screen->size();
@@ -738,21 +745,9 @@ void MainWindow::ensureErrorNoticePanel()
 
 void MainWindow::showErrorNotice(const QString &title, const QString &message)
 {
-    ensureErrorNoticePanel();
-    if (!m_errorNoticePanel || !m_errorNoticeTitleLabel || !m_errorNoticeMessageLabel)
-        return;
-
-    m_errorNoticeTitleLabel->setText(title);
-    m_errorNoticeMessageLabel->setText(message);
-
-    const int margin = 14;
-    const int panelW = qMin(width() - margin * 2, 560);
-    const int panelH = 190;
-    m_errorNoticePanel->setGeometry((width() - panelW) / 2,
-                                    qMax(10, (height() - panelH) / 2 - height() / 8),
-                                    panelW, panelH);
-    m_errorNoticePanel->raise();
-    m_errorNoticePanel->show();
+    appendConnectionLog(QStringLiteral("错误[%1]：%2").arg(title, message));
+    if (m_errorNoticePanel)
+        m_errorNoticePanel->hide();
 }
 
 void MainWindow::appendConnectionLog(const QString &message)
