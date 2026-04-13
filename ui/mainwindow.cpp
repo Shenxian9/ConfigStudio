@@ -908,7 +908,18 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                                       && (watchedWidget == ui->treeView
                                           || watchedWidget == ui->treeView->viewport()
                                           || ui->treeView->isAncestorOf(watchedWidget));
-        if (inThisWindow && !inDataSourceTree && selectedDataSourceRow() >= 0) {
+        const bool onDataSourceActions = watchedWidget
+                                         && (watchedWidget == ui->pushButton_2
+                                             || watchedWidget == ui->pushButton_7
+                                             || watchedWidget == ui->pushButton_8
+                                             || watchedWidget == ui->pushButton_9
+                                             || watchedWidget == ui->dataSourceModeCombo
+                                             || (ui->pushButton_2 && ui->pushButton_2->isAncestorOf(watchedWidget))
+                                             || (ui->pushButton_7 && ui->pushButton_7->isAncestorOf(watchedWidget))
+                                             || (ui->pushButton_8 && ui->pushButton_8->isAncestorOf(watchedWidget))
+                                             || (ui->pushButton_9 && ui->pushButton_9->isAncestorOf(watchedWidget))
+                                             || (ui->dataSourceModeCombo && ui->dataSourceModeCombo->isAncestorOf(watchedWidget)));
+        if (inThisWindow && !inDataSourceTree && !onDataSourceActions && selectedDataSourceRow() >= 0) {
             ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
             ui->treeView->selectionModel()->clearSelection();
             updateDataSourceActionButtons();
