@@ -111,6 +111,7 @@ private:
     void showTouchInputPopup(const QString &title, const QString &value, const std::function<void (const QString &)> &apply);
     void prepareImeForTransientEditor();
     void updateVariableViewColumns();
+    void appendConnectionLog(const QString &message);
 
     void showProperties(CanvasItem *item);
     void clearProperties();

@@ -20,6 +20,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QTextCursor>
 #include <QIntValidator>
 #include <QMouseEvent>
 #include <QScroller>
@@ -212,27 +213,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->canvasView, &CanvasView::emptyAreaClicked,
             this, &MainWindow::clearProperties);
 
-    connect(ui->pushButton_6, &QPushButton::clicked, this, [this]() {
-        if (!ui) return;
-
-        enforceCanvasFrameRatio();
-
-        const auto dump = [](const char *name, QWidget *w) {
-            if (!w) {
-                qDebug() << "[layout-debug]" << name << "is null";
-                return;
-            }
-            qDebug() << "[layout-debug]" << name
-                     << "w=" << w->width()
-                     << "h=" << w->height();
-        };
-
-        dump("canvasView", ui->canvasView);
-        dump("frame", ui->frame);
-        dump("propertyTable", ui->propertyTable);
-        dump("widget_3", ui->widget_3);
-    });
-
     // ① 数据模型
     m_variableModel = new VariableModel(this);
 
@@ -372,6 +352,7 @@ void MainWindow::setupDataWorkspace()
     connect(m_modbusDataSource, &ModbusRtuDataSource::statusChanged, this, [this](bool opened) {
         ui->pushButton_8->setEnabled(!opened);
         ui->pushButton_9->setEnabled(opened);
+        appendConnectionLog(opened ? tr("首次连接建立成功") : tr("连接已关闭"));
         refreshDataSourceTreeDeferred();
     });
 
@@ -382,6 +363,7 @@ void MainWindow::setupDataWorkspace()
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::errorOccurred, this, [this](const QString &err) {
         m_lastCommStatus = err;
+        appendConnectionLog(tr("串口断连错误: %1").arg(err));
         showErrorNotice(tr("Modbus RTU Data Source"), err);
         refreshDataSourceTreeDeferred();
     });
@@ -391,10 +373,12 @@ void MainWindow::setupDataWorkspace()
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableWriteSucceeded, this, [this](const QString &varId) {
         m_lastCommStatus = QString("Write OK: %1").arg(varId);
+        appendConnectionLog(tr("写入成功: %1").arg(varId));
         refreshDataSourceTreeDeferred();
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableWriteFailed, this, [this](const QString &varId, const QString &reason) {
         m_lastCommStatus = QString("Write Fail %1: %2").arg(varId, reason);
+        appendConnectionLog(tr("写入失败 %1: %2").arg(varId, reason));
         showErrorNotice(tr("Modbus Write Failed"), m_lastCommStatus);
         refreshDataSourceTreeDeferred();
     });
@@ -751,6 +735,24 @@ void MainWindow::showErrorNotice(const QString &title, const QString &message)
                                     panelW, panelH);
     m_errorNoticePanel->raise();
     m_errorNoticePanel->show();
+}
+
+void MainWindow::appendConnectionLog(const QString &message)
+{
+    if (!ui || !ui->connectionLogView)
+        return;
+    const QString ts = QDateTime::currentDateTime().toString("HH:mm:ss");
+    ui->connectionLogView->append(QString("[%1] %2").arg(ts, message));
+    while (ui->connectionLogView->document()->blockCount() > 300) {
+        QTextCursor c(ui->connectionLogView->document());
+        c.movePosition(QTextCursor::Start);
+        c.select(QTextCursor::BlockUnderCursor);
+        c.removeSelectedText();
+        c.deleteChar();
+    }
+    QTextCursor cursor = ui->connectionLogView->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    ui->connectionLogView->setTextCursor(cursor);
 }
 
 void MainWindow::applyDataSourceMode()
