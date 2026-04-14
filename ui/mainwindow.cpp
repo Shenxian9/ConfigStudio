@@ -768,6 +768,70 @@ void MainWindow::appendConnectionLog(const QString &message)
     ui->connectionLogView->setTextCursor(cursor);
 }
 
+void MainWindow::ensureExitConfirmPanel()
+{
+    if (m_exitConfirmPanel)
+        return;
+
+    m_exitConfirmPanel = new QFrame(this);
+    m_exitConfirmPanel->setFrameShape(QFrame::StyledPanel);
+    m_exitConfirmPanel->setStyleSheet("QFrame { background: white; border: 2px solid #7aa7d9; border-radius: 8px; }");
+    m_exitConfirmPanel->hide();
+
+    auto *layout = new QVBoxLayout(m_exitConfirmPanel);
+    layout->setContentsMargins(16, 16, 16, 16);
+    layout->setSpacing(10);
+
+    m_exitConfirmLabel = new QLabel(tr("Exit ConfigStudio?\nUnsaved changes may be lost."), m_exitConfirmPanel);
+    m_exitConfirmLabel->setWordWrap(true);
+    QFont msgFont = m_exitConfirmLabel->font();
+    msgFont.setPointSize(12);
+    m_exitConfirmLabel->setFont(msgFont);
+    layout->addWidget(m_exitConfirmLabel);
+
+    auto *exitBtn = new QPushButton(tr("Exit"), m_exitConfirmPanel);
+    auto *cancelBtn = new QPushButton(tr("Cancel"), m_exitConfirmPanel);
+    exitBtn->setMinimumHeight(40);
+    cancelBtn->setMinimumHeight(40);
+    layout->addWidget(exitBtn);
+    layout->addWidget(cancelBtn);
+
+    connect(exitBtn, &QPushButton::clicked, this, [this]() {
+        if (m_exitConfirmPanel)
+            m_exitConfirmPanel->hide();
+        performSafeExit();
+    });
+    connect(cancelBtn, &QPushButton::clicked, this, [this]() {
+        if (m_exitConfirmPanel)
+            m_exitConfirmPanel->hide();
+    });
+}
+
+void MainWindow::performSafeExit()
+{
+    // 退出前先收敛输入法/输入面板，避免 Wayland 场景下的生命周期问题。
+    QInputMethod *im = QGuiApplication::inputMethod();
+    if (im) {
+        im->commit();
+        im->hide();
+        im->reset();
+    }
+    if (m_propertyInputPanel)
+        m_propertyInputPanel->hide();
+    if (m_touchInputPanel)
+        m_touchInputPanel->hide();
+
+    // 数据源先停轮询再关闭串口，避免退出过程仍有 IO 访问。
+    if (m_modbusDataSource) {
+        m_modbusDataSource->stopPolling();
+        m_modbusDataSource->close();
+    }
+    if (m_runtimeSimulator)
+        m_runtimeSimulator->stop();
+
+    qApp->quit();
+}
+
 void MainWindow::applyDataSourceMode()
 {
     const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : QString("Simulator");
@@ -1987,4 +2051,20 @@ void MainWindow::on_pushOfDesign_clicked()
     setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
     refreshActionButtonIcons();
     QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
+}
+
+void MainWindow::on_pushOfExit_clicked()
+{
+    hideDataWorkspacePanels();
+    ensureExitConfirmPanel();
+    if (!m_exitConfirmPanel)
+        return;
+
+    const int panelW = qMax(360, width() / 2);
+    const int panelH = 200;
+    const int panelX = (width() - panelW) / 2;
+    const int panelY = (height() - panelH) / 2;
+    m_exitConfirmPanel->setGeometry(panelX, panelY, panelW, panelH);
+    m_exitConfirmPanel->show();
+    m_exitConfirmPanel->raise();
 }

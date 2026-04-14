@@ -80,6 +80,7 @@ private slots:
     void on_pushOfDatasrc_clicked();
 
     void on_pushOfDesign_clicked();
+    void on_pushOfExit_clicked();
     void on_pushOfL_D_clicked();
     void showSerialConfigDialog();
     void applySerialConfigFromPanel();
@@ -112,6 +113,8 @@ private:
     void prepareImeForTransientEditor();
     void updateVariableViewColumns();
     void appendConnectionLog(const QString &message);
+    void ensureExitConfirmPanel();
+    void performSafeExit();
 
     void showProperties(CanvasItem *item);
     void clearProperties();
@@ -200,6 +203,8 @@ private:
     QWidget *m_touchInputPanel = nullptr;
     QLineEdit *m_touchInputEdit = nullptr;
     std::function<void (const QString&)> m_touchInputApply;
+    QFrame *m_exitConfirmPanel = nullptr;
+    QLabel *m_exitConfirmLabel = nullptr;
 
 };
 
