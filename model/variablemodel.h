@@ -54,6 +54,8 @@ public:
     bool updateValueById(const QString& varId, const QVariant& value);
     bool valueById(const QString& varId, QVariant* outValue) const;
     QStringList variableIds() const;
+    const QVector<Variable>& variables() const { return m_vars; }
+    void clear();
 
 signals:
     void variableValueChanged(const QString& varId, const QVariant& value);

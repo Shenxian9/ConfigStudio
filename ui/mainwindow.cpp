@@ -25,6 +25,10 @@
 #include <QIntValidator>
 #include <QMouseEvent>
 #include <QScroller>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QFileInfo>
+#include <QDir>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -1790,6 +1794,132 @@ void MainWindow::on_pushOfL_D_clicked()
 {
     const bool nextDarkMode = !m_darkCanvasMode;
     applyCanvasTheme(nextDarkMode);
+}
+
+void MainWindow::on_pushOfSave_clicked()
+{
+    const QString defaultName = QFileInfo(QDir::homePath(), "project.cstudio").absoluteFilePath();
+    const QString filePath = QFileDialog::getSaveFileName(
+        this,
+        tr("Save Project"),
+        defaultName,
+        tr("ConfigStudio Project (*.cstudio);;JSON (*.json)"));
+    if (filePath.isEmpty())
+        return;
+
+    QString errorText;
+    if (!m_projectFileManager.saveProject(filePath,
+                                          ui->canvasView,
+                                          m_variableModel,
+                                          m_bindingMgr,
+                                          m_modbusConfigs,
+                                          m_serialDataSource ? m_serialDataSource->config() : SerialPortConfig{},
+                                          &errorText)) {
+        qWarning() << "save project failed:" << errorText;
+        QMessageBox::critical(this, tr("Save Project"), tr("保存失败：%1").arg(errorText));
+        return;
+    }
+
+    QMessageBox::information(this, tr("Save Project"), tr("工程已保存：%1").arg(filePath));
+}
+
+void MainWindow::on_pushOfLoad_clicked()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        this,
+        tr("Load Project"),
+        QDir::homePath(),
+        tr("ConfigStudio Project (*.cstudio *.json)"));
+    if (filePath.isEmpty())
+        return;
+
+    const auto choice = QMessageBox::question(
+        this,
+        tr("Load Project"),
+        tr("确认读取工程文件并覆盖当前内容？\n%1").arg(filePath),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    if (choice != QMessageBox::Yes)
+        return;
+
+    resetProjectBeforeLoad();
+
+    QVector<SerialPortConfig> loadedConfigs;
+    SerialPortConfig activeCfg;
+    QStringList warnings;
+    QString errorText;
+    if (!m_projectFileManager.loadProject(filePath,
+                                          ui->canvasView,
+                                          m_variableModel,
+                                          m_bindingMgr,
+                                          &loadedConfigs,
+                                          &activeCfg,
+                                          &warnings,
+                                          &errorText)) {
+        qWarning() << "load project failed:" << errorText;
+        QMessageBox::critical(this, tr("Load Project"), tr("读取失败：%1").arg(errorText));
+        return;
+    }
+
+    applyLoadedModbusState(loadedConfigs, activeCfg);
+    refreshDataSourceTreeDeferred();
+    updateVariableActionButtons();
+    clearProperties();
+    on_pushOfDesign_clicked();
+
+    QString tip = tr("工程加载成功：%1").arg(filePath);
+    if (!warnings.isEmpty()) {
+        for (const QString &w : warnings)
+            qWarning() << "[project load warning]" << w;
+        tip += tr("\n（存在 %1 条兼容性警告，详见日志）").arg(warnings.size());
+    }
+    QMessageBox::information(this, tr("Load Project"), tip);
+}
+
+void MainWindow::resetProjectBeforeLoad()
+{
+    hideDataWorkspacePanels();
+    if (m_modbusDataSource) {
+        m_modbusDataSource->stopPolling();
+        m_modbusDataSource->close();
+    }
+    m_lastCommStatus.clear();
+    m_loggedFirstReadVarIds.clear();
+
+    if (m_bindingMgr)
+        m_bindingMgr->clearBindings();
+
+    if (ui->canvasView)
+        ui->canvasView->clearAllItems();
+    if (m_variableModel)
+        m_variableModel->clear();
+
+    m_modbusConfigs.clear();
+    m_currentItem = nullptr;
+    clearProperties();
+}
+
+void MainWindow::applyLoadedModbusState(const QVector<SerialPortConfig> &configs, const SerialPortConfig &activeConfig)
+{
+    m_modbusConfigs = configs;
+    if (m_modbusConfigs.isEmpty())
+        m_modbusConfigs.push_back(activeConfig);
+
+    const SerialPortConfig cfg = !activeConfig.portName.trimmed().isEmpty()
+                                     ? activeConfig
+                                     : m_modbusConfigs.first();
+
+    if (m_serialDataSource)
+        m_serialDataSource->setConfig(cfg);
+    if (m_modbusDataSource)
+        m_modbusDataSource->setConfig(cfg);
+
+    refreshDataSourceTree();
+
+    if (ui->treeView && ui->treeView->selectionModel() && m_dataSourceTreeModel && m_dataSourceTreeModel->rowCount() > 0) {
+        const QModelIndex idx = m_dataSourceTreeModel->index(0, 0);
+        ui->treeView->selectionModel()->setCurrentIndex(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    }
 }
 
 void MainWindow::editPropertyCell(int row, int col)

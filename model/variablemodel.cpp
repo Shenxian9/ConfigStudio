@@ -285,3 +285,12 @@ QStringList VariableModel::variableIds() const
         ids.append(var.id);
     return ids;
 }
+
+void VariableModel::clear()
+{
+    if (m_vars.isEmpty())
+        return;
+    beginResetModel();
+    m_vars.clear();
+    endResetModel();
+}

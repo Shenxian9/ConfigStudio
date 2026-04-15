@@ -39,42 +39,9 @@ void CanvasView::dropEvent(QDropEvent *event)
 {
     // 从拖拽数据中读取组件类型并创建对应画布项。
     QString type = event->mimeData()->text();
-    CanvasItem *item = ComponentFactory::create(type, this);
-    // 若类型未注册，直接忽略本次拖放，避免创建非法对象。
-    if (!item) return;
-
-    // 将画布持有的绑定管理器传给新组件，保证属性变更可联动到数据源。
-    item->setBindingManager(m_bindingMgr);
-
-    // 将组件放到鼠标释放位置并显示。
-    item->move(event->pos());
-    item->show();
-
-    // 绑定测试变量（可用属性表修改 varId）
-    // if (m_bindingMgr) {
-    //     if (type == "thermo") {
-    //         m_bindingMgr->bind("1", item, "value");
-    //     } else if (type == "plot") {
-    //         m_bindingMgr->bind("2", item, "value");
-    //     }
-    // }
-
-    // 维护单选状态：新选中项会取消旧选中项。
-    connect(item, &CanvasItem::selected, this, [=](CanvasItem* it){
-        if (m_selected && m_selected != it)
-            m_selected->setSelected(false);
-        m_selected = it;
-        m_selected->setSelected(true);
-        emit itemSelected(it);
-    });
-
-    // 组件被删除时同步清空画布当前选中状态。
-    connect(item, &QObject::destroyed, this, [this, item]() {
-        if (m_selected == item) {
-            m_selected = nullptr;
-            emit emptyAreaClicked();
-        }
-    });
+    CanvasItem *item = createItem(type, event->pos());
+    if (!item)
+        return;
 
     event->acceptProposedAction();
 }
@@ -128,7 +95,61 @@ void CanvasView::setBindingManager(DataBindingManager* mgr)
     qDebug() << "CanvasView injected bindingMgr =" << m_bindingMgr;
 }
 
+QList<CanvasItem*> CanvasView::canvasItems() const
+{
+    QList<CanvasItem*> items;
+    const auto children = findChildren<CanvasItem*>(QString(), Qt::FindDirectChildrenOnly);
+    for (CanvasItem *item : children) {
+        if (item)
+            items.append(item);
+    }
+    return items;
+}
 
+CanvasItem* CanvasView::createItem(const QString &type, const QPoint &pos)
+{
+    CanvasItem *item = ComponentFactory::create(type, this);
+    if (!item) {
+        qWarning() << "CanvasView createItem unknown type:" << type;
+        return nullptr;
+    }
+    item->setBindingManager(m_bindingMgr);
+    item->move(pos);
+    setupItemSignals(item);
+    item->show();
+    return item;
+}
+
+void CanvasView::clearAllItems()
+{
+    clearSelection();
+    const auto items = canvasItems();
+    for (CanvasItem *item : items) {
+        if (item)
+            delete item;
+    }
+}
+
+void CanvasView::setupItemSignals(CanvasItem *item)
+{
+    if (!item)
+        return;
+
+    connect(item, &CanvasItem::selected, this, [=](CanvasItem* it){
+        if (m_selected && m_selected != it)
+            m_selected->setSelected(false);
+        m_selected = it;
+        m_selected->setSelected(true);
+        emit itemSelected(it);
+    });
+
+    connect(item, &QObject::destroyed, this, [this, item]() {
+        if (m_selected == item) {
+            m_selected = nullptr;
+            emit emptyAreaClicked();
+        }
+    });
+}
 
 
 
