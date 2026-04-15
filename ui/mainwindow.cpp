@@ -17,6 +17,7 @@
 #include <QTableWidget>
 #include <QTreeView>
 #include <QHeaderView>
+#include <QListWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -25,10 +26,9 @@
 #include <QIntValidator>
 #include <QMouseEvent>
 #include <QScroller>
-#include <QFileDialog>
-#include <QMessageBox>
 #include <QRegularExpression>
 #include <QUuid>
+#include <QFileInfo>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -318,6 +318,12 @@ MainWindow::MainWindow(QWidget *parent)
     m_variableModel->addVariable(v4);
 
     setupDataWorkspace();
+    m_projectStorage = new ProjectStorageManager(this);
+    QString dirErr;
+    if (!m_projectStorage->ensureProjectDir(&dirErr)) {
+        qWarning() << "Project directory init failed:" << dirErr;
+        showErrorNotice(tr("Project Storage"), dirErr);
+    }
 
     // 启动仿真
     m_runtimeSimulator = new RuntimeSimulator(m_variableModel, this);
@@ -1925,6 +1931,9 @@ void MainWindow::clearCurrentProjectState()
     m_lastCommStatus.clear();
     if (ui->connectionLogView)
         ui->connectionLogView->clear();
+    m_currentProjectFilePath.clear();
+    m_currentProjectName.clear();
+    m_projectDirty = false;
 }
 
 bool MainWindow::restoreProjectData(const ProjectData &project, QString *errorText)
@@ -1997,56 +2006,388 @@ bool MainWindow::restoreProjectData(const ProjectData &project, QString *errorTe
 
 void MainWindow::on_pushOfSave_clicked()
 {
-    const QString filePath = QFileDialog::getSaveFileName(
-        this, tr("Save Project"), QString(),
-        tr("ConfigStudio Project (*.cstudio);;JSON (*.json)"));
-    if (filePath.isEmpty())
-        return;
-
-    QString normalizedPath = filePath;
-    if (!normalizedPath.endsWith(".cstudio", Qt::CaseInsensitive)
-        && !normalizedPath.endsWith(".json", Qt::CaseInsensitive)) {
-        normalizedPath += ".cstudio";
-    }
-
-    const ProjectData project = buildProjectDataSnapshot();
-    QString errorText;
-    if (!ProjectFileManager::saveProject(normalizedPath, project, &errorText)) {
-        qWarning() << "Save project failed:" << errorText;
-        QMessageBox::warning(this, tr("Save Project"), tr("Save failed: %1").arg(errorText));
-        return;
-    }
-    QMessageBox::information(this, tr("Save Project"), tr("Project saved successfully:\n%1").arg(normalizedPath));
+    showProjectPanel(true);
 }
 
 void MainWindow::on_pushOfLoad_clicked()
 {
-    const QString filePath = QFileDialog::getOpenFileName(
-        this, tr("Load Project"), QString(),
-        tr("ConfigStudio Project (*.cstudio *.json)"));
-    if (filePath.isEmpty())
+    showProjectPanel(false);
+}
+
+QString MainWindow::displayFileSize(qint64 bytes) const
+{
+    const double kb = bytes / 1024.0;
+    const double mb = kb / 1024.0;
+    if (mb >= 1.0)
+        return QString::number(mb, 'f', 1) + " MB";
+    if (kb >= 1.0)
+        return QString::number(kb, 'f', 1) + " KB";
+    return QString::number(bytes) + " B";
+}
+
+void MainWindow::ensureProjectPanel()
+{
+    if (m_projectPanel)
         return;
 
-    const auto reply = QMessageBox::question(
-        this, tr("Load Project"),
-        tr("Load project from:\n%1\n\nCurrent project will be cleared. Continue?").arg(filePath),
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-    if (reply != QMessageBox::Yes)
+    QFrame *panel = new QFrame(this);
+    panel->setObjectName("projectPanel");
+    panel->setStyleSheet(
+        "#projectPanel { background: #ffffff; border: 2px solid #7aa7d9; border-radius: 10px; }"
+        "#projectPanel QListWidget::item { min-height: 58px; padding: 8px; border-bottom: 1px solid #d0d0d0; }"
+        "#projectPanel QListWidget::item:selected { background: #dbeeff; color: #102040; }");
+
+    QVBoxLayout *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(12);
+
+    m_projectPanelTitle = new QLabel(panel);
+    QFont titleFont = m_projectPanelTitle->font();
+    titleFont.setPointSize(24);
+    titleFont.setBold(true);
+    m_projectPanelTitle->setFont(titleFont);
+    m_projectPanelTitle->setAlignment(Qt::AlignCenter);
+    layout->addWidget(m_projectPanelTitle);
+
+    m_projectPanelHint = new QLabel(panel);
+    m_projectPanelHint->setWordWrap(true);
+    QFont hintFont = m_projectPanelHint->font();
+    hintFont.setPointSize(14);
+    m_projectPanelHint->setFont(hintFont);
+    layout->addWidget(m_projectPanelHint);
+
+    m_projectNameEdit = new QLineEdit(panel);
+    m_projectNameEdit->setPlaceholderText(tr("请输入工程名称"));
+    m_projectNameEdit->setMinimumHeight(54);
+    QFont editFont = m_projectNameEdit->font();
+    editFont.setPointSize(16);
+    m_projectNameEdit->setFont(editFont);
+    layout->addWidget(m_projectNameEdit);
+    registerTouchInput(m_projectNameEdit);
+
+    m_projectListWidget = new QListWidget(panel);
+    m_projectListWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_projectListWidget->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_projectListWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_projectListWidget->setMinimumHeight(320);
+    QScroller::grabGesture(m_projectListWidget->viewport(), QScroller::LeftMouseButtonGesture);
+    layout->addWidget(m_projectListWidget, 1);
+
+    m_projectPanelStatus = new QLabel(panel);
+    m_projectPanelStatus->setWordWrap(true);
+    m_projectPanelStatus->setMinimumHeight(44);
+    QFont statusFont = m_projectPanelStatus->font();
+    statusFont.setPointSize(13);
+    m_projectPanelStatus->setFont(statusFont);
+    layout->addWidget(m_projectPanelStatus);
+
+    QHBoxLayout *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(12);
+    m_projectPrimaryBtn = new QPushButton(panel);
+    m_projectSecondaryBtn = new QPushButton(panel);
+    m_projectCancelBtn = new QPushButton(tr("取消"), panel);
+    for (QPushButton *btn : {m_projectPrimaryBtn, m_projectSecondaryBtn, m_projectCancelBtn}) {
+        btn->setMinimumHeight(54);
+        QFont bf = btn->font();
+        bf.setPointSize(16);
+        bf.setBold(true);
+        btn->setFont(bf);
+    }
+    btnLayout->addWidget(m_projectPrimaryBtn, 1);
+    btnLayout->addWidget(m_projectSecondaryBtn, 1);
+    btnLayout->addWidget(m_projectCancelBtn, 1);
+    layout->addLayout(btnLayout);
+
+    connect(m_projectPrimaryBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelPrimaryClicked);
+    connect(m_projectSecondaryBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelSecondaryClicked);
+    connect(m_projectCancelBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelCancelClicked);
+    connect(m_projectListWidget, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
+        if (!m_projectPanelSaveMode || !item || !m_projectNameEdit)
+            return;
+        const QString baseName = item->data(Qt::UserRole + 1).toString();
+        if (!baseName.isEmpty())
+            m_projectNameEdit->setText(baseName);
+    });
+
+    m_projectPanel = panel;
+    panel->hide();
+}
+
+void MainWindow::ensureConfirmPanel()
+{
+    if (m_confirmPanel)
         return;
 
+    QFrame *panel = new QFrame(this);
+    panel->setObjectName("confirmPanel");
+    panel->setStyleSheet("#confirmPanel { background: #ffffff; border: 2px solid #7aa7d9; border-radius: 10px; }");
+    QVBoxLayout *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(20, 20, 20, 20);
+    layout->setSpacing(12);
+
+    m_confirmPanelTitle = new QLabel(panel);
+    QFont titleFont = m_confirmPanelTitle->font();
+    titleFont.setPointSize(20);
+    titleFont.setBold(true);
+    m_confirmPanelTitle->setFont(titleFont);
+    m_confirmPanelTitle->setAlignment(Qt::AlignCenter);
+    layout->addWidget(m_confirmPanelTitle);
+
+    m_confirmPanelMessage = new QLabel(panel);
+    m_confirmPanelMessage->setWordWrap(true);
+    QFont msgFont = m_confirmPanelMessage->font();
+    msgFont.setPointSize(15);
+    m_confirmPanelMessage->setFont(msgFont);
+    layout->addWidget(m_confirmPanelMessage);
+
+    QHBoxLayout *buttons = new QHBoxLayout();
+    QPushButton *confirmBtn = new QPushButton(tr("确认"), panel);
+    QPushButton *cancelBtn = new QPushButton(tr("取消"), panel);
+    confirmBtn->setMinimumHeight(52);
+    cancelBtn->setMinimumHeight(52);
+    buttons->addWidget(confirmBtn, 1);
+    buttons->addWidget(cancelBtn, 1);
+    layout->addLayout(buttons);
+
+    connect(confirmBtn, &QPushButton::clicked, this, [this]() {
+        if (m_confirmPanel)
+            m_confirmPanel->hide();
+        auto action = m_confirmAcceptAction;
+        m_confirmAcceptAction = nullptr;
+        if (action)
+            action();
+    });
+    connect(cancelBtn, &QPushButton::clicked, this, [this]() {
+        if (m_confirmPanel)
+            m_confirmPanel->hide();
+        m_confirmAcceptAction = nullptr;
+    });
+
+    m_confirmPanel = panel;
+    panel->hide();
+}
+
+void MainWindow::showConfirmPanel(const QString &title, const QString &message, const std::function<void ()> &onConfirm)
+{
+    ensureConfirmPanel();
+    m_confirmAcceptAction = onConfirm;
+    m_confirmPanelTitle->setText(title);
+    m_confirmPanelMessage->setText(message);
+    const int panelW = qMin(width() - 24, 720);
+    const int panelH = qMin(height() - 24, 280);
+    m_confirmPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
+    m_confirmPanel->show();
+    m_confirmPanel->raise();
+}
+
+void MainWindow::setProjectPanelStatus(const QString &message, bool isError)
+{
+    if (!m_projectPanelStatus)
+        return;
+    m_projectPanelStatus->setText(message);
+    m_projectPanelStatus->setStyleSheet(isError ? "color:#c62828;" : "color:#1b5e20;");
+}
+
+void MainWindow::refreshProjectPanelList()
+{
+    if (!m_projectStorage || !m_projectListWidget)
+        return;
+
+    m_projectListWidget->clear();
+    QString err;
+    const QList<ProjectFileInfo> files = m_projectStorage->listProjects(&err);
+    if (!err.isEmpty()) {
+        qWarning() << "List projects failed:" << err;
+        setProjectPanelStatus(err, true);
+    }
+
+    if (files.isEmpty()) {
+        QListWidgetItem *emptyItem = new QListWidgetItem(tr("暂无工程文件"), m_projectListWidget);
+        emptyItem->setFlags(Qt::NoItemFlags);
+        return;
+    }
+
+    for (const ProjectFileInfo &info : files) {
+        const QString text = QString("%1\n%2   %3")
+                                 .arg(info.baseName,
+                                      info.lastModified.toString("yyyy-MM-dd HH:mm:ss"),
+                                      displayFileSize(info.sizeBytes));
+        QListWidgetItem *item = new QListWidgetItem(text, m_projectListWidget);
+        item->setData(Qt::UserRole, info.filePath);
+        item->setData(Qt::UserRole + 1, info.baseName);
+        item->setToolTip(info.filePath);
+    }
+}
+
+ProjectFileInfo MainWindow::selectedProjectInfo() const
+{
+    ProjectFileInfo info;
+    if (!m_projectListWidget || !m_projectListWidget->currentItem())
+        return info;
+    const QListWidgetItem *item = m_projectListWidget->currentItem();
+    info.filePath = item->data(Qt::UserRole).toString();
+    info.baseName = item->data(Qt::UserRole + 1).toString();
+    info.fileName = QFileInfo(info.filePath).fileName();
+    return info;
+}
+
+void MainWindow::showProjectPanel(bool saveMode)
+{
+    ensureProjectPanel();
+    if (!m_projectStorage) {
+        setProjectPanelStatus(tr("Project storage is unavailable."), true);
+        return;
+    }
+
+    QString dirErr;
+    if (!m_projectStorage->ensureProjectDir(&dirErr)) {
+        qWarning() << "Ensure project directory failed:" << dirErr;
+        setProjectPanelStatus(dirErr, true);
+    } else {
+        setProjectPanelStatus(QString(), false);
+    }
+
+    m_projectPanelSaveMode = saveMode;
+    refreshProjectPanelList();
+
+    if (saveMode) {
+        m_projectPanelTitle->setText(tr("保存工程"));
+        m_projectPanelHint->setText(tr("工程目录：%1").arg(m_projectStorage->projectRootDir()));
+        m_projectNameEdit->setVisible(true);
+        m_projectPrimaryBtn->setText(tr("保存"));
+        const bool hasCurrentProject = !m_currentProjectFilePath.isEmpty();
+        m_projectSecondaryBtn->setVisible(hasCurrentProject);
+        m_projectSecondaryBtn->setText(tr("覆盖当前"));
+        m_projectNameEdit->setText(!m_currentProjectName.isEmpty() ? m_currentProjectName : QString());
+    } else {
+        m_projectPanelTitle->setText(tr("打开工程"));
+        m_projectPanelHint->setText(tr("请选择要读取的工程文件"));
+        m_projectNameEdit->setVisible(false);
+        m_projectPrimaryBtn->setText(tr("读取"));
+        m_projectSecondaryBtn->setVisible(false);
+    }
+
+    if (!m_currentProjectFilePath.isEmpty() && m_projectListWidget) {
+        for (int i = 0; i < m_projectListWidget->count(); ++i) {
+            QListWidgetItem *item = m_projectListWidget->item(i);
+            if (!item)
+                continue;
+            if (item->data(Qt::UserRole).toString() == m_currentProjectFilePath) {
+                m_projectListWidget->setCurrentItem(item);
+                break;
+            }
+        }
+    }
+
+    const int panelW = qMin(width() - 24, 960);
+    const int panelH = qMin(height() - 24, 640);
+    m_projectPanel->setGeometry((width() - panelW) / 2, (height() - panelH) / 2, panelW, panelH);
+    m_projectPanel->show();
+    m_projectPanel->raise();
+}
+
+void MainWindow::hideProjectPanel()
+{
+    if (m_projectPanel)
+        m_projectPanel->hide();
+}
+
+bool MainWindow::saveProjectToPath(const QString &path, const QString &projectName)
+{
+    const ProjectData project = buildProjectDataSnapshot();
+    QString errorText;
+    if (!ProjectFileManager::saveProject(path, project, &errorText)) {
+        qWarning() << "Save project failed:" << errorText;
+        setProjectPanelStatus(tr("保存失败：%1").arg(errorText), true);
+        return false;
+    }
+
+    m_currentProjectFilePath = path;
+    m_currentProjectName = projectName;
+    m_projectDirty = false;
+    hideProjectPanel();
+    showErrorNotice(tr("保存工程"), tr("保存成功：%1").arg(projectName));
+    return true;
+}
+
+bool MainWindow::loadProjectFromPath(const QString &path)
+{
     ProjectData project;
     QString errorText;
-    if (!ProjectFileManager::loadProject(filePath, &project, &errorText)) {
+    if (!ProjectFileManager::loadProject(path, &project, &errorText)) {
         qWarning() << "Load project failed:" << errorText;
-        QMessageBox::warning(this, tr("Load Project"), tr("Load failed: %1").arg(errorText));
-        return;
+        showErrorNotice(tr("读取工程"), tr("读取失败：%1").arg(errorText));
+        return false;
     }
     if (!restoreProjectData(project, &errorText)) {
         qWarning() << "Apply project failed:" << errorText;
-        QMessageBox::warning(this, tr("Load Project"), tr("Restore failed: %1").arg(errorText));
+        showErrorNotice(tr("读取工程"), tr("恢复失败：%1").arg(errorText));
+        return false;
+    }
+
+    m_currentProjectFilePath = path;
+    m_currentProjectName = QFileInfo(path).completeBaseName();
+    m_projectDirty = false;
+    showErrorNotice(tr("读取工程"), tr("读取成功：%1").arg(m_currentProjectName));
+    return true;
+}
+
+void MainWindow::onProjectPanelPrimaryClicked()
+{
+    if (!m_projectStorage)
+        return;
+
+    if (m_projectPanelSaveMode) {
+        const QString projectName = m_projectStorage->normalizeProjectName(m_projectNameEdit ? m_projectNameEdit->text() : QString());
+        QString err;
+        if (!m_projectStorage->validateProjectName(projectName, &err)) {
+            setProjectPanelStatus(err, true);
+            return;
+        }
+
+        const QString targetPath = m_projectStorage->makeProjectFilePath(projectName);
+        if (QFile::exists(targetPath)) {
+            showConfirmPanel(tr("覆盖确认"),
+                             tr("工程“%1”已存在，是否覆盖？").arg(projectName),
+                             [this, targetPath, projectName]() { saveProjectToPath(targetPath, projectName); });
+            return;
+        }
+
+        saveProjectToPath(targetPath, projectName);
         return;
     }
-    QMessageBox::information(this, tr("Load Project"), tr("Project loaded successfully."));
+
+    const ProjectFileInfo info = selectedProjectInfo();
+    if (info.filePath.isEmpty()) {
+        setProjectPanelStatus(tr("请先选择一个工程文件。"), true);
+        return;
+    }
+
+    showConfirmPanel(tr("读取确认"),
+                     tr("是否读取工程“%1”？当前未保存内容将丢失。").arg(info.baseName),
+                     [this, info]() {
+                         hideProjectPanel();
+                         loadProjectFromPath(info.filePath);
+                     });
+}
+
+void MainWindow::onProjectPanelSecondaryClicked()
+{
+    if (!m_projectPanelSaveMode)
+        return;
+    if (m_currentProjectFilePath.isEmpty() || m_currentProjectName.isEmpty()) {
+        setProjectPanelStatus(tr("当前没有可覆盖的工程。"), true);
+        return;
+    }
+
+    showConfirmPanel(tr("覆盖当前工程"),
+                     tr("是否覆盖当前工程“%1”？").arg(m_currentProjectName),
+                     [this]() { saveProjectToPath(m_currentProjectFilePath, m_currentProjectName); });
+}
+
+void MainWindow::onProjectPanelCancelClicked()
+{
+    hideProjectPanel();
 }
 
 void MainWindow::on_pushOfDatasrc_clicked()

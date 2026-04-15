@@ -29,6 +29,8 @@
 #include <QVector>
 #include <functional>
 class QLabel;
+class QListWidget;
+class QListWidgetItem;
 
 #include "componentpalette.h"
 #include "palettebinder.h"
@@ -43,6 +45,7 @@ class QLabel;
 #include "virtualkeyboardhost.h"
 #include "optioncyclebutton.h"
 #include "projectfilemanager.h"
+#include "projectstoragemanager.h"
 namespace Ui {
 class MainWindow;
 }
@@ -85,6 +88,9 @@ private slots:
     void on_pushOfL_D_clicked();
     void on_pushOfSave_clicked();
     void on_pushOfLoad_clicked();
+    void onProjectPanelPrimaryClicked();
+    void onProjectPanelSecondaryClicked();
+    void onProjectPanelCancelClicked();
     void showSerialConfigDialog();
     void applySerialConfigFromPanel();
     void showAddVariableDialog();
@@ -123,6 +129,17 @@ private:
     void clearCurrentProjectState();
     QString ensureCanvasItemId(CanvasItem *item);
     void applySerialConfigToPanels(const SerialPortConfig &cfg);
+    void ensureProjectPanel();
+    void ensureConfirmPanel();
+    void showProjectPanel(bool saveMode);
+    void hideProjectPanel();
+    void refreshProjectPanelList();
+    ProjectFileInfo selectedProjectInfo() const;
+    void setProjectPanelStatus(const QString &message, bool isError);
+    bool saveProjectToPath(const QString &path, const QString &projectName);
+    bool loadProjectFromPath(const QString &path);
+    void showConfirmPanel(const QString &title, const QString &message, const std::function<void ()> &onConfirm);
+    QString displayFileSize(qint64 bytes) const;
 
     void showProperties(CanvasItem *item);
     void clearProperties();
@@ -213,6 +230,27 @@ private:
     std::function<void (const QString&)> m_touchInputApply;
     QFrame *m_exitConfirmPanel = nullptr;
     QLabel *m_exitConfirmLabel = nullptr;
+
+    ProjectStorageManager *m_projectStorage = nullptr;
+    QString m_currentProjectFilePath;
+    QString m_currentProjectName;
+    bool m_projectDirty = false;
+
+    QFrame *m_projectPanel = nullptr;
+    QLabel *m_projectPanelTitle = nullptr;
+    QLabel *m_projectPanelHint = nullptr;
+    QLabel *m_projectPanelStatus = nullptr;
+    QLineEdit *m_projectNameEdit = nullptr;
+    QListWidget *m_projectListWidget = nullptr;
+    QPushButton *m_projectPrimaryBtn = nullptr;
+    QPushButton *m_projectSecondaryBtn = nullptr;
+    QPushButton *m_projectCancelBtn = nullptr;
+    bool m_projectPanelSaveMode = true;
+
+    QFrame *m_confirmPanel = nullptr;
+    QLabel *m_confirmPanelTitle = nullptr;
+    QLabel *m_confirmPanelMessage = nullptr;
+    std::function<void()> m_confirmAcceptAction;
 
 };
 
