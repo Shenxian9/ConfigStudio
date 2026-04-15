@@ -40,6 +40,7 @@ class QLabel;
 #include "runtimesimulator.h"
 #include "serialdatasource.h"
 #include "modbusrtudatasource.h"
+#include "projectfilemanager.h"
 #include "virtualkeyboardhost.h"
 #include "optioncyclebutton.h"
 namespace Ui {
@@ -90,6 +91,8 @@ private slots:
     void applyVariableFromPanel();
     void updateVariableActionButtons();
     void applyDataSourceMode();
+    void on_pushOfSave_clicked();
+    void on_pushOfLoad_clicked();
 
 public:
     SerialDataSource *serialDataSourceForTest() const { return m_serialDataSource; }
@@ -115,6 +118,8 @@ private:
     void appendConnectionLog(const QString &message);
     void ensureExitConfirmPanel();
     void performSafeExit();
+    void resetProjectBeforeLoad();
+    void applyLoadedModbusState(const QVector<SerialPortConfig> &configs, const SerialPortConfig &activeConfig);
 
     void showProperties(CanvasItem *item);
     void clearProperties();
@@ -205,6 +210,7 @@ private:
     std::function<void (const QString&)> m_touchInputApply;
     QFrame *m_exitConfirmPanel = nullptr;
     QLabel *m_exitConfirmLabel = nullptr;
+    ProjectFileManager m_projectFileManager;
 
 };
 

@@ -133,3 +133,28 @@ void DataBindingManager::onVariableChanged(const QString& varId, const QVariant&
     if (list.isEmpty())
         m_bindings.erase(it);
 }
+
+QList<DataBindingManager::BindingInfo> DataBindingManager::bindingInfos() const
+{
+    QList<BindingInfo> out;
+    for (auto it = m_bindings.cbegin(); it != m_bindings.cend(); ++it) {
+        const QString &varId = it.key();
+        const QList<Binding> &list = it.value();
+        for (const Binding &binding : list) {
+            if (!binding.item)
+                continue;
+            BindingInfo info;
+            info.varId = varId;
+            info.itemId = binding.item->objectName();
+            info.property = binding.property;
+            if (!info.itemId.isEmpty())
+                out.append(info);
+        }
+    }
+    return out;
+}
+
+void DataBindingManager::clearBindings()
+{
+    m_bindings.clear();
+}

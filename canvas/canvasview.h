@@ -16,6 +16,9 @@ public:
     explicit CanvasView(DataBindingManager* bindingMgr, QWidget *parent = nullptr);
     void clearSelection();
     void setScale(double s) { m_scale = s; update(); }
+    QList<CanvasItem*> canvasItems() const;
+    CanvasItem* createItem(const QString &type, const QPoint &pos = QPoint());
+    void clearAllItems();
 
     void setBindingManager(DataBindingManager* mgr);
     //QSize designSize() const { return m_designSize; }
@@ -35,6 +38,8 @@ protected:
     //void resizeEvent(QResizeEvent* event) override;
 
 private:
+    void setupItemSignals(CanvasItem *item);
+
     CanvasItem *m_selected = nullptr;
     double m_scale = 1.0;
     bool m_scaleEnabled = false;              // 是否启用运行态等比缩放
