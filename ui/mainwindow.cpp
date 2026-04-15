@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "components/base/ComponentFactory.h"
 
 #include <QSignalBlocker>
 #include <QPointer>
@@ -25,6 +26,13 @@
 #include <QIntValidator>
 #include <QMouseEvent>
 #include <QScroller>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonParseError>
+#include <QSaveFile>
+#include <QDir>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -1773,10 +1781,331 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
     // 走统一刷新入口，处理布局时序。
     QTimer::singleShot(0, this, [this]() { refreshActionButtonIcons(); });
 }
+QList<CanvasItem*> MainWindow::allCanvasItems() const
+{
+    QList<CanvasItem*> items;
+    if (!ui || !ui->canvasView)
+        return items;
 
+    const auto children = ui->canvasView->findChildren<CanvasItem*>(QString(), Qt::FindDirectChildrenOnly);
+    for (CanvasItem *item : children) {
+        if (item)
+            items.push_back(item);
+    }
+    return items;
+}
 
+QJsonObject MainWindow::buildProjectSnapshot() const
+{
+    QJsonObject projectObj;
+    projectObj["version"] = ProjectFileManager::kCurrentVersion;
 
-\
+    QJsonObject canvasObj;
+    canvasObj["width"] = ui->canvasView ? ui->canvasView->width() : 0;
+    canvasObj["height"] = ui->canvasView ? ui->canvasView->height() : 0;
+
+    QHash<QString, QVector<ProjectBindingData>> bindingsByItemId;
+    if (m_bindingMgr) {
+        const QVector<DataBindingManager::BindingSnapshot> activeBindings = m_bindingMgr->bindings();
+        for (const DataBindingManager::BindingSnapshot &binding : activeBindings) {
+            ProjectBindingData bindingData;
+            bindingData.varId = binding.varId;
+            bindingData.itemId = binding.itemId;
+            bindingData.property = binding.property;
+            bindingsByItemId[binding.itemId].push_back(bindingData);
+        }
+    }
+
+    QJsonArray itemArray;
+    const QList<CanvasItem*> items = allCanvasItems();
+    for (CanvasItem *canvasItem : items) {
+        ProjectCanvasItemData item;
+        item.id = canvasItem->itemId();
+        item.type = canvasItem->type();
+        item.geometry = canvasItem->geometry();
+        item.zValue = 0;
+        item.rotation = 0.0;
+        item.visible = canvasItem->isVisible();
+        item.properties = canvasItem->properties();
+        item.bindings = bindingsByItemId.value(item.id);
+        if (item.bindings.isEmpty()) {
+            for (auto it = item.properties.cbegin(); it != item.properties.cend(); ++it) {
+                if (!it.key().startsWith("varId"))
+                    continue;
+                const QString varId = it.value().toString().trimmed();
+                if (varId.isEmpty())
+                    continue;
+                ProjectBindingData inferred;
+                inferred.itemId = item.id;
+                inferred.varId = varId;
+                inferred.property = it.key();
+                if (inferred.property == "varId")
+                    inferred.property = "value";
+                else
+                    inferred.property.replace(0, 5, "value");
+                item.bindings.push_back(inferred);
+            }
+        }
+        itemArray.push_back(ProjectFileManager::serializeCanvasItem(item));
+    }
+    canvasObj["items"] = itemArray;
+    projectObj["canvas"] = canvasObj;
+
+    QJsonArray variableArray;
+    if (m_variableModel) {
+        const QVector<Variable> vars = m_variableModel->variables();
+        for (const Variable &var : vars)
+            variableArray.push_back(ProjectFileManager::serializeVariable(var));
+    }
+    projectObj["variables"] = variableArray;
+    projectObj["modbus"] = ProjectFileManager::serializeSerialConfig(m_serialDataSource ? m_serialDataSource->config() : SerialPortConfig{});
+
+    QJsonObject uiState;
+    uiState["darkCanvasMode"] = m_darkCanvasMode;
+    projectObj["uiState"] = uiState;
+    return projectObj;
+}
+
+void MainWindow::applySerialConfigToPanels(const SerialPortConfig &cfg)
+{
+    if (!m_serialDeviceEdit || !m_serialPortEdit || !m_serialBaudCombo || !m_dataBitsCombo
+        || !m_parityCombo || !m_stopBitsCombo || !m_slaveIdSpin || !m_timeoutSpin
+        || !m_retrySpin || !m_pollIntervalSpin || !m_functionCodeCombo) {
+        return;
+    }
+
+    QSignalBlocker b0(m_serialDeviceEdit);
+    QSignalBlocker b1(m_serialPortEdit);
+    QSignalBlocker b2(m_serialBaudCombo);
+    QSignalBlocker b3(m_dataBitsCombo);
+    QSignalBlocker b4(m_parityCombo);
+    QSignalBlocker b5(m_stopBitsCombo);
+    QSignalBlocker b6(m_slaveIdSpin);
+    QSignalBlocker b7(m_timeoutSpin);
+    QSignalBlocker b8(m_retrySpin);
+    QSignalBlocker b9(m_pollIntervalSpin);
+    QSignalBlocker b10(m_functionCodeCombo);
+
+    m_serialDeviceEdit->setText(cfg.deviceId);
+    m_serialPortEdit->setText(cfg.portName);
+    m_serialBaudCombo->setCurrentText(QString::number(cfg.baudRate));
+    m_dataBitsCombo->setCurrentText(QString::number(static_cast<int>(cfg.dataBits)));
+    m_parityCombo->setCurrentIndex(cfg.parity == QSerialPort::EvenParity ? 1 : (cfg.parity == QSerialPort::OddParity ? 2 : 0));
+    m_stopBitsCombo->setCurrentIndex(cfg.stopBits == QSerialPort::TwoStop ? 1 : 0);
+    m_slaveIdSpin->setValue(cfg.slaveId);
+    m_timeoutSpin->setValue(cfg.timeoutMs);
+    m_retrySpin->setValue(cfg.retryCount);
+    m_pollIntervalSpin->setValue(cfg.pollIntervalMs);
+    switch (cfg.defaultFunctionCode) {
+    case 4: m_functionCodeCombo->setCurrentIndex(1); break;
+    case 6: m_functionCodeCombo->setCurrentIndex(2); break;
+    case 16: m_functionCodeCombo->setCurrentIndex(3); break;
+    case 3:
+    default: m_functionCodeCombo->setCurrentIndex(0); break;
+    }
+}
+
+void MainWindow::clearProjectState()
+{
+    if (m_modbusDataSource) {
+        m_modbusDataSource->stopPolling();
+        m_modbusDataSource->close();
+    }
+
+    if (m_canvas)
+        m_canvas->clearSelection();
+    m_currentItem = nullptr;
+    clearProperties();
+
+    const QList<CanvasItem*> items = allCanvasItems();
+    for (CanvasItem *item : items)
+        item->deleteLater();
+    qApp->processEvents();
+
+    if (m_bindingMgr)
+        m_bindingMgr->clearBindings();
+    if (m_variableModel)
+        m_variableModel->clearVariables();
+
+    if (ui->variableView && ui->variableView->selectionModel()) {
+        ui->variableView->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
+        ui->variableView->selectionModel()->clearSelection();
+    }
+    updateVariableActionButtons();
+}
+
+bool MainWindow::restoreProjectFromSnapshot(const QJsonObject &projectObj, QString *errorMessage)
+{
+    const int version = projectObj.value("version").toInt(1);
+    if (version > ProjectFileManager::kCurrentVersion) {
+        if (errorMessage) {
+            *errorMessage = tr("Project version %1 is not supported (max %2).")
+                                .arg(version)
+                                .arg(ProjectFileManager::kCurrentVersion);
+        }
+        return false;
+    }
+
+    clearProjectState();
+
+    if (m_variableModel) {
+        const QJsonArray variableArray = projectObj.value("variables").toArray();
+        for (const QJsonValue &value : variableArray) {
+            Variable variable;
+            if (!ProjectFileManager::deserializeVariable(value.toObject(), &variable)) {
+                qWarning() << "skip invalid variable entry:" << value;
+                continue;
+            }
+            if (m_variableModel->hasVariableId(variable.id)) {
+                qWarning() << "duplicate variable id:" << variable.id;
+                continue;
+            }
+            m_variableModel->addVariable(variable);
+        }
+    }
+
+    SerialPortConfig cfg;
+    if (ProjectFileManager::deserializeSerialConfig(projectObj.value("modbus").toObject(), &cfg)) {
+        if (m_serialDataSource)
+            m_serialDataSource->setConfig(cfg);
+        if (m_modbusDataSource)
+            m_modbusDataSource->setConfig(cfg);
+        m_modbusConfigs.clear();
+        m_modbusConfigs.push_back(cfg);
+        applySerialConfigToPanels(cfg);
+        refreshDataSourceTreeDeferred();
+    }
+
+    QHash<QString, CanvasItem*> itemsById;
+    const QJsonArray itemArray = projectObj.value("canvas").toObject().value("items").toArray();
+    for (const QJsonValue &value : itemArray) {
+        ProjectCanvasItemData itemData;
+        if (!ProjectFileManager::deserializeCanvasItem(value.toObject(), &itemData)) {
+            qWarning() << "skip invalid canvas item entry";
+            continue;
+        }
+
+        CanvasItem *item = ComponentFactory::create(itemData.type, ui->canvasView);
+        if (!item) {
+            qWarning() << "unknown component type:" << itemData.type;
+            continue;
+        }
+        item->setBindingManager(m_bindingMgr);
+        item->setItemId(itemData.id);
+        item->setGeometry(itemData.geometry);
+        item->setVisible(itemData.visible);
+        item->show();
+        itemsById.insert(item->itemId(), item);
+
+        connect(item, &CanvasItem::selected, this, [=](CanvasItem* it){
+            if (m_currentItem && m_currentItem != it)
+                m_currentItem->setSelected(false);
+            m_currentItem = it;
+            m_currentItem->setSelected(true);
+            showProperties(it);
+        });
+        connect(item, &QObject::destroyed, this, [this, item]() {
+            if (m_currentItem == item) {
+                m_currentItem = nullptr;
+                clearProperties();
+            }
+        });
+
+        for (auto it = itemData.properties.cbegin(); it != itemData.properties.cend(); ++it)
+            item->setPropertyValue(it.key(), it.value());
+    }
+
+    // 绑定在属性恢复后再次补建，确保运行态订阅完整。
+    for (const QJsonValue &value : itemArray) {
+        ProjectCanvasItemData itemData;
+        if (!ProjectFileManager::deserializeCanvasItem(value.toObject(), &itemData))
+            continue;
+        CanvasItem *item = itemsById.value(itemData.id, nullptr);
+        if (!item)
+            continue;
+        for (const ProjectBindingData &binding : itemData.bindings) {
+            if (binding.varId.trimmed().isEmpty() || binding.property.trimmed().isEmpty())
+                continue;
+            QString bindKey = "varId";
+            if (binding.property.startsWith("value")) {
+                bindKey = binding.property;
+                bindKey.replace(0, 5, "varId");
+            }
+            item->setPropertyValue(bindKey, binding.varId);
+        }
+    }
+
+    applyCanvasTheme(projectObj.value("uiState").toObject().value("darkCanvasMode").toBool(false));
+    on_pushOfDesign_clicked();
+    updateVariableViewColumns();
+    refreshDataSourceTreeDeferred();
+    return true;
+}
+
+void MainWindow::on_pushOfSave_clicked()
+{
+    const QString fileName = QFileDialog::getSaveFileName(
+        this,
+        tr("Save Project"),
+        QDir::homePath() + "/project.cstudio",
+        tr("ConfigStudio Project (*.cstudio);;JSON (*.json)"));
+    if (fileName.isEmpty())
+        return;
+
+    const QJsonDocument document(buildProjectSnapshot());
+    QSaveFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        QMessageBox::critical(this, tr("Save Project"), tr("Failed to open file: %1").arg(file.errorString()));
+        return;
+    }
+
+    file.write(document.toJson(QJsonDocument::Indented));
+    if (!file.commit()) {
+        QMessageBox::critical(this, tr("Save Project"), tr("Failed to save file: %1").arg(file.errorString()));
+        return;
+    }
+    QMessageBox::information(this, tr("Save Project"), tr("Project saved successfully."));
+}
+
+void MainWindow::on_pushOfLoad_clicked()
+{
+    const QString fileName = QFileDialog::getOpenFileName(
+        this,
+        tr("Load Project"),
+        QDir::homePath(),
+        tr("ConfigStudio Project (*.cstudio *.json);;All Files (*.*)"));
+    if (fileName.isEmpty())
+        return;
+
+    const int answer = QMessageBox::question(
+        this,
+        tr("Load Project"),
+        tr("Current project will be cleared. Continue loading?"),
+        QMessageBox::Yes | QMessageBox::No,
+        QMessageBox::No);
+    if (answer != QMessageBox::Yes)
+        return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QMessageBox::critical(this, tr("Load Project"), tr("Failed to open file: %1").arg(file.errorString()));
+        return;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        QMessageBox::critical(this, tr("Load Project"), tr("JSON parse error: %1").arg(parseError.errorString()));
+        return;
+    }
+
+    QString errorMessage;
+    if (!restoreProjectFromSnapshot(document.object(), &errorMessage)) {
+        QMessageBox::critical(this, tr("Load Project"), tr("Load failed: %1").arg(errorMessage));
+        return;
+    }
+    QMessageBox::information(this, tr("Load Project"), tr("Project loaded successfully."));
+}
 
 void MainWindow::on_pushOfDatasrc_clicked()
 {
