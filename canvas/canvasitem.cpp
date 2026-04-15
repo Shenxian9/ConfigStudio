@@ -1,9 +1,11 @@
 #include "canvasitem.h"
 #include <QPainter>
+#include <QUuid>
 
 CanvasItem::CanvasItem(QWidget *parent)
     : QWidget(parent)
 {
+    m_itemId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     setAttribute(Qt::WA_DeleteOnClose);
 
     m_selectionFrame = new QFrame(this);
@@ -17,6 +19,13 @@ CanvasItem::CanvasItem(QWidget *parent)
     m_resizeHandleOverlay->hide();
 
     updateSelectionOverlay();
+}
+
+void CanvasItem::setItemId(const QString &id)
+{
+    const QString normalized = id.trimmed();
+    if (!normalized.isEmpty())
+        m_itemId = normalized;
 }
 
 void CanvasItem::setSelected(bool sel)

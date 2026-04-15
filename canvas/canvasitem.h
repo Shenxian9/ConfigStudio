@@ -9,6 +9,7 @@
 #include <QStyleOption>
 #include <QChildEvent>
 #include <QFrame>
+#include <QString>
 class DataBindingManager;
 
 class CanvasItem : public QWidget {
@@ -26,6 +27,8 @@ public:
     void setBindingManager(DataBindingManager* mgr) { m_bindingMgr = mgr; }
     void setEditLocked(bool locked);
     bool isEditLocked() const { return m_editLocked; }
+    QString itemId() const { return m_itemId; }
+    void setItemId(const QString &id);
 
 
 signals:
@@ -44,6 +47,7 @@ protected:
 
     DataBindingManager* m_bindingMgr = nullptr;
 private:
+    QString m_itemId;
     bool m_selected = false;
 
     // Resize handle

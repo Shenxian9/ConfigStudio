@@ -27,6 +27,7 @@
 #include <QSet>
 #include <QHash>
 #include <QVector>
+#include <QJsonObject>
 #include <functional>
 class QLabel;
 
@@ -42,6 +43,7 @@ class QLabel;
 #include "modbusrtudatasource.h"
 #include "virtualkeyboardhost.h"
 #include "optioncyclebutton.h"
+#include "projectfilemanager.h"
 namespace Ui {
 class MainWindow;
 }
@@ -90,6 +92,8 @@ private slots:
     void applyVariableFromPanel();
     void updateVariableActionButtons();
     void applyDataSourceMode();
+    void on_pushOfSave_clicked();
+    void on_pushOfLoad_clicked();
 
 public:
     SerialDataSource *serialDataSourceForTest() const { return m_serialDataSource; }
@@ -115,6 +119,11 @@ private:
     void appendConnectionLog(const QString &message);
     void ensureExitConfirmPanel();
     void performSafeExit();
+    QList<CanvasItem*> allCanvasItems() const;
+    QJsonObject buildProjectSnapshot() const;
+    bool restoreProjectFromSnapshot(const QJsonObject &projectObj, QString *errorMessage = nullptr);
+    void clearProjectState();
+    void applySerialConfigToPanels(const SerialPortConfig &cfg);
 
     void showProperties(CanvasItem *item);
     void clearProperties();
