@@ -59,8 +59,9 @@ include($$PWD/datasrc/datasrc.pri)
 
 RESOURCES += resources/resources.qrc
 
-# 配置远程部署路径
-unix:!android: target.path = /opt/$${TARGET}/bin
+# Default rules for deployment.
+qnx: target.path = /tmp/$${TARGET}/bin
+else: unix:!android: target.path = /userdata
 !isEmpty(target.path): INSTALLS += target
 
 DISTFILES += \

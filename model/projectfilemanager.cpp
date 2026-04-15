@@ -248,7 +248,7 @@ bool ProjectFileManager::fromJson(const QJsonObject &obj, ProjectData *project, 
         item.visible = itemObj.value("visible").toBool(true);
 
         const QJsonObject propsObj = itemObj.value("properties").toObject();
-        for (auto pit = propsObj.cbegin(); pit != propsObj.cend(); ++pit)
+        for (auto pit = propsObj.begin(); pit != propsObj.end(); ++pit)
             item.properties.insert(pit.key(), jsonToVariant(pit.value()));
 
         const QJsonArray bindings = itemObj.value("bindings").toArray();

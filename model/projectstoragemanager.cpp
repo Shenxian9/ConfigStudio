@@ -15,7 +15,7 @@ ProjectStorageManager::ProjectStorageManager(QObject *parent)
 
 QString ProjectStorageManager::projectRootDir() const
 {
-    return QStringLiteral("/userdata/ConfigStudio/projects/");
+    return QStringLiteral("/userdata/ConfigStudioProjects");
 }
 
 bool ProjectStorageManager::ensureProjectDir(QString *err) const
