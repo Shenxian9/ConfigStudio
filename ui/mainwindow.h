@@ -42,6 +42,7 @@ class QLabel;
 #include "modbusrtudatasource.h"
 #include "virtualkeyboardhost.h"
 #include "optioncyclebutton.h"
+#include "projectfilemanager.h"
 namespace Ui {
 class MainWindow;
 }
@@ -82,6 +83,8 @@ private slots:
     void on_pushOfDesign_clicked();
     void on_pushOfExit_clicked();
     void on_pushOfL_D_clicked();
+    void on_pushOfSave_clicked();
+    void on_pushOfLoad_clicked();
     void showSerialConfigDialog();
     void applySerialConfigFromPanel();
     void showAddVariableDialog();
@@ -115,6 +118,11 @@ private:
     void appendConnectionLog(const QString &message);
     void ensureExitConfirmPanel();
     void performSafeExit();
+    ProjectData buildProjectDataSnapshot();
+    bool restoreProjectData(const ProjectData &project, QString *errorText);
+    void clearCurrentProjectState();
+    QString ensureCanvasItemId(CanvasItem *item);
+    void applySerialConfigToPanels(const SerialPortConfig &cfg);
 
     void showProperties(CanvasItem *item);
     void clearProperties();

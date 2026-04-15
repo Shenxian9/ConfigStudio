@@ -65,6 +65,33 @@ void DataBindingManager::unbind(const QString& varId, CanvasItem* item, const QS
         m_bindings.remove(varId);
 }
 
+void DataBindingManager::clear()
+{
+    m_bindings.clear();
+}
+
+QVector<DataBindingManager::BindingSnapshot> DataBindingManager::snapshot() const
+{
+    QVector<BindingSnapshot> out;
+    for (auto it = m_bindings.cbegin(); it != m_bindings.cend(); ++it) {
+        const QString &varId = it.key();
+        const QList<Binding> &bindings = it.value();
+        for (const Binding &binding : bindings) {
+            if (!binding.item)
+                continue;
+            const QString itemId = binding.item->objectName().trimmed();
+            if (itemId.isEmpty())
+                continue;
+            BindingSnapshot snap;
+            snap.varId = varId;
+            snap.itemId = itemId;
+            snap.property = binding.property;
+            out.push_back(snap);
+        }
+    }
+    return out;
+}
+
 
 
 bool DataBindingManager::publishValue(const QString& varId, const QVariant& value)

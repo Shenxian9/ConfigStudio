@@ -285,3 +285,17 @@ QStringList VariableModel::variableIds() const
         ids.append(var.id);
     return ids;
 }
+
+QVector<Variable> VariableModel::variables() const
+{
+    return m_vars;
+}
+
+void VariableModel::clear()
+{
+    if (m_vars.isEmpty())
+        return;
+    beginResetModel();
+    m_vars.clear();
+    endResetModel();
+}

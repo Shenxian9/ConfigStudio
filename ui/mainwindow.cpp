@@ -25,6 +25,10 @@
 #include <QIntValidator>
 #include <QMouseEvent>
 #include <QScroller>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QRegularExpression>
+#include <QUuid>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -1774,9 +1778,276 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
     QTimer::singleShot(0, this, [this]() { refreshActionButtonIcons(); });
 }
 
+QString MainWindow::ensureCanvasItemId(CanvasItem *item)
+{
+    if (!item)
+        return QString();
+    QString id = item->objectName().trimmed();
+    if (!id.isEmpty())
+        return id;
+    id = QStringLiteral("item_%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+    item->setObjectName(id);
+    return id;
+}
 
+void MainWindow::applySerialConfigToPanels(const SerialPortConfig &cfg)
+{
+    if (!m_serialDeviceEdit || !m_serialPortEdit || !m_serialBaudCombo || !m_dataBitsCombo
+        || !m_parityCombo || !m_stopBitsCombo || !m_slaveIdSpin || !m_timeoutSpin
+        || !m_retrySpin || !m_pollIntervalSpin || !m_functionCodeCombo)
+        return;
 
-\
+    QSignalBlocker b0(m_serialDeviceEdit);
+    QSignalBlocker b1(m_serialPortEdit);
+    QSignalBlocker b2(m_serialBaudCombo);
+    QSignalBlocker b3(m_dataBitsCombo);
+    QSignalBlocker b4(m_parityCombo);
+    QSignalBlocker b5(m_stopBitsCombo);
+    QSignalBlocker b6(m_slaveIdSpin);
+    QSignalBlocker b7(m_timeoutSpin);
+    QSignalBlocker b8(m_retrySpin);
+    QSignalBlocker b9(m_pollIntervalSpin);
+    QSignalBlocker b10(m_functionCodeCombo);
+
+    m_serialDeviceEdit->setText(cfg.deviceId);
+    m_serialPortEdit->setText(cfg.portName);
+    m_serialBaudCombo->setCurrentText(QString::number(cfg.baudRate));
+    m_dataBitsCombo->setCurrentText(QString::number(static_cast<int>(cfg.dataBits)));
+    m_parityCombo->setCurrentIndex(cfg.parity == QSerialPort::EvenParity ? 1 : (cfg.parity == QSerialPort::OddParity ? 2 : 0));
+    m_stopBitsCombo->setCurrentIndex(cfg.stopBits == QSerialPort::TwoStop ? 1 : 0);
+    m_slaveIdSpin->setValue(cfg.slaveId);
+    m_timeoutSpin->setValue(cfg.timeoutMs);
+    m_retrySpin->setValue(cfg.retryCount);
+    m_pollIntervalSpin->setValue(cfg.pollIntervalMs);
+    switch (cfg.defaultFunctionCode) {
+    case 4: m_functionCodeCombo->setCurrentIndex(1); break;
+    case 6: m_functionCodeCombo->setCurrentIndex(2); break;
+    case 16: m_functionCodeCombo->setCurrentIndex(3); break;
+    case 3:
+    default:
+        m_functionCodeCombo->setCurrentIndex(0);
+        break;
+    }
+}
+
+ProjectData MainWindow::buildProjectDataSnapshot()
+{
+    ProjectData project;
+    project.version = ProjectFileManager::kCurrentVersion;
+    project.canvasWidth = m_canvas ? m_canvas->width() : 0;
+    project.canvasHeight = m_canvas ? m_canvas->height() : 0;
+    project.variables = m_variableModel ? m_variableModel->variables() : QVector<Variable>{};
+    project.modbus = m_serialDataSource ? m_serialDataSource->config() : SerialPortConfig{};
+
+    QHash<QString, QVector<ProjectBindingData>> bindingsByItem;
+    if (m_bindingMgr) {
+        const QVector<DataBindingManager::BindingSnapshot> snapshots = m_bindingMgr->snapshot();
+        for (const DataBindingManager::BindingSnapshot &snap : snapshots) {
+            ProjectBindingData binding;
+            binding.varId = snap.varId;
+            binding.property = snap.property;
+            bindingsByItem[snap.itemId].push_back(binding);
+        }
+    }
+
+    const QList<CanvasItem*> canvasItems = m_canvas ? m_canvas->items() : QList<CanvasItem*>{};
+    static const QRegularExpression varIdKeyRe("^varId(\\d*)$");
+    for (CanvasItem *item : canvasItems) {
+        if (!item)
+            continue;
+        ProjectItemData itemData;
+        itemData.id = ensureCanvasItemId(item);
+        itemData.type = item->type();
+        itemData.x = item->x();
+        itemData.y = item->y();
+        itemData.width = item->width();
+        itemData.height = item->height();
+        itemData.z = item->property("zValue").toDouble();
+        itemData.rotation = item->property("rotation").toDouble();
+        itemData.visible = item->isVisible();
+        itemData.properties = item->properties();
+        itemData.bindings = bindingsByItem.value(itemData.id);
+
+        for (auto it = itemData.properties.cbegin(); it != itemData.properties.cend(); ++it) {
+            const QRegularExpressionMatch match = varIdKeyRe.match(it.key());
+            if (!match.hasMatch())
+                continue;
+            const QString varId = it.value().toString().trimmed();
+            if (varId.isEmpty())
+                continue;
+            ProjectBindingData bind;
+            bind.varId = varId;
+            bind.property = match.captured(1).isEmpty() ? QStringLiteral("value")
+                                                         : QStringLiteral("value%1").arg(match.captured(1));
+            const bool exists = std::any_of(itemData.bindings.cbegin(), itemData.bindings.cend(),
+                                            [&](const ProjectBindingData &existing) {
+                                                return existing.varId == bind.varId && existing.property == bind.property;
+                                            });
+            if (!exists)
+                itemData.bindings.push_back(bind);
+        }
+
+        project.items.push_back(itemData);
+    }
+
+    return project;
+}
+
+void MainWindow::clearCurrentProjectState()
+{
+    hideDataWorkspacePanels();
+    if (m_modbusDataSource)
+        m_modbusDataSource->close();
+    if (m_serialDataSource)
+        m_serialDataSource->close();
+    if (m_canvas)
+        m_canvas->clearSelection();
+
+    clearProperties();
+    m_currentItem = nullptr;
+
+    if (m_bindingMgr)
+        m_bindingMgr->clear();
+
+    const QList<CanvasItem*> canvasItems = m_canvas ? m_canvas->items() : QList<CanvasItem*>{};
+    for (CanvasItem *item : canvasItems) {
+        if (item)
+            item->deleteLater();
+    }
+    qApp->processEvents();
+
+    if (m_variableModel)
+        m_variableModel->clear();
+    if (ui->variableView && ui->variableView->selectionModel())
+        ui->variableView->selectionModel()->clearSelection();
+
+    m_loggedFirstReadVarIds.clear();
+    m_lastCommStatus.clear();
+    if (ui->connectionLogView)
+        ui->connectionLogView->clear();
+}
+
+bool MainWindow::restoreProjectData(const ProjectData &project, QString *errorText)
+{
+    clearCurrentProjectState();
+
+    if (!m_variableModel || !m_canvas) {
+        if (errorText) *errorText = tr("Core objects are not initialized.");
+        return false;
+    }
+
+    for (const Variable &var : project.variables)
+        m_variableModel->addVariable(var);
+
+    const SerialPortConfig cfg = project.modbus;
+    m_modbusConfigs.clear();
+    m_modbusConfigs.push_back(cfg);
+    if (m_serialDataSource)
+        m_serialDataSource->setConfig(cfg);
+    if (m_modbusDataSource)
+        m_modbusDataSource->setConfig(cfg);
+    applySerialConfigToPanels(cfg);
+    refreshDataSourceTreeDeferred();
+
+    QHash<QString, CanvasItem*> itemById;
+    for (const ProjectItemData &itemData : project.items) {
+        if (itemData.type.trimmed().isEmpty()) {
+            qWarning() << "Project load skipped item with empty type:" << itemData.id;
+            continue;
+        }
+        CanvasItem *item = m_canvas->addItem(itemData.type,
+                                             QRect(itemData.x, itemData.y, qMax(20, itemData.width), qMax(20, itemData.height)),
+                                             itemData.id);
+        if (!item) {
+            qWarning() << "Unknown component type in project:" << itemData.type;
+            continue;
+        }
+        item->setVisible(itemData.visible);
+        item->setProperty("rotation", itemData.rotation);
+        item->setProperty("zValue", itemData.z);
+        for (auto pit = itemData.properties.cbegin(); pit != itemData.properties.cend(); ++pit)
+            item->setPropertyValue(pit.key(), pit.value());
+        itemById.insert(itemData.id, item);
+    }
+
+    if (m_bindingMgr)
+        m_bindingMgr->clear();
+    for (const ProjectItemData &itemData : project.items) {
+        CanvasItem *item = itemById.value(itemData.id, nullptr);
+        if (!item || !m_bindingMgr)
+            continue;
+        for (const ProjectBindingData &binding : itemData.bindings) {
+            if (binding.varId.trimmed().isEmpty() || binding.property.trimmed().isEmpty()) {
+                qWarning() << "Skipped invalid binding in item" << itemData.id << binding.varId << binding.property;
+                continue;
+            }
+            m_bindingMgr->bind(binding.varId.trimmed(), item, binding.property.trimmed());
+            QVariant value;
+            if (m_bindingMgr->currentValue(binding.varId.trimmed(), &value))
+                item->setPropertyValue(binding.property.trimmed(), value);
+        }
+    }
+
+    on_pushOfDesign_clicked();
+    updateVariableActionButtons();
+    updateDataSourceActionButtons();
+    m_canvas->update();
+    return true;
+}
+
+void MainWindow::on_pushOfSave_clicked()
+{
+    const QString filePath = QFileDialog::getSaveFileName(
+        this, tr("Save Project"), QString(),
+        tr("ConfigStudio Project (*.cstudio);;JSON (*.json)"));
+    if (filePath.isEmpty())
+        return;
+
+    QString normalizedPath = filePath;
+    if (!normalizedPath.endsWith(".cstudio", Qt::CaseInsensitive)
+        && !normalizedPath.endsWith(".json", Qt::CaseInsensitive)) {
+        normalizedPath += ".cstudio";
+    }
+
+    const ProjectData project = buildProjectDataSnapshot();
+    QString errorText;
+    if (!ProjectFileManager::saveProject(normalizedPath, project, &errorText)) {
+        qWarning() << "Save project failed:" << errorText;
+        QMessageBox::warning(this, tr("Save Project"), tr("Save failed: %1").arg(errorText));
+        return;
+    }
+    QMessageBox::information(this, tr("Save Project"), tr("Project saved successfully:\n%1").arg(normalizedPath));
+}
+
+void MainWindow::on_pushOfLoad_clicked()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        this, tr("Load Project"), QString(),
+        tr("ConfigStudio Project (*.cstudio *.json)"));
+    if (filePath.isEmpty())
+        return;
+
+    const auto reply = QMessageBox::question(
+        this, tr("Load Project"),
+        tr("Load project from:\n%1\n\nCurrent project will be cleared. Continue?").arg(filePath),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (reply != QMessageBox::Yes)
+        return;
+
+    ProjectData project;
+    QString errorText;
+    if (!ProjectFileManager::loadProject(filePath, &project, &errorText)) {
+        qWarning() << "Load project failed:" << errorText;
+        QMessageBox::warning(this, tr("Load Project"), tr("Load failed: %1").arg(errorText));
+        return;
+    }
+    if (!restoreProjectData(project, &errorText)) {
+        qWarning() << "Apply project failed:" << errorText;
+        QMessageBox::warning(this, tr("Load Project"), tr("Restore failed: %1").arg(errorText));
+        return;
+    }
+    QMessageBox::information(this, tr("Load Project"), tr("Project loaded successfully."));
+}
 
 void MainWindow::on_pushOfDatasrc_clicked()
 {
