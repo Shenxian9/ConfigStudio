@@ -80,6 +80,12 @@ private slots:
     void applyDataSourceMode();
 
 private:
+    void setupInitialWindowState();
+    void setupPaletteAndActionButtons();
+    void setupCanvasConnections();
+    void setupVariableView();
+    void applyWorkbenchStyles();
+    void seedDemoVariablesIfEnabled();
     void setupDataWorkspace();
     void setupDataWorkspacePanels();
     int selectedDataSourceRow() const;

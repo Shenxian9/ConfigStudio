@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "palettebinder.h"
+#include "iconlabel.h"
 
 #include <QSignalBlocker>
 #include <QPointer>
@@ -156,78 +157,9 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    qApp->installEventFilter(this);
-    if (ui->connectionLogView) {
-        ui->connectionLogView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        ui->connectionLogView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        ui->connectionLogView->setLineWrapMode(QTextEdit::WidgetWidth);
-        QScroller::grabGesture(ui->connectionLogView->viewport(), QScroller::LeftMouseButtonGesture);
-    }
-    propDiagLog(QString("MainWindow init, platform=%1").arg(QGuiApplication::platformName()));
-    QScreen *screen = QApplication::primaryScreen();
-    QSize size = screen->size();
-
-    qDebug() << QGuiApplication::platformName();
-    qDebug() << qApp->inputMethod()->isVisible();
-
-    resize(size.width(),size.height());//720x1280
-    move(0, 0);
-
-
-
-
-
-
-    PaletteBinder *binder = new PaletteBinder(this);
-    binder->bind(ui->labelOfPlot,  "plot");
-    ui->labelOfPlot->setIcon(":/icons/plot.png");
-    binder->bind(ui->labelOfDial,  "dial");
-    ui->labelOfDial->setIcon(":/icons/dial.png");
-    binder->bind(ui->labelOfThermo,  "thermo");
-    ui->labelOfThermo->setIcon(":/icons/bar.png");
-    binder->bind(ui->labelOfSlider,  "slider");
-    ui->labelOfSlider->setIcon(":/icons/slider.png");
-    binder->bind(ui->labelOfText,  "text");
-    ui->labelOfText->setIcon(":/icons/text.png");
-    binder->bind(ui->labelOfHistogram,  "histogram");
-    ui->labelOfHistogram->setIcon(":/icons/histogram.png");
-    binder->bind(ui->labelOfSwitch,  "switch");
-    ui->labelOfSwitch->setIcon(":/icons/switch.png");
-    binder->bind(ui->labelOfWheel,  "wheel");
-    ui->labelOfWheel->setIcon(":/icons/wheel.png");
-    binder->bind(ui->labelOfIndicator,  "indicator");
-    ui->labelOfIndicator->setIcon(":/icons/indicator.png");
-    binder->bind(ui->labelOfNumeric,  "numeric");
-    ui->labelOfNumeric->setIcon(":/icons/numeric.png");
-    setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
-    setupIconButton(ui->deleteButton, ":/icons/delete.png");
-    setupIconButton(ui->pushOfDatasrc, ":/icons/datasource.png");
-
-    setupIconButton(ui->pushOfSave, ":/icons/Save.png");
-    setupIconButton(ui->pushOfLoad, ":/icons/Load.png");
-    setupIconButton(ui->pushOfExit, ":/icons/Exit Program.png");
-    refreshActionButtonIcons();
-    //ui->pushOfL_D->setText("darkmode");
-    applyCanvasTheme(false);
-    QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
-
-    connect(ui->canvasView, &CanvasView::itemSelected,
-            this, &MainWindow::onItemSelected);
-
-    connect(ui->propertyTable, &QTableWidget::cellChanged,
-            this, &MainWindow::onPropertyChanged);
-
-    // 属性表本体不走输入法，文本输入统一通过弹窗处理（Wayland/IME 更稳定）
-    ui->propertyTable->setAttribute(Qt::WA_InputMethodEnabled, false);
-
-    connect(ui->propertyTable, &QTableWidget::cellClicked,
-            this, &MainWindow::editPropertyCell);
-
-    connect(ui->deleteButton, &QPushButton::clicked,
-            this, &MainWindow::on_deleteButton_clicked);
-
-    connect(ui->canvasView, &CanvasView::emptyAreaClicked,
-            this, &MainWindow::clearProperties);
+    setupInitialWindowState();
+    setupPaletteAndActionButtons();
+    setupCanvasConnections();
 
     // ① 数据模型
     m_variableModel = new VariableModel(this);
@@ -244,6 +176,96 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_canvas = ui->canvasView;
 
+    applyWorkbenchStyles();
+    setupVariableView();
+    qDebug() << "Main model =" << m_variableModel;
+    seedDemoVariablesIfEnabled();
+
+    setupDataWorkspace();
+    m_projectStorage = new ProjectStorageManager(this);
+    QString dirErr;
+    if (!m_projectStorage->ensureProjectDir(&dirErr)) {
+        qWarning() << "Project directory init failed:" << dirErr;
+        showErrorNotice(tr("Project Storage"), dirErr);
+    }
+
+    // 启动仿真
+    m_runtimeSimulator = new RuntimeSimulator(m_variableModel, this);
+    m_runtimeSimulator->start(300);
+
+
+}
+
+void MainWindow::setupInitialWindowState()
+{
+    qApp->installEventFilter(this);
+    if (ui->connectionLogView) {
+        ui->connectionLogView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        ui->connectionLogView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        ui->connectionLogView->setLineWrapMode(QTextEdit::WidgetWidth);
+        QScroller::grabGesture(ui->connectionLogView->viewport(), QScroller::LeftMouseButtonGesture);
+    }
+
+    propDiagLog(QString("MainWindow init, platform=%1").arg(QGuiApplication::platformName()));
+    if (QScreen *screen = QApplication::primaryScreen()) {
+        const QSize size = screen->size();
+        resize(size.width(), size.height());
+        move(0, 0);
+    }
+
+    qDebug() << QGuiApplication::platformName();
+    qDebug() << qApp->inputMethod()->isVisible();
+}
+
+void MainWindow::setupPaletteAndActionButtons()
+{
+    auto *binder = new PaletteBinder(this);
+    const QList<QPair<IconLabel *, QPair<QString, QString>>> paletteItems = {
+        {ui->labelOfPlot, {"plot", ":/icons/plot.png"}},
+        {ui->labelOfDial, {"dial", ":/icons/dial.png"}},
+        {ui->labelOfThermo, {"thermo", ":/icons/bar.png"}},
+        {ui->labelOfSlider, {"slider", ":/icons/slider.png"}},
+        {ui->labelOfText, {"text", ":/icons/text.png"}},
+        {ui->labelOfHistogram, {"histogram", ":/icons/histogram.png"}},
+        {ui->labelOfSwitch, {"switch", ":/icons/switch.png"}},
+        {ui->labelOfWheel, {"wheel", ":/icons/wheel.png"}},
+        {ui->labelOfIndicator, {"indicator", ":/icons/indicator.png"}},
+        {ui->labelOfNumeric, {"numeric", ":/icons/numeric.png"}},
+    };
+    for (const auto &item : paletteItems) {
+        binder->bind(item.first, item.second.first);
+        item.first->setIcon(item.second.second);
+    }
+
+    const QList<QPair<QPushButton *, QString>> actionButtons = {
+        {ui->buttonOfFullscreen, ":/icons/fullscreen.png"},
+        {ui->deleteButton, ":/icons/delete.png"},
+        {ui->pushOfDatasrc, ":/icons/datasource.png"},
+        {ui->pushOfSave, ":/icons/Save.png"},
+        {ui->pushOfLoad, ":/icons/Load.png"},
+        {ui->pushOfExit, ":/icons/Exit Program.png"},
+    };
+    for (const auto &button : actionButtons)
+        setupIconButton(button.first, button.second);
+
+    refreshActionButtonIcons();
+    applyCanvasTheme(false);
+    QTimer::singleShot(0, this, [this]() { enforceCanvasFrameRatio(); });
+}
+
+void MainWindow::setupCanvasConnections()
+{
+    connect(ui->canvasView, &CanvasView::itemSelected, this, &MainWindow::onItemSelected);
+    connect(ui->propertyTable, &QTableWidget::cellChanged, this, &MainWindow::onPropertyChanged);
+    connect(ui->propertyTable, &QTableWidget::cellClicked, this, &MainWindow::editPropertyCell);
+    connect(ui->deleteButton, &QPushButton::clicked, this, &MainWindow::on_deleteButton_clicked);
+    connect(ui->canvasView, &CanvasView::emptyAreaClicked, this, &MainWindow::clearProperties);
+
+    ui->propertyTable->setAttribute(Qt::WA_InputMethodEnabled, false);
+}
+
+void MainWindow::applyWorkbenchStyles()
+{
     if (ui->modeLabel) {
         QFont modeFont = ui->modeLabel->font();
         modeFont.setPointSize(qMax(10, modeFont.pointSize() - 4));
@@ -252,10 +274,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     if (ui->widget_4) {
         ui->widget_4->setStyleSheet(
-            "QWidget#widget_4 {"
-            "  background: #ffffff;"
-            "  border-right: 2px solid #cfcfcf;"
-            "}");
+            "QWidget#widget_4 { background: #ffffff; border-right: 2px solid #cfcfcf; }");
     }
     if (ui->widget_6) {
         ui->widget_6->setStyleSheet("QWidget#widget_6 { background: #f2f2f2; }");
@@ -272,30 +291,21 @@ MainWindow::MainWindow(QWidget *parent)
         if (ui->variableView->viewport())
             ui->variableView->viewport()->setStyleSheet("background: #f2f2f2;");
     }
+}
 
+void MainWindow::setupVariableView()
+{
     ui->variableView->setModel(m_variableModel);
     ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->variableView->horizontalHeader()->setStretchLastSection(true);
     ui->variableView->horizontalHeader()->setSectionResizeMode(VariableModel::ColValue, QHeaderView::Interactive);
     ui->variableView->setColumnWidth(VariableModel::ColValue, 240);
-
-    // ⭐ 2. 垂直表头隐藏（更干净）
     ui->variableView->verticalHeader()->setVisible(false);
-
-    // ⭐ 3. 行高自适应字体
     ui->variableView->verticalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-
-
-
-    // ⭐ 5. 选中整行
     ui->variableView->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->variableView->setSelectionMode(QAbstractItemView::SingleSelection);
-
-    // ⭐ 6. 禁止编辑时出现虚线框
     ui->variableView->setFocusPolicy(Qt::NoFocus);
-    QFont f;
-    f.setPointSize(14);     // ⭐ 13~15 是这个分辨率的最佳区间
-    ui->variableView->setFont(f);
+    ui->variableView->setFont(QFont(ui->variableView->font().family(), 14));
     ui->variableView->verticalHeader()->setDefaultSectionSize(40);
     ui->variableView->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->variableView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -306,12 +316,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->variableView->selectionModel(), &QItemSelectionModel::currentChanged,
             this, [this](const QModelIndex &, const QModelIndex &) { updateVariableActionButtons(); });
     updateVariableViewColumns();
+}
 
+void MainWindow::seedDemoVariablesIfEnabled()
+{
+    if (!qEnvironmentVariableIsSet("CONFIGSTUDIO_DEMO_DATA"))
+        return;
 
-
-
-    qDebug() << "Main model =" << m_variableModel;
-    // 添加测试变量（关键是 strategy）
     Variable v1;
     v1.id = "1";
     v1.name = "Temp";
@@ -341,7 +352,6 @@ MainWindow::MainWindow(QWidget *parent)
     v4.name = "Variable";
     v4.deviceId = "TEST";
     v4.type = "float";
-    v4.unit = "";
     v4.value = 50.0;
     v4.strategy = DataStrategy::None;
 
@@ -349,20 +359,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_variableModel->addVariable(v2);
     m_variableModel->addVariable(v3);
     m_variableModel->addVariable(v4);
-
-    setupDataWorkspace();
-    m_projectStorage = new ProjectStorageManager(this);
-    QString dirErr;
-    if (!m_projectStorage->ensureProjectDir(&dirErr)) {
-        qWarning() << "Project directory init failed:" << dirErr;
-        showErrorNotice(tr("Project Storage"), dirErr);
-    }
-
-    // 启动仿真
-    m_runtimeSimulator = new RuntimeSimulator(m_variableModel, this);
-    m_runtimeSimulator->start(300);
-
-
 }
 
 void MainWindow::setupDataWorkspace()
