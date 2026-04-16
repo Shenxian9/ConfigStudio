@@ -9,26 +9,10 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++17
 
-
-# INCLUDEPATH += /usr/include/qwt
-# LIBS += -lqwt-qt5
-
-# INCLUDEPATH += /usr/include/qwt
 LIBS += -lqwt
 
-# You can make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
-
 SOURCES += \
-    main.cpp \
-#     mainwindow.cpp
-
-# HEADERS += \
-#     mainwindow.h
-
-# FORMS += \
-#     mainwindow.ui
+    main.cpp
 
 INCLUDEPATH += $$PWD/app
 include($$PWD/app/app.pri)
@@ -49,21 +33,17 @@ include($$PWD/utils/utils.pri)
 INCLUDEPATH += $$PWD/virtualkey
 include($$PWD/virtualkey/virtualkey.pri)
 
-
 INCLUDEPATH += $$PWD/fullscreen
 include($$PWD/fullscreen/fullscreen.pri)
-
 
 INCLUDEPATH += $$PWD/datasrc
 include($$PWD/datasrc/datasrc.pri)
 
 RESOURCES += resources/resources.qrc
 
-# Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /userdata
 !isEmpty(target.path): INSTALLS += target
 
 DISTFILES += \
     Keyboard.qml
-

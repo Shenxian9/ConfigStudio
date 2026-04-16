@@ -1,52 +1,47 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QWidget>
-#include <QPushButton>
-#include <QApplication>
-#include <QScreen>
-#include <QGraphicsProxyWidget>
-#include <QGraphicsView>
-#include <QDebug>
-#include <QLayout>
-#include <QTimer>
-#include <QGuiApplication>
-#include <QInputMethod>
-#include <QLineEdit>
-#include <QSpinBox>
-#include <QDoubleSpinBox>
-#include <QCheckBox>
-#include <QTableWidget>
-#include <QVBoxLayout>
-#include <QPushButton>
-#include <QHeaderView>
-#include <QQuickWidget>
-#include <QFrame>
-#include <QPointer>
-#include <QStandardItemModel>
-#include <QSet>
 #include <QHash>
+#include <QList>
+#include <QPointer>
+#include <QRect>
+#include <QSet>
+#include <QSize>
+#include <QString>
 #include <QVector>
+#include <QWidget>
 #include <functional>
-class QLabel;
-class QListWidget;
-class QListWidgetItem;
 
-#include "componentpalette.h"
-#include "palettebinder.h"
 #include "canvasitem.h"
-#include "canvasview.h"
-#include "fullscreenview.h"
-#include "runtimewindow.h"
-#include "variablemodel.h"
-#include "runtimesimulator.h"
-#include "serialdatasource.h"
-#include "modbusrtudatasource.h"
-#include "virtualkeyboardhost.h"
-#include "optioncyclebutton.h"
-#include "projectfilemanager.h"
-#include "projectstoragemanager.h"
+#include "datasrc/serialdatasource.h"
+#include "model/projectfilemanager.h"
+#include "model/projectstoragemanager.h"
+
+class QCheckBox;
+class QDoubleSpinBox;
+class QEvent;
+class QFrame;
+class QLabel;
+class QLayout;
+class QLineEdit;
+class QListWidget;
+class QObject;
+class QPushButton;
+class QQuickWidget;
+class QResizeEvent;
+class QSpinBox;
+class QStandardItemModel;
+
+class CanvasView;
+class DataBindingManager;
+class ModbusRtuDataSource;
+class OptionCycleButton;
+class RuntimeSimulator;
+class RuntimeWindow;
+class VariableModel;
+
 namespace Ui {
+
 class MainWindow;
 }
 
@@ -56,7 +51,6 @@ class MainWindow : public QWidget
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
-    // void MainWindow::onItemSelected(CanvasItem *item);
     ~MainWindow();
 
 protected:
@@ -64,22 +58,14 @@ protected:
     void setupIconButton(QPushButton* btn, const QString& iconPath);
     bool eventFilter(QObject *watched, QEvent *event) override;
 
-
 private slots:
     void onCanvasEmptyClicked();
 
     void onItemSelected(CanvasItem *item);
 
-
     void on_deleteButton_clicked();
 
-
     void on_buttonOfFullscreen_clicked();
-
-
-
-
-
 
     void on_pushOfDatasrc_clicked();
 
@@ -168,7 +154,6 @@ private:
     QWidget *m_canvasOriginalParent = nullptr;
 
     QList<int> m_originalStretchList;
-
 
     void editPropertyCell(int row, int col);
 
@@ -261,7 +246,5 @@ private:
     std::function<void()> m_confirmAcceptAction;
 
 };
-
-
 
 #endif // MAINWINDOW_H
