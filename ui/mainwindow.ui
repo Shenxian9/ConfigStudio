@@ -462,7 +462,7 @@
          </property>
          <item>
           <widget class="QWidget" name="widget_4" native="true">
-           <layout class="QVBoxLayout" name="verticalLayout_3" stretch="1,3">
+           <layout class="QVBoxLayout" name="verticalLayout_3" stretch="3,1">
             <property name="spacing">
              <number>0</number>
             </property>
@@ -478,6 +478,9 @@
             <property name="bottomMargin">
              <number>0</number>
             </property>
+            <item>
+             <widget class="QTreeView" name="treeView"/>
+            </item>
             <item>
              <widget class="QWidget" name="widget_5" native="true">
               <layout class="QGridLayout" name="gridLayout_3">
@@ -496,20 +499,7 @@
                <property name="spacing">
                 <number>0</number>
                </property>
-               <item row="0" column="4">
-                <widget class="QPushButton" name="pushButton_2">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>Add/Config </string>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="0">
+               <item row="1" column="1">
                 <widget class="QPushButton" name="pushOfDesign">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -522,20 +512,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="0" column="2">
-                <widget class="QPushButton" name="pushButton_7">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>Remove</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="1" column="0">
+               <item row="0" column="1">
                 <widget class="QPushButton" name="dataSourceModeCombo">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -548,20 +525,7 @@
                  </property>
                 </widget>
                </item>
-               <item row="1" column="4">
-                <widget class="QPushButton" name="pushButton_9">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>Close</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="1" column="2">
+               <item row="0" column="2">
                 <widget class="QPushButton" name="pushButton_8">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -574,11 +538,47 @@
                  </property>
                 </widget>
                </item>
+               <item row="1" column="2">
+                <widget class="QPushButton" name="pushButton_7">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="text">
+                  <string>Remove</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="4">
+                <widget class="QPushButton" name="pushButton_9">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="text">
+                  <string>Close</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="4">
+                <widget class="QPushButton" name="pushButton_2">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="text">
+                  <string>Add/Config </string>
+                 </property>
+                </widget>
+               </item>
               </layout>
              </widget>
-            </item>
-            <item>
-             <widget class="QTreeView" name="treeView"/>
             </item>
            </layout>
           </widget>

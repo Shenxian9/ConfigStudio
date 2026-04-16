@@ -201,7 +201,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupIconButton(ui->buttonOfFullscreen, ":/icons/fullscreen.png");
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
     setupIconButton(ui->pushOfDatasrc, ":/icons/datasource.png");
-    setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
+
     setupIconButton(ui->pushOfSave, ":/icons/Save.png");
     setupIconButton(ui->pushOfLoad, ":/icons/Load.png");
     setupIconButton(ui->pushOfExit, ":/icons/Exit Program.png");
@@ -506,6 +506,7 @@ void MainWindow::setupDataWorkspace()
     ui->dataSourceModeCombo->setObjectName("dataSourceModeCombo");
     m_dataSourceModeCombo = ui->dataSourceModeCombo;
 
+    setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
     setupIconButton(ui->pushButton_2, ":/icons/Add&Config Modbus RTU.png");
     setupIconButton(ui->pushButton_7, ":/icons/Remove Modbus RTU.png");
     setupIconButton(ui->pushButton_8, ":/icons/Start Acquire.png");
