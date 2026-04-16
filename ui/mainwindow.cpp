@@ -2094,6 +2094,18 @@ void MainWindow::ensureProjectPanel()
     m_projectPanelHint->setFont(hintFont);
     layout->addWidget(m_projectPanelHint);
 
+    m_projectStoragePathCombo = new OptionCycleButton(panel);
+    m_projectStoragePathCombo->setMinimumHeight(52);
+    QFont storageFont = m_projectStoragePathCombo->font();
+    storageFont.setPointSize(14);
+    storageFont.setBold(true);
+    m_projectStoragePathCombo->setFont(storageFont);
+    m_projectStoragePathCombo->addItems({
+        QStringLiteral("/userdata/ConfigStuidoProjects"),
+        QStringLiteral("/mnt/usb_storage")
+    });
+    layout->addWidget(m_projectStoragePathCombo);
+
     m_projectNameEdit = new QLineEdit(panel);
     m_projectNameEdit->setPlaceholderText(tr("请输入工程名称"));
     m_projectNameEdit->setMinimumHeight(54);
@@ -2142,6 +2154,8 @@ void MainWindow::ensureProjectPanel()
     connect(m_projectSecondaryBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelSecondaryClicked);
     connect(m_projectDeleteBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelDeleteClicked);
     connect(m_projectCancelBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelCancelClicked);
+    connect(m_projectStoragePathCombo, &OptionCycleButton::currentTextChanged,
+            this, &MainWindow::onProjectStoragePathChanged);
     connect(m_projectListWidget, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
         if (!m_projectPanelSaveMode || !item || !m_projectNameEdit)
             return;
@@ -2229,6 +2243,22 @@ void MainWindow::setProjectPanelStatus(const QString &message, bool isError)
     m_projectPanelStatus->setStyleSheet(isError ? "color:#c62828;" : "color:#1b5e20;");
 }
 
+void MainWindow::applyProjectStorageRoot(const QString &rootPath)
+{
+    if (!m_projectStorage)
+        return;
+
+    m_projectStorage->setProjectRootDir(rootPath);
+    QString dirErr;
+    if (!m_projectStorage->ensureProjectDir(&dirErr)) {
+        qWarning() << "Ensure project directory failed:" << dirErr;
+        setProjectPanelStatus(dirErr, true);
+    } else {
+        setProjectPanelStatus(QString(), false);
+    }
+    refreshProjectPanelList();
+}
+
 void MainWindow::refreshProjectPanelList()
 {
     if (!m_projectStorage || !m_projectListWidget)
@@ -2280,16 +2310,18 @@ void MainWindow::showProjectPanel(bool saveMode)
         return;
     }
 
-    QString dirErr;
-    if (!m_projectStorage->ensureProjectDir(&dirErr)) {
-        qWarning() << "Ensure project directory failed:" << dirErr;
-        setProjectPanelStatus(dirErr, true);
-    } else {
-        setProjectPanelStatus(QString(), false);
+    if (m_projectStoragePathCombo) {
+        const QString currentRoot = m_projectStorage->projectRootDir();
+        if (m_projectStoragePathCombo->currentText() != currentRoot) {
+            QSignalBlocker blocker(m_projectStoragePathCombo);
+            m_projectStoragePathCombo->setCurrentText(currentRoot);
+        }
+        applyProjectStorageRoot(m_projectStoragePathCombo->currentText());
     }
 
     m_projectPanelSaveMode = saveMode;
-    refreshProjectPanelList();
+    if (m_projectStoragePathCombo)
+        m_projectStoragePathCombo->setVisible(true);
 
     if (saveMode) {
         m_projectPanelTitle->setText(tr("保存工程"));
@@ -2304,7 +2336,7 @@ void MainWindow::showProjectPanel(bool saveMode)
         m_projectNameEdit->setText(!m_currentProjectName.isEmpty() ? m_currentProjectName : QString());
     } else {
         m_projectPanelTitle->setText(tr("打开工程"));
-        m_projectPanelHint->setText(tr("请选择要读取的工程文件"));
+        m_projectPanelHint->setText(tr("请选择要读取的工程文件（目录：%1）").arg(m_projectStorage->projectRootDir()));
         m_projectNameEdit->setVisible(false);
         m_projectPrimaryBtn->setText(tr("读取"));
         m_projectSecondaryBtn->setVisible(false);
@@ -2466,6 +2498,20 @@ void MainWindow::onProjectPanelDeleteClicked()
 void MainWindow::onProjectPanelCancelClicked()
 {
     hideProjectPanel();
+}
+
+void MainWindow::onProjectStoragePathChanged(const QString &path)
+{
+    if (path.isEmpty())
+        return;
+
+    applyProjectStorageRoot(path);
+    if (!m_projectPanelHint)
+        return;
+    if (m_projectPanelSaveMode)
+        m_projectPanelHint->setText(tr("工程目录：%1").arg(path));
+    else
+        m_projectPanelHint->setText(tr("请选择要读取的工程文件（目录：%1）").arg(path));
 }
 
 void MainWindow::on_pushOfDatasrc_clicked()

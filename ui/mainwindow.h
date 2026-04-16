@@ -92,6 +92,7 @@ private slots:
     void onProjectPanelSecondaryClicked();
     void onProjectPanelDeleteClicked();
     void onProjectPanelCancelClicked();
+    void onProjectStoragePathChanged(const QString &path);
     void showSerialConfigDialog();
     void applySerialConfigFromPanel();
     void showAddVariableDialog();
@@ -138,6 +139,7 @@ private:
     void refreshProjectPanelList();
     ProjectFileInfo selectedProjectInfo() const;
     void setProjectPanelStatus(const QString &message, bool isError);
+    void applyProjectStorageRoot(const QString &rootPath);
     bool saveProjectToPath(const QString &path, const QString &projectName);
     bool loadProjectFromPath(const QString &path);
     void showConfirmPanel(const QString &title, const QString &message, const std::function<void ()> &onConfirm);
@@ -242,6 +244,7 @@ private:
     QLabel *m_projectPanelTitle = nullptr;
     QLabel *m_projectPanelHint = nullptr;
     QLabel *m_projectPanelStatus = nullptr;
+    OptionCycleButton *m_projectStoragePathCombo = nullptr;
     QLineEdit *m_projectNameEdit = nullptr;
     QListWidget *m_projectListWidget = nullptr;
     QPushButton *m_projectPrimaryBtn = nullptr;

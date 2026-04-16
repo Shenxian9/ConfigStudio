@@ -22,6 +22,7 @@ public:
     explicit ProjectStorageManager(QObject *parent = nullptr);
 
     QString projectRootDir() const;
+    void setProjectRootDir(const QString &path);
     bool ensureProjectDir(QString *err = nullptr) const;
 
     QString normalizeProjectName(const QString &projectName) const;
@@ -36,6 +37,9 @@ public:
 
     bool removeProject(const QString &filePath, QString *err = nullptr) const;
     bool renameProject(const QString &oldPath, const QString &newName, QString *newPath = nullptr, QString *err = nullptr) const;
+
+private:
+    QString m_projectRootDir;
 };
 
 #endif // PROJECTSTORAGEMANAGER_H

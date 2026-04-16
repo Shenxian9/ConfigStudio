@@ -10,12 +10,21 @@
 
 ProjectStorageManager::ProjectStorageManager(QObject *parent)
     : QObject(parent)
+    , m_projectRootDir(QStringLiteral("/userdata/ConfigStuidoProjects"))
 {
 }
 
 QString ProjectStorageManager::projectRootDir() const
 {
-    return QStringLiteral("/userdata/ConfigStudioProjects");
+    return m_projectRootDir;
+}
+
+void ProjectStorageManager::setProjectRootDir(const QString &path)
+{
+    const QString normalized = path.trimmed();
+    if (normalized.isEmpty())
+        return;
+    m_projectRootDir = normalized;
 }
 
 bool ProjectStorageManager::ensureProjectDir(QString *err) const
