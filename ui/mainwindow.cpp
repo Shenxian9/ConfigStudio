@@ -2123,8 +2123,9 @@ void MainWindow::ensureProjectPanel()
     btnLayout->setSpacing(12);
     m_projectPrimaryBtn = new QPushButton(panel);
     m_projectSecondaryBtn = new QPushButton(panel);
+    m_projectDeleteBtn = new QPushButton(tr("删除"), panel);
     m_projectCancelBtn = new QPushButton(tr("取消"), panel);
-    for (QPushButton *btn : {m_projectPrimaryBtn, m_projectSecondaryBtn, m_projectCancelBtn}) {
+    for (QPushButton *btn : {m_projectPrimaryBtn, m_projectSecondaryBtn, m_projectDeleteBtn, m_projectCancelBtn}) {
         btn->setMinimumHeight(54);
         QFont bf = btn->font();
         bf.setPointSize(16);
@@ -2133,11 +2134,13 @@ void MainWindow::ensureProjectPanel()
     }
     btnLayout->addWidget(m_projectPrimaryBtn, 1);
     btnLayout->addWidget(m_projectSecondaryBtn, 1);
+    btnLayout->addWidget(m_projectDeleteBtn, 1);
     btnLayout->addWidget(m_projectCancelBtn, 1);
     layout->addLayout(btnLayout);
 
     connect(m_projectPrimaryBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelPrimaryClicked);
     connect(m_projectSecondaryBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelSecondaryClicked);
+    connect(m_projectDeleteBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelDeleteClicked);
     connect(m_projectCancelBtn, &QPushButton::clicked, this, &MainWindow::onProjectPanelCancelClicked);
     connect(m_projectListWidget, &QListWidget::itemClicked, this, [this](QListWidgetItem *item) {
         if (!m_projectPanelSaveMode || !item || !m_projectNameEdit)
@@ -2296,6 +2299,8 @@ void MainWindow::showProjectPanel(bool saveMode)
         const bool hasCurrentProject = !m_currentProjectFilePath.isEmpty();
         m_projectSecondaryBtn->setVisible(hasCurrentProject);
         m_projectSecondaryBtn->setText(tr("覆盖当前"));
+        m_projectDeleteBtn->setVisible(true);
+        m_projectDeleteBtn->setText(tr("删除工程"));
         m_projectNameEdit->setText(!m_currentProjectName.isEmpty() ? m_currentProjectName : QString());
     } else {
         m_projectPanelTitle->setText(tr("打开工程"));
@@ -2303,6 +2308,7 @@ void MainWindow::showProjectPanel(bool saveMode)
         m_projectNameEdit->setVisible(false);
         m_projectPrimaryBtn->setText(tr("读取"));
         m_projectSecondaryBtn->setVisible(false);
+        m_projectDeleteBtn->setVisible(false);
     }
 
     if (!m_currentProjectFilePath.isEmpty() && m_projectListWidget) {
@@ -2421,6 +2427,40 @@ void MainWindow::onProjectPanelSecondaryClicked()
     showConfirmPanel(tr("覆盖当前工程"),
                      tr("是否覆盖当前工程“%1”？").arg(m_currentProjectName),
                      [this]() { saveProjectToPath(m_currentProjectFilePath, m_currentProjectName); });
+}
+
+void MainWindow::onProjectPanelDeleteClicked()
+{
+    if (!m_projectPanelSaveMode || !m_projectStorage)
+        return;
+
+    const ProjectFileInfo info = selectedProjectInfo();
+    if (info.filePath.isEmpty()) {
+        setProjectPanelStatus(tr("请先在列表中选择要删除的工程。"), true);
+        return;
+    }
+
+    showConfirmPanel(tr("删除工程"),
+                     tr("是否删除工程“%1”？此操作不可恢复。").arg(info.baseName),
+                     [this, info]() {
+                         QString err;
+                         if (!m_projectStorage->removeProject(info.filePath, &err)) {
+                             setProjectPanelStatus(tr("删除失败：%1").arg(err), true);
+                             return;
+                         }
+
+                         if (info.filePath == m_currentProjectFilePath) {
+                             m_currentProjectFilePath.clear();
+                             m_currentProjectName.clear();
+                         }
+
+                         appendConnectionLog(tr("删除工程成功：%1").arg(info.baseName));
+                         refreshProjectPanelList();
+                         if (m_projectNameEdit)
+                             m_projectNameEdit->clear();
+                         m_projectSecondaryBtn->setVisible(!m_currentProjectFilePath.isEmpty());
+                         setProjectPanelStatus(tr("删除成功：%1").arg(info.baseName), false);
+                     });
 }
 
 void MainWindow::onProjectPanelCancelClicked()

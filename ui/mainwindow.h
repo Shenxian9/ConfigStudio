@@ -90,6 +90,7 @@ private slots:
     void on_pushOfLoad_clicked();
     void onProjectPanelPrimaryClicked();
     void onProjectPanelSecondaryClicked();
+    void onProjectPanelDeleteClicked();
     void onProjectPanelCancelClicked();
     void showSerialConfigDialog();
     void applySerialConfigFromPanel();
@@ -245,6 +246,7 @@ private:
     QListWidget *m_projectListWidget = nullptr;
     QPushButton *m_projectPrimaryBtn = nullptr;
     QPushButton *m_projectSecondaryBtn = nullptr;
+    QPushButton *m_projectDeleteBtn = nullptr;
     QPushButton *m_projectCancelBtn = nullptr;
     bool m_projectPanelSaveMode = true;
 
