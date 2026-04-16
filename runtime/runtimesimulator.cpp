@@ -54,8 +54,6 @@ void RuntimeSimulator::tick()
         }
 
 
-        // ⭐ 加在这里
-        //qDebug() << "Simulator set:" << var.id << newValue;
 
 
         m_model->updateValue(i, newValue);

@@ -1,4 +1,0 @@
-#ifndef COMPONENTMETA_H
-#define COMPONENTMETA_H
-
-#endif // COMPONENTMETA_H
