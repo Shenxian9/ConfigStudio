@@ -150,9 +150,10 @@ void setLabelIcon(QLabel* label, const QString& path)
 }
 
 
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(bool landscapeMode, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::MainWindow)
+    , m_landscapeMode(landscapeMode)
 {
     ui->setupUi(this);
     qApp->installEventFilter(this);
@@ -164,13 +165,19 @@ MainWindow::MainWindow(QWidget *parent)
     }
     propDiagLog(QString("MainWindow init, platform=%1").arg(QGuiApplication::platformName()));
     QScreen *screen = QApplication::primaryScreen();
-    QSize size = screen->size();
+    QSize size = screen ? screen->size() : QSize(1280, 720);
+    const QSize landscapeSize(qMax(size.width(), size.height()),
+                              qMin(size.width(), size.height()));
+    const QSize portraitSize(qMin(size.width(), size.height()),
+                             qMax(size.width(), size.height()));
+    const QSize startupSize = m_landscapeMode ? landscapeSize : portraitSize;
 
     qDebug() << QGuiApplication::platformName();
     qDebug() << qApp->inputMethod()->isVisible();
 
-    resize(size.width(),size.height());//720x1280
+    resize(startupSize.width(), startupSize.height());
     move(0, 0);
+    applyWorkspaceOrientation();
 
 
 
@@ -1740,30 +1747,71 @@ void MainWindow::enforceCanvasFrameRatio()
     if (!container)
         return;
 
-    int totalHeight = container->height();
-    if (ui->widget_2)
-        totalHeight = qMax(totalHeight, ui->widget_2->height());
-    if (ui->propertyTable && ui->widget_3)
-        totalHeight = qMax(totalHeight, ui->propertyTable->height() + ui->widget_3->height());
+    const bool horizontalWorkspace = m_landscapeMode;
+    if (horizontalWorkspace) {
+        const int totalWidth = qMax(1, container->width());
+        const int frameWidth = qMax(1, totalWidth / 4);
+        const int canvasWidth = qMax(1, totalWidth - frameWidth);
 
-    if (totalHeight <= 0)
+        ui->canvasView->setMinimumWidth(canvasWidth);
+        ui->canvasView->setMaximumWidth(canvasWidth);
+        ui->frame->setMinimumWidth(frameWidth);
+        ui->frame->setMaximumWidth(frameWidth);
+        ui->canvasView->setMinimumHeight(0);
+        ui->canvasView->setMaximumHeight(QWIDGETSIZE_MAX);
+        ui->frame->setMinimumHeight(0);
+        ui->frame->setMaximumHeight(QWIDGETSIZE_MAX);
+
+        ui->canvasView->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+        ui->frame->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+    } else {
+        int totalHeight = container->height();
+        if (ui->widget_2)
+            totalHeight = qMax(totalHeight, ui->widget_2->height());
+        if (ui->propertyTable && ui->widget_3)
+            totalHeight = qMax(totalHeight, ui->propertyTable->height() + ui->widget_3->height());
+
+        if (totalHeight <= 0)
+            return;
+
+        const int frameHeight = qMax(1, totalHeight / 4);
+        const int canvasHeight = qMax(1, totalHeight - frameHeight);
+        ui->canvasView->setMinimumHeight(canvasHeight);
+        ui->canvasView->setMaximumHeight(canvasHeight);
+        ui->frame->setMinimumHeight(frameHeight);
+        ui->frame->setMaximumHeight(frameHeight);
+        ui->canvasView->setMinimumWidth(0);
+        ui->canvasView->setMaximumWidth(QWIDGETSIZE_MAX);
+        ui->frame->setMinimumWidth(0);
+        ui->frame->setMaximumWidth(QWIDGETSIZE_MAX);
+
+        ui->canvasView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        ui->frame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
+
+    if (auto boxLayout = qobject_cast<QBoxLayout*>(container->layout())) {
+        boxLayout->setStretch(0, 3);
+        boxLayout->setStretch(1, 1);
+    }
+}
+
+void MainWindow::applyWorkspaceOrientation()
+{
+    if (!ui || !ui->widget || !ui->canvasView || !ui->frame)
         return;
 
-    const int frameHeight = qMax(1, totalHeight / 4);
-    const int canvasHeight = qMax(1, totalHeight - frameHeight);
+    auto *boxLayout = qobject_cast<QBoxLayout*>(ui->widget->layout());
+    if (!boxLayout)
+        return;
 
-    // 严格 3:1：无论内部 icon/label 的 sizeHint 如何，都不允许 frame 继续抬高。
-    ui->canvasView->setMinimumHeight(canvasHeight);
-    ui->canvasView->setMaximumHeight(canvasHeight);
-    ui->frame->setMinimumHeight(frameHeight);
-    ui->frame->setMaximumHeight(frameHeight);
-
-    ui->canvasView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    ui->frame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-
-    if (auto vlayout = qobject_cast<QVBoxLayout*>(container->layout())) {
-        vlayout->setStretch(0, 3);
-        vlayout->setStretch(1, 1);
+    if (m_landscapeMode) {
+        boxLayout->setDirection(QBoxLayout::RightToLeft);
+        ui->canvasView->setMinimumSize(800, 480);
+        ui->frame->setMinimumWidth(260);
+    } else {
+        boxLayout->setDirection(QBoxLayout::TopToBottom);
+        ui->canvasView->setMinimumSize(480, 800);
+        ui->frame->setMinimumHeight(180);
     }
 }
 

@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "ui/mainwindow.h"
 #include "canvas/canvasview.h"
 #include <QApplication>
 #include <QLabel>
@@ -12,6 +12,7 @@
 #include <QWidget>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QCommandLineParser>
 #include <qwt_plot.h>
 #include <qwt_plot_curve.h>
 
@@ -26,7 +27,28 @@ int main(int argc, char *argv[])
 
     // 初始化应用对象并显示主窗口。
     QApplication a(argc, argv);
-    MainWindow w;
+    QCommandLineParser parser;
+    parser.setApplicationDescription("ConfigStudio");
+    parser.addHelpOption();
+    QCommandLineOption landscapeOpt(QStringList() << "l" << "landscape",
+                                    "Use landscape workspace layout (default).");
+    QCommandLineOption portraitOpt(QStringList() << "p" << "portrait",
+                                   "Use portrait workspace layout.");
+    parser.addOption(landscapeOpt);
+    parser.addOption(portraitOpt);
+    parser.process(a);
+
+    bool landscapeMode = true;
+    if (qEnvironmentVariableIsSet("CONFIGSTUDIO_LANDSCAPE_MODE")) {
+        const QByteArray env = qgetenv("CONFIGSTUDIO_LANDSCAPE_MODE").trimmed().toLower();
+        landscapeMode = !(env == "0" || env == "false" || env == "off");
+    }
+    if (parser.isSet(portraitOpt))
+        landscapeMode = false;
+    if (parser.isSet(landscapeOpt))
+        landscapeMode = true;
+
+    MainWindow w(landscapeMode);
     w.show();
 
     // 启动时输出关键环境信息，便于排查输入法或平台适配问题。
