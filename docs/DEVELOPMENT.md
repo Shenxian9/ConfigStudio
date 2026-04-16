@@ -1,6 +1,6 @@
-# ConfigStudio 开发与测试指南
+# ConfigStudio 开发指南
 
-> 本文面向二次开发者，给出从环境准备、编译运行到测试与排障的一套可落地流程。
+> 本文面向二次开发者，给出从环境准备、编译运行到排障的一套可落地流程。
 
 ---
 
@@ -42,7 +42,7 @@ ConfigStudio/
 ├── utils/          # 辅助工具
 ├── virtualkey/     # 软键盘与触屏输入相关
 ├── resources/      # 资源文件（图标、qml 等）
-└── tests/          # 单元测试（Qt Test）
+└── docs/           # 开发说明
 ```
 
 ### 2.1 设计态与运行态
@@ -90,36 +90,7 @@ CONFIGSTUDIO_PROP_DIAG=1 ./ConfigStudio
 
 ---
 
-## 4. 测试体系（当前）
-
-当前仓库采用 **Qt Test**，已提供模型层测试目标：`tests/variablemodel_test.cpp`。
-
-### 4.1 测试覆盖点（VariableModel）
-
-- 新增变量后的行列与字段暴露；
-- 列头文本与显示数据一致性；
-- 可编辑列与只读列（`ColValue`）标志约束；
-- `setData` 在合法/非法输入下的行为；
-- `updateValueById` 的命中更新、未命中返回值与信号发射；
-- `valueById` 查询与空指针输出保护。
-
-### 4.2 本地执行步骤
-
-```bash
-qmake tests/variablemodel_test.pro -o tests/Makefile
-make -C tests -j$(nproc)
-./tests/variablemodel_test
-```
-
-### 4.3 常见失败原因
-
-- `qmake: command not found`：未安装 Qt 构建工具；
-- `-lqwt` 链接失败：未安装 Qwt 开发包或库路径未配置；
-- Wayland 焦点/输入异常：优先用内嵌输入控件，减少顶层模态窗口。
-
----
-
-## 5. 新增组件开发清单（Checklist）
+## 4. 新增组件开发清单（Checklist）
 
 新增组件建议按以下步骤执行：
 
@@ -129,11 +100,11 @@ make -C tests -j$(nproc)
 4. **绑定接入**：明确哪些属性可绑定 `varId`；
 5. **重绘反馈**：属性变化后触发 UI 可见更新；
 6. **运行态约束**：遵循 edit-lock，避免运行态误编辑；
-7. **测试补齐**：至少覆盖“属性回写 + 绑定分发 + 边界输入”。
+7. **自测补齐**：至少覆盖“属性回写 + 绑定分发 + 边界输入”。
 
 ---
 
-## 6. 提交流程建议
+## 5. 提交流程建议
 
 ```bash
 git checkout -b feat/xxx
@@ -151,11 +122,10 @@ git commit -m "feat: xxx"
 
 ---
 
-## 7. CI/自动化建议（可选）
+## 6. CI/自动化建议（可选）
 
 后续可增加：
 
 - GitHub Actions（安装 Qt + Qwt 后执行模型层测试）；
 - 提交前钩子（格式检查 + 最小单测）；
 - 覆盖率报告（聚焦 model/runtime 核心逻辑）。
-

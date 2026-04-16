@@ -21,14 +21,7 @@ LIBS += -lqwt
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    main.cpp \
-#     mainwindow.cpp
-
-# HEADERS += \
-#     mainwindow.h
-
-# FORMS += \
-#     mainwindow.ui
+    main.cpp
 
 INCLUDEPATH += $$PWD/app
 include($$PWD/app/app.pri)
@@ -66,4 +59,3 @@ else: unix:!android: target.path = /userdata
 
 DISTFILES += \
     Keyboard.qml
-

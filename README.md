@@ -15,7 +15,6 @@ ConfigStudio 是一个面向工业触控屏/工控机场景的可视化组态应
 - [目录结构](#目录结构)
 - [环境依赖](#环境依赖)
 - [构建与运行](#构建与运行)
-- [测试](#测试)
 - [组件开发指南（简版）](#组件开发指南简版)
 - [嵌入式/触屏注意事项](#嵌入式触屏注意事项)
 - [项目现状与后续规划](#项目现状与后续规划)
@@ -127,8 +126,7 @@ ConfigStudio/
 ├── commands/       # 命令基础设施（可用于撤销重做扩展）
 ├── virtualkey/     # 软键盘与触控输入支持
 ├── resources/      # 图标、资源配置
-├── tests/          # Qt Test 测试
-└── docs/           # 开发与测试文档
+└── docs/           # 开发文档
 ```
 
 ---
@@ -176,23 +174,6 @@ CONFIGSTUDIO_PROP_DIAG=1 ./ConfigStudio
 
 ---
 
-## 测试
-
-当前测试框架为 **Qt Test**，可执行模型层测试：
-
-```bash
-qmake tests/variablemodel_test.pro -o tests/Makefile
-make -C tests -j$(nproc)
-./tests/variablemodel_test
-```
-
-若出现常见错误：
-
-- `qmake: command not found`：缺少 Qt 构建工具；
-- `-lqwt` 链接失败：Qwt 开发包未安装或库路径未配置。
-
----
-
 ## 组件开发指南（简版）
 
 新增组件建议遵循以下约定：
@@ -236,6 +217,6 @@ make -C tests -j$(nproc)
 
 ## 文档索引
 
-- 开发与测试指南：[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
+- 开发指南：[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)
 
 如果你准备进行二次开发，建议先阅读上述文档再进入代码实现。

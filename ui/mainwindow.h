@@ -1,51 +1,39 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QWidget>
-#include <QPushButton>
-#include <QApplication>
-#include <QScreen>
-#include <QGraphicsProxyWidget>
-#include <QGraphicsView>
-#include <QDebug>
-#include <QLayout>
-#include <QTimer>
-#include <QGuiApplication>
-#include <QInputMethod>
-#include <QLineEdit>
-#include <QSpinBox>
-#include <QDoubleSpinBox>
 #include <QCheckBox>
-#include <QTableWidget>
-#include <QVBoxLayout>
-#include <QPushButton>
-#include <QHeaderView>
-#include <QQuickWidget>
+#include <QDoubleSpinBox>
 #include <QFrame>
-#include <QPointer>
-#include <QStandardItemModel>
-#include <QSet>
 #include <QHash>
+#include <QLayout>
+#include <QLineEdit>
+#include <QList>
+#include <QPointer>
+#include <QPushButton>
+#include <QQuickWidget>
+#include <QRect>
+#include <QSet>
+#include <QSize>
+#include <QSpinBox>
+#include <QStandardItemModel>
+#include <QString>
 #include <QVector>
+#include <QWidget>
 #include <functional>
+
 class QLabel;
 class QListWidget;
-class QListWidgetItem;
 
-#include "componentpalette.h"
-#include "palettebinder.h"
 #include "canvasitem.h"
 #include "canvasview.h"
-#include "fullscreenview.h"
-#include "runtimewindow.h"
-#include "variablemodel.h"
-#include "runtimesimulator.h"
-#include "serialdatasource.h"
 #include "modbusrtudatasource.h"
-#include "virtualkeyboardhost.h"
 #include "optioncyclebutton.h"
 #include "projectfilemanager.h"
 #include "projectstoragemanager.h"
+#include "runtimesimulator.h"
+#include "runtimewindow.h"
+#include "serialdatasource.h"
+#include "variablemodel.h"
 namespace Ui {
 class MainWindow;
 }
@@ -56,7 +44,6 @@ class MainWindow : public QWidget
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
-    // void MainWindow::onItemSelected(CanvasItem *item);
     ~MainWindow();
 
 protected:
@@ -64,22 +51,12 @@ protected:
     void setupIconButton(QPushButton* btn, const QString& iconPath);
     bool eventFilter(QObject *watched, QEvent *event) override;
 
-
 private slots:
-    void onCanvasEmptyClicked();
-
     void onItemSelected(CanvasItem *item);
-
 
     void on_deleteButton_clicked();
 
-
     void on_buttonOfFullscreen_clicked();
-
-
-
-
-
 
     void on_pushOfDatasrc_clicked();
 
@@ -101,12 +78,6 @@ private slots:
     void applyVariableFromPanel();
     void updateVariableActionButtons();
     void applyDataSourceMode();
-
-public:
-    SerialDataSource *serialDataSourceForTest() const { return m_serialDataSource; }
-    VariableModel *variableModelForTest() const { return m_variableModel; }
-    ModbusRtuDataSource *modbusDataSourceForTest() const { return m_modbusDataSource; }
-    RuntimeSimulator *runtimeSimulatorForTest() const { return m_runtimeSimulator; }
 
 private:
     void setupDataWorkspace();
@@ -169,7 +140,6 @@ private:
 
     QList<int> m_originalStretchList;
 
-
     void editPropertyCell(int row, int col);
 
     void applyCanvasTheme(bool darkMode);
@@ -229,8 +199,8 @@ private:
     QFrame *m_errorNoticePanel = nullptr;
     QLabel *m_errorNoticeTitleLabel = nullptr;
     QLabel *m_errorNoticeMessageLabel = nullptr;
-    QSet<QWidget*> m_touchInputs;
-    QHash<QObject*, QWidget*> m_touchInputTargets;
+    QSet<QWidget *> m_touchInputs;
+    QHash<QObject *, QWidget *> m_touchInputTargets;
     QWidget *m_touchInputPanel = nullptr;
     QLineEdit *m_touchInputEdit = nullptr;
     std::function<void (const QString&)> m_touchInputApply;
@@ -261,7 +231,5 @@ private:
     std::function<void()> m_confirmAcceptAction;
 
 };
-
-
 
 #endif // MAINWINDOW_H

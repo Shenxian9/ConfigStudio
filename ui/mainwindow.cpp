@@ -273,7 +273,6 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     ui->variableView->setModel(m_variableModel);
-    ui->variableView->setModel(m_variableModel);
     ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     ui->variableView->horizontalHeader()->setStretchLastSection(true);
     ui->variableView->horizontalHeader()->setSectionResizeMode(VariableModel::ColValue, QHeaderView::Interactive);
@@ -1725,16 +1724,6 @@ void MainWindow::on_deleteButton_clicked()
     clearProperties();
 }
 
-
-void MainWindow::onCanvasEmptyClicked()
-{
-    // 1. 取消 Canvas 中的选中项
-    ui->canvasView->clearSelection();
-
-    // 2. 清空右侧属性表
-    ui->propertyTable->clear();
-    ui->propertyTable->setRowCount(0);
-}
 
 void MainWindow::clearProperties()
 {
