@@ -139,19 +139,6 @@ bool parseBoolText(const QString &text, bool *ok)
 }
 }
 
-void setLabelIcon(QLabel* label, const QString& path)
-{
-    QPixmap pix(path);
-    if (pix.isNull()) return;
-
-    pix = pix.scaled(label->size(),
-                     Qt::KeepAspectRatio,
-                     Qt::SmoothTransformation);
-    label->setPixmap(pix);
-    label->setAlignment(Qt::AlignCenter);
-}
-
-
 MainWindow::MainWindow(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::MainWindow)
@@ -161,19 +148,9 @@ MainWindow::MainWindow(QWidget *parent)
     setupPaletteAndActionButtons();
     setupCanvasConnections();
 
-    // ① 数据模型
     m_variableModel = new VariableModel(this);
-
-
-    // ② 绑定管理器（核心）
     m_bindingMgr = new DataBindingManager(m_variableModel, this);
-
-
-    // ③ ⭐ 把核心注入 UI 里的 CanvasView
     ui->canvasView->setBindingManager(m_bindingMgr);
-
-
-
     m_canvas = ui->canvasView;
 
     applyWorkbenchStyles();
@@ -189,7 +166,6 @@ MainWindow::MainWindow(QWidget *parent)
         showErrorNotice(tr("Project Storage"), dirErr);
     }
 
-    // 启动仿真
     m_runtimeSimulator = new RuntimeSimulator(m_variableModel, this);
     m_runtimeSimulator->start(300);
 
@@ -363,7 +339,7 @@ void MainWindow::seedDemoVariablesIfEnabled()
 
 void MainWindow::setupDataWorkspace()
 {
-    m_serialDataSource = new SerialDataSource(this); // 保留配置承载
+    m_serialDataSource = new SerialDataSource(this);
     m_modbusDataSource = new ModbusRtuDataSource(this);
     m_modbusDataSource->setVariableModel(m_variableModel);
     m_modbusDataSource->setConfig(m_serialDataSource->config());
@@ -640,17 +616,14 @@ void MainWindow::setupDataWorkspacePanels()
         layout->addWidget(hint);
 
         auto *buttons = new QHBoxLayout();
-        auto *testBtn = new QPushButton("Test Connection", m_serialConfigPanel);
-        testBtn->setEnabled(false);
         auto *okBtn = new QPushButton("Apply", m_serialConfigPanel);
         auto *cancelBtn = new QPushButton("Cancel", m_serialConfigPanel);
-        for (QPushButton *btn : {testBtn, okBtn, cancelBtn}) {
+        for (QPushButton *btn : {okBtn, cancelBtn}) {
             btn->setMinimumSize(130, 50);
             btn->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         }
         buttons->setSpacing(12);
         buttons->addStretch();
-        buttons->addWidget(testBtn);
         buttons->addWidget(okBtn);
         buttons->addWidget(cancelBtn);
         layout->addLayout(buttons);
@@ -870,7 +843,6 @@ void MainWindow::ensureExitConfirmPanel()
 
 void MainWindow::performSafeExit()
 {
-    // 退出前先收敛输入法/输入面板，避免 Wayland 场景下的生命周期问题。
     QInputMethod *im = QGuiApplication::inputMethod();
     if (im) {
         im->commit();
@@ -882,7 +854,6 @@ void MainWindow::performSafeExit()
     if (m_touchInputPanel)
         m_touchInputPanel->hide();
 
-    // 数据源先停轮询再关闭串口，避免退出过程仍有 IO 访问。
     if (m_modbusDataSource) {
         m_modbusDataSource->stopPolling();
         m_modbusDataSource->close();
@@ -1550,7 +1521,6 @@ void MainWindow::showProperties(CanvasItem *item)
     ui->propertyTable->setColumnCount(2);
     ui->propertyTable->setHorizontalHeaderLabels({"Property", "Value"});
 
-    // 字体增大
     QFont font = ui->propertyTable->font();
     font.setPointSize(14);
     ui->propertyTable->setFont(font);
@@ -1640,18 +1610,15 @@ void MainWindow::showProperties(CanvasItem *item)
 
         ui->propertyTable->setItem(row, 1, valueItem);
 
-        // 设置行高
-        ui->propertyTable->setRowHeight(row, 36);  // 调整为触控友好
+        ui->propertyTable->setRowHeight(row, 36);
         row++;
     }
 
-    // 列宽填充，最小宽度
     ui->propertyTable->horizontalHeader()->setStretchLastSection(true);
     ui->propertyTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     ui->propertyTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     ui->propertyTable->horizontalHeader()->setMinimumSectionSize(120);
 
-    // 去掉空白格子显示
     ui->propertyTable->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->propertyTable->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     ui->propertyTable->setShowGrid(true);
@@ -1709,15 +1676,12 @@ void MainWindow::on_deleteButton_clicked()
     if (!m_currentItem)
         return;
 
-    // 1️⃣ 先通知 CanvasView 清除选中
     if (m_canvas)
         m_canvas->clearSelection();
 
-    // 2️⃣ 延迟安全删除
     m_currentItem->deleteLater();
     m_currentItem = nullptr;
 
-    // 3️⃣ 清空属性表
     clearProperties();
 }
 
@@ -1731,7 +1695,7 @@ void MainWindow::clearProperties()
 void MainWindow::on_buttonOfFullscreen_clicked()
 {
     if (!ui->canvasView) return;
-    m_originalStretchList.clear(); // QList<int>，在 MainWindow.h 声明
+    m_originalStretchList.clear();
     if (auto vlayout = qobject_cast<QVBoxLayout*>(m_canvasOriginalLayout)) {
         for (int i = 0; i < vlayout->count(); ++i)
             m_originalStretchList.append(vlayout->stretch(i));
@@ -1766,7 +1730,6 @@ void MainWindow::refreshActionButtonIcons()
         btn->update();
     };
 
-    // 立即尝试一次，再在布局稳定后补一次，规避时序导致的 setIconSize 失效。
     apply(ui->deleteButton);
     apply(ui->buttonOfFullscreen);
     apply(ui->pushOfL_D);
@@ -1843,7 +1806,6 @@ void MainWindow::enforceCanvasFrameRatio()
     const int frameHeight = qMax(1, totalHeight / 4);
     const int canvasHeight = qMax(1, totalHeight - frameHeight);
 
-    // 严格 3:1：无论内部 icon/label 的 sizeHint 如何，都不允许 frame 继续抬高。
     ui->canvasView->setMinimumHeight(canvasHeight);
     ui->canvasView->setMaximumHeight(canvasHeight);
     ui->frame->setMinimumHeight(frameHeight);
@@ -1909,7 +1871,6 @@ void MainWindow::setupIconButton(QPushButton* btn, const QString& iconPath)
     btn->setFocusPolicy(Qt::NoFocus);
     btn->setStyleSheet("QPushButton { padding: 0px; margin: 0px; border: none; }");
 
-    // 走统一刷新入口，处理布局时序。
     QTimer::singleShot(0, this, [this]() { refreshActionButtonIcons(); });
 }
 
@@ -2756,7 +2717,6 @@ void MainWindow::editPropertyCell(int row, int col)
         return;
     }
 
-    // 其余属性走输入面板（嵌入式，避免 Wayland 顶层弹窗/IME 生命周期崩溃）
     QInputMethod *im = QGuiApplication::inputMethod();
     if (im) {
         im->commit();
