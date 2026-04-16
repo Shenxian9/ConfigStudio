@@ -124,6 +124,8 @@ private:
     void prepareImeForTransientEditor();
     void updateVariableViewColumns();
     void updateModeLabel();
+    QString currentDataSourceMode() const;
+    void refreshDataSourceModeButtonIcon();
     void appendConnectionLog(const QString &message);
     void ensureExitConfirmPanel();
     void performSafeExit();

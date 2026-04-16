@@ -202,6 +202,9 @@ MainWindow::MainWindow(QWidget *parent)
     setupIconButton(ui->deleteButton, ":/icons/delete.png");
     setupIconButton(ui->pushOfDatasrc, ":/icons/datasource.png");
     setupIconButton(ui->pushOfDesign, ":/icons/designmode.png");
+    setupIconButton(ui->pushOfSave, ":/icons/Save.png");
+    setupIconButton(ui->pushOfLoad, ":/icons/Load.png");
+    setupIconButton(ui->pushOfExit, ":/icons/Exit Program.png");
     refreshActionButtonIcons();
     //ui->pushOfL_D->setText("darkmode");
     applyCanvasTheme(false);
@@ -370,6 +373,8 @@ void MainWindow::setupDataWorkspace()
     connect(m_modbusDataSource, &ModbusRtuDataSource::statusChanged, this, [this](bool opened) {
         ui->pushButton_8->setEnabled(!opened);
         ui->pushButton_9->setEnabled(opened);
+        ui->pushButton_8->update();
+        ui->pushButton_9->update();
         if (opened) {
             const SerialPortConfig cfg = m_serialDataSource ? m_serialDataSource->config() : SerialPortConfig{};
             m_loggedFirstReadVarIds.clear();
@@ -426,7 +431,7 @@ void MainWindow::setupDataWorkspace()
     connect(ui->pushButton_8, &QPushButton::clicked, this, [this]() {
         if (!m_modbusDataSource->open())
             return;
-        if (m_dataSourceModeCombo && m_dataSourceModeCombo->text() == "Modbus RTU")
+        if (currentDataSourceMode() == QStringLiteral("Modbus RTU"))
             m_modbusDataSource->startPolling();
         refreshDataSourceTreeDeferred();
     });
@@ -471,10 +476,26 @@ void MainWindow::setupDataWorkspace()
     ui->pushButton_12->setObjectName("editVariableButton");
     ui->dataSourceModeCombo->setObjectName("dataSourceModeCombo");
     m_dataSourceModeCombo = ui->dataSourceModeCombo;
+
+    setupIconButton(ui->pushButton_2, ":/icons/Add&Config Modbus RTU.png");
+    setupIconButton(ui->pushButton_7, ":/icons/Remove Modbus RTU.png");
+    setupIconButton(ui->pushButton_8, ":/icons/Start Acquire.png");
+    setupIconButton(ui->pushButton_9, ":/icons/Stop Acquire.png");
+    setupIconButton(ui->pushButton_10, ":/icons/Add Variable.png");
+    setupIconButton(ui->pushButton_11, ":/icons/Delete Variable.png");
+    setupIconButton(ui->pushButton_12, ":/icons/Edit Variable.png");
+    if (m_dataSourceModeCombo) {
+        m_dataSourceModeCombo->setProperty("mode", QStringLiteral("Simulator"));
+        refreshDataSourceModeButtonIcon();
+    }
     connect(m_dataSourceModeCombo, &QPushButton::clicked, this, [this]() {
         if (!m_dataSourceModeCombo)
             return;
-        m_dataSourceModeCombo->setText(m_dataSourceModeCombo->text() == "Simulator" ? "Modbus RTU" : "Simulator");
+        const QString mode = currentDataSourceMode();
+        m_dataSourceModeCombo->setProperty("mode", mode == QStringLiteral("Simulator")
+                                                       ? QStringLiteral("Modbus RTU")
+                                                       : QStringLiteral("Simulator"));
+        refreshDataSourceModeButtonIcon();
         applyDataSourceMode();
     });
 
@@ -846,9 +867,29 @@ void MainWindow::performSafeExit()
     qApp->quit();
 }
 
+QString MainWindow::currentDataSourceMode() const
+{
+    if (!m_dataSourceModeCombo)
+        return QStringLiteral("Simulator");
+    const QString mode = m_dataSourceModeCombo->property("mode").toString();
+    if (mode == QStringLiteral("Modbus RTU"))
+        return mode;
+    return QStringLiteral("Simulator");
+}
+
+void MainWindow::refreshDataSourceModeButtonIcon()
+{
+    if (!m_dataSourceModeCombo)
+        return;
+    const QString mode = currentDataSourceMode();
+    setupIconButton(m_dataSourceModeCombo, mode == QStringLiteral("Modbus RTU")
+                                          ? QStringLiteral(":/icons/Modbus RTU Mode.png")
+                                          : QStringLiteral(":/icons/Simulator Mode.png"));
+}
+
 void MainWindow::applyDataSourceMode()
 {
-    const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : QString("Simulator");
+    const QString mode = currentDataSourceMode();
     if (mode == "Modbus RTU") {
         if (m_modbusDataSource)
             m_modbusDataSource->setWriteEnabled(true);
@@ -874,7 +915,7 @@ void MainWindow::updateModeLabel()
     if (!ui || !ui->modeLabel)
         return;
 
-    const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : QStringLiteral("Simulator");
+    const QString mode = currentDataSourceMode();
     QString labelText;
     if (mode == QStringLiteral("Modbus RTU")) {
         const bool opened = m_modbusDataSource && m_modbusDataSource->isOpen();
@@ -909,7 +950,7 @@ void MainWindow::updateVariableViewColumns()
         VariableModel::ColScale,
         VariableModel::ColReadOnly
     };
-    const bool showStrategy = m_dataSourceModeCombo && m_dataSourceModeCombo->text() == "Simulator";
+    const bool showStrategy = currentDataSourceMode() == QStringLiteral("Simulator");
 
     for (int col = 0; col < m_variableModel->columnCount({}); ++col) {
         const bool visible = baseVisibleColumns.contains(col) || (showStrategy && col == VariableModel::ColStrategy);
@@ -1136,7 +1177,7 @@ void MainWindow::refreshDataSourceTree()
                                && cfg.portName == m_serialDataSource->config().portName
                                && cfg.slaveId == m_serialDataSource->config().slaveId);
         root->appendRow(new QStandardItem(QString("Mode: %1")
-                                              .arg(m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : "Simulator")));
+                                              .arg(currentDataSourceMode())));
         root->appendRow(new QStandardItem(QString("Status: %1")
                                               .arg(isActive && m_modbusDataSource && m_modbusDataSource->isOpen() ? "Opened" : "Stopped")));
         root->appendRow(new QStandardItem(QString("Polling: %1")
@@ -1714,6 +1755,17 @@ void MainWindow::refreshActionButtonIcons()
     apply(ui->pushOfL_D);
     apply(ui->pushOfDatasrc);
     apply(ui->pushOfDesign);
+    apply(ui->pushOfSave);
+    apply(ui->pushOfLoad);
+    apply(ui->pushOfExit);
+    apply(ui->pushButton_2);
+    apply(ui->pushButton_7);
+    apply(ui->pushButton_8);
+    apply(ui->pushButton_9);
+    apply(ui->dataSourceModeCombo);
+    apply(ui->pushButton_10);
+    apply(ui->pushButton_11);
+    apply(ui->pushButton_12);
 
     QTimer::singleShot(0, this, [this, apply]() {
         apply(ui->deleteButton);
@@ -1721,6 +1773,17 @@ void MainWindow::refreshActionButtonIcons()
         apply(ui->pushOfL_D);
         apply(ui->pushOfDatasrc);
         apply(ui->pushOfDesign);
+        apply(ui->pushOfSave);
+        apply(ui->pushOfLoad);
+        apply(ui->pushOfExit);
+        apply(ui->pushButton_2);
+        apply(ui->pushButton_7);
+        apply(ui->pushButton_8);
+        apply(ui->pushButton_9);
+        apply(ui->dataSourceModeCombo);
+        apply(ui->pushButton_10);
+        apply(ui->pushButton_11);
+        apply(ui->pushButton_12);
     });
     QTimer::singleShot(30, this, [this, apply]() {
         apply(ui->deleteButton);
@@ -1728,6 +1791,17 @@ void MainWindow::refreshActionButtonIcons()
         apply(ui->pushOfL_D);
         apply(ui->pushOfDatasrc);
         apply(ui->pushOfDesign);
+        apply(ui->pushOfSave);
+        apply(ui->pushOfLoad);
+        apply(ui->pushOfExit);
+        apply(ui->pushButton_2);
+        apply(ui->pushButton_7);
+        apply(ui->pushButton_8);
+        apply(ui->pushButton_9);
+        apply(ui->dataSourceModeCombo);
+        apply(ui->pushButton_10);
+        apply(ui->pushButton_11);
+        apply(ui->pushButton_12);
     });
 }
 

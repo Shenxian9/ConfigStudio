@@ -17,5 +17,17 @@
         <file>icons/datasource.png</file>
         <file>icons/designmode.png</file>
         <file>icons/lightmode.png</file>
+        <file>icons/Save.png</file>
+        <file>icons/Load.png</file>
+        <file>icons/Add&amp;Config Modbus RTU.png</file>
+        <file>icons/Remove Modbus RTU.png</file>
+        <file>icons/Simulator Mode.png</file>
+        <file>icons/Modbus RTU Mode.png</file>
+        <file>icons/Start Acquire.png</file>
+        <file>icons/Stop Acquire.png</file>
+        <file>icons/Add Variable.png</file>
+        <file>icons/Edit Variable.png</file>
+        <file>icons/Delete Variable.png</file>
+        <file>icons/Exit Program.png</file>
     </qresource>
 </RCC>
