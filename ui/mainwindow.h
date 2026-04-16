@@ -121,6 +121,7 @@ private:
     void showTouchInputPopup(const QString &title, const QString &value, const std::function<void (const QString &)> &apply);
     void prepareImeForTransientEditor();
     void updateVariableViewColumns();
+    void updateModeLabel();
     void appendConnectionLog(const QString &message);
     void ensureExitConfirmPanel();
     void performSafeExit();

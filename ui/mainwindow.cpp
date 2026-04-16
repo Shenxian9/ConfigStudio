@@ -29,6 +29,7 @@
 #include <QRegularExpression>
 #include <QUuid>
 #include <QFileInfo>
+#include <QMap>
 #include <algorithm>
 
 Q_LOGGING_CATEGORY(propDiag, "configstudio.property")
@@ -379,11 +380,13 @@ void MainWindow::setupDataWorkspace()
         } else {
             appendConnectionLog(tr("连接关闭：串口已关闭"));
         }
+        updateModeLabel();
         refreshDataSourceTreeDeferred();
     });
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::pollingStateChanged, this, [this](bool running) {
         Q_UNUSED(running);
+        updateModeLabel();
         refreshDataSourceTreeDeferred();
     });
 
@@ -394,6 +397,7 @@ void MainWindow::setupDataWorkspace()
         else
             appendConnectionLog(tr("连接错误：%1").arg(err));
         showErrorNotice(tr("Modbus RTU Data Source"), err);
+        updateModeLabel();
         refreshDataSourceTreeDeferred();
     });
     connect(m_modbusDataSource, &ModbusRtuDataSource::variableReadSucceeded, this, [this](const QString &varId, const QVariant &value) {
@@ -861,7 +865,31 @@ void MainWindow::applyDataSourceMode()
             m_runtimeSimulator->start(300);
     }
     updateVariableViewColumns();
+    updateModeLabel();
     refreshDataSourceTreeDeferred();
+}
+
+void MainWindow::updateModeLabel()
+{
+    if (!ui || !ui->modeLabel)
+        return;
+
+    const QString mode = m_dataSourceModeCombo ? m_dataSourceModeCombo->text() : QStringLiteral("Simulator");
+    QString labelText;
+    if (mode == QStringLiteral("Modbus RTU")) {
+        const bool opened = m_modbusDataSource && m_modbusDataSource->isOpen();
+        const bool polling = m_modbusDataSource && m_modbusDataSource->isPolling();
+        if (opened)
+            labelText = polling ? QStringLiteral("Mode: Modbus RTU (Connected / Polling)")
+                                : QStringLiteral("Mode: Modbus RTU (Connected / Idle)");
+        else
+            labelText = QStringLiteral("Mode: Modbus RTU (Disconnected)");
+    } else {
+        const bool running = m_runtimeSimulator && m_runtimeSimulator->isRunning();
+        labelText = running ? QStringLiteral("Mode: Simulator (Running)")
+                            : QStringLiteral("Mode: Simulator (Stopped)");
+    }
+    ui->modeLabel->setText(labelText);
 }
 
 void MainWindow::updateVariableViewColumns()
@@ -1089,11 +1117,20 @@ void MainWindow::refreshDataSourceTree()
     if (!m_dataSourceTreeModel || !m_serialDataSource)
         return;
 
+    QMap<QString, bool> expandedByTitle;
+    if (ui && ui->treeView) {
+        for (int row = 0; row < m_dataSourceTreeModel->rowCount(); ++row) {
+            const QModelIndex idx = m_dataSourceTreeModel->index(row, 0);
+            expandedByTitle.insert(idx.data().toString(), ui->treeView->isExpanded(idx));
+        }
+    }
+
     m_dataSourceTreeModel->removeRows(0, m_dataSourceTreeModel->rowCount());
     for (int i = 0; i < m_modbusConfigs.size(); ++i) {
         const SerialPortConfig cfg = m_modbusConfigs.at(i);
         const QString titlePort = cfg.portName.trimmed().isEmpty() ? QStringLiteral("<unset>") : cfg.portName.trimmed();
-        auto *root = new QStandardItem(QString("Modbus RTU %1: %2").arg(i + 1).arg(titlePort));
+        const QString rootTitle = QString("Modbus RTU %1: %2").arg(i + 1).arg(titlePort);
+        auto *root = new QStandardItem(rootTitle);
 
         const bool isActive = (cfg.deviceId == m_serialDataSource->config().deviceId
                                && cfg.portName == m_serialDataSource->config().portName
@@ -1120,8 +1157,9 @@ void MainWindow::refreshDataSourceTree()
             root->appendRow(new QStandardItem(QString("Last Comm: %1").arg(m_lastCommStatus)));
 
         m_dataSourceTreeModel->appendRow(root);
+        if (ui && ui->treeView && expandedByTitle.value(rootTitle, false))
+            ui->treeView->setExpanded(m_dataSourceTreeModel->index(i, 0), true);
     }
-    ui->treeView->expandAll();
     updateDataSourceActionButtons();
 }
 
@@ -2306,7 +2344,7 @@ bool MainWindow::saveProjectToPath(const QString &path, const QString &projectNa
     m_currentProjectName = projectName;
     m_projectDirty = false;
     hideProjectPanel();
-    showErrorNotice(tr("保存工程"), tr("保存成功：%1").arg(projectName));
+    appendConnectionLog(tr("保存工程成功：%1").arg(projectName));
     return true;
 }
 
@@ -2328,7 +2366,7 @@ bool MainWindow::loadProjectFromPath(const QString &path)
     m_currentProjectFilePath = path;
     m_currentProjectName = QFileInfo(path).completeBaseName();
     m_projectDirty = false;
-    showErrorNotice(tr("读取工程"), tr("读取成功：%1").arg(m_currentProjectName));
+    appendConnectionLog(tr("读取工程成功：%1").arg(m_currentProjectName));
     return true;
 }
 
