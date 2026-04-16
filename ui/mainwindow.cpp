@@ -243,6 +243,35 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_canvas = ui->canvasView;
 
+    if (ui->modeLabel) {
+        QFont modeFont = ui->modeLabel->font();
+        modeFont.setPointSize(qMax(12, modeFont.pointSize() - 2));
+        ui->modeLabel->setFont(modeFont);
+    }
+
+    if (ui->widget_4) {
+        ui->widget_4->setStyleSheet(
+            "QWidget#widget_4 {"
+            "  background: #ffffff;"
+            "  border-right: 2px solid #cfcfcf;"
+            "}");
+    }
+    if (ui->widget_6) {
+        ui->widget_6->setStyleSheet("QWidget#widget_6 { background: #f2f2f2; }");
+    }
+    if (ui->widget_10) {
+        ui->widget_10->setStyleSheet(
+            "QWidget#widget_10 { background: #f2f2f2; border-bottom: 1px solid #d5d5d5; }"
+            "QWidget#widget_10 QPushButton { background: #f2f2f2; }");
+    }
+    if (ui->variableView) {
+        ui->variableView->setStyleSheet(
+            "QTableView { background: #f2f2f2; gridline-color: #d7d7d7; selection-background-color: #d0d0d0; }"
+            "QHeaderView::section { background: #e7e7e7; border: 1px solid #d2d2d2; }");
+        if (ui->variableView->viewport())
+            ui->variableView->viewport()->setStyleSheet("background: #f2f2f2;");
+    }
+
     ui->variableView->setModel(m_variableModel);
     ui->variableView->setModel(m_variableModel);
     ui->variableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
@@ -1739,12 +1768,13 @@ void MainWindow::resizeEvent(QResizeEvent* event)
 
 void MainWindow::refreshActionButtonIcons()
 {
-    auto apply = [](QPushButton* btn){
+    auto apply = [this](QPushButton* btn){
         if (!btn) return;
         const int size = qMin(btn->width(), btn->height());
         if (size < 16)
             return;
-        const int iconSize = qMax(16, int(size * 0.97));
+        const qreal ratio = (btn == ui->pushOfDesign) ? 0.86 : 0.97;
+        const int iconSize = qMax(16, int(size * ratio));
         btn->setIconSize(QSize(iconSize, iconSize));
         btn->update();
     };
