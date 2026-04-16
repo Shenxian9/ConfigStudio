@@ -245,7 +245,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     if (ui->modeLabel) {
         QFont modeFont = ui->modeLabel->font();
-        modeFont.setPointSize(qMax(12, modeFont.pointSize() - 2));
+        modeFont.setPointSize(qMax(10, modeFont.pointSize() - 4));
         ui->modeLabel->setFont(modeFont);
     }
 
@@ -1773,7 +1773,7 @@ void MainWindow::refreshActionButtonIcons()
         const int size = qMin(btn->width(), btn->height());
         if (size < 16)
             return;
-        const qreal ratio = (btn == ui->pushOfDesign) ? 0.86 : 0.97;
+        const qreal ratio = 0.97;
         const int iconSize = qMax(16, int(size * ratio));
         btn->setIconSize(QSize(iconSize, iconSize));
         btn->update();
