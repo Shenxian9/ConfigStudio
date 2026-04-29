@@ -581,7 +581,7 @@ void MainWindow::setupDataWorkspacePanels()
 
         m_slaveIdSpin = new QSpinBox(m_serialConfigPanel);
         m_slaveIdSpin->setObjectName("serialSlaveIdSpin");
-        m_slaveIdSpin->setRange(1, 247);
+        m_slaveIdSpin->setRange(0, 255);
         m_timeoutSpin = new QSpinBox(m_serialConfigPanel);
         m_timeoutSpin->setObjectName("serialTimeoutSpin");
         m_timeoutSpin->setRange(50, 60000);
