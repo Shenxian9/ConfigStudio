@@ -211,6 +211,11 @@ QJsonObject ProjectFileManager::toJson(const ProjectData &project)
     root["variables"] = vars;
 
     root["modbus"] = modbusToJson(project.modbus);
+    QJsonArray modbusConfigs;
+    for (const SerialPortConfig &cfg : project.modbusConfigs)
+        modbusConfigs.append(modbusToJson(cfg));
+    if (!modbusConfigs.isEmpty())
+        root["modbusConfigs"] = modbusConfigs;
 
     if (!project.uiState.isEmpty())
         root["uiState"] = project.uiState;
@@ -274,6 +279,16 @@ bool ProjectFileManager::fromJson(const QJsonObject &obj, ProjectData *project, 
 
     if (obj.contains("modbus") && obj.value("modbus").isObject())
         data.modbus = modbusFromJson(obj.value("modbus").toObject());
+    if (obj.contains("modbusConfigs") && obj.value("modbusConfigs").isArray()) {
+        const QJsonArray arr = obj.value("modbusConfigs").toArray();
+        for (const QJsonValue &v : arr) {
+            if (v.isObject())
+                data.modbusConfigs.push_back(modbusFromJson(v.toObject()));
+        }
+    }
+    if (data.modbusConfigs.isEmpty())
+        data.modbusConfigs.push_back(data.modbus);
+    data.modbus = data.modbusConfigs.first();
 
     data.uiState = obj.value("uiState").toObject();
 

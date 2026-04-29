@@ -37,13 +37,14 @@ struct ProjectData {
     QVector<ProjectItemData> items;
     QVector<Variable> variables;
     SerialPortConfig modbus;
+    QVector<SerialPortConfig> modbusConfigs;
     QJsonObject uiState;
 };
 
 class ProjectFileManager
 {
 public:
-    static constexpr int kCurrentVersion = 1;
+    static constexpr int kCurrentVersion = 2;
 
     static bool saveProject(const QString &filePath, const ProjectData &project, QString *errorText);
     static bool loadProject(const QString &filePath, ProjectData *project, QString *errorText);

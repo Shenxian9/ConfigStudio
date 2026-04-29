@@ -1933,7 +1933,10 @@ ProjectData MainWindow::buildProjectDataSnapshot()
     project.canvasWidth = m_canvas ? m_canvas->width() : 0;
     project.canvasHeight = m_canvas ? m_canvas->height() : 0;
     project.variables = m_variableModel ? m_variableModel->variables() : QVector<Variable>{};
-    project.modbus = m_serialDataSource ? m_serialDataSource->config() : SerialPortConfig{};
+    project.modbusConfigs = m_modbusConfigs;
+    if (project.modbusConfigs.isEmpty())
+        project.modbusConfigs.push_back(m_serialDataSource ? m_serialDataSource->config() : SerialPortConfig{});
+    project.modbus = project.modbusConfigs.first();
 
     QHash<QString, QVector<ProjectBindingData>> bindingsByItem;
     if (m_bindingMgr) {
@@ -2038,9 +2041,12 @@ bool MainWindow::restoreProjectData(const ProjectData &project, QString *errorTe
     for (const Variable &var : project.variables)
         m_variableModel->addVariable(var);
 
-    const SerialPortConfig cfg = project.modbus;
+    const QVector<SerialPortConfig> configs = project.modbusConfigs.isEmpty()
+                                              ? QVector<SerialPortConfig>{project.modbus}
+                                              : project.modbusConfigs;
+    const SerialPortConfig cfg = configs.first();
     m_modbusConfigs.clear();
-    m_modbusConfigs.push_back(cfg);
+    m_modbusConfigs = configs;
     if (m_serialDataSource)
         m_serialDataSource->setConfig(cfg);
     if (m_modbusDataSource)
