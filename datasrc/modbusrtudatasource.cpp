@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <cstring>
 #include <limits>
+#include <QRegularExpression>
 
 ModbusRtuDataSource::ModbusRtuDataSource(QObject *parent)
     : QObject(parent)
@@ -134,7 +135,17 @@ bool ModbusRtuDataSource::deviceMatchesConfig(const QString &deviceId) const
     const QString cfgDevice = m_config.deviceId.trimmed();
     if (cfgDevice.isEmpty())
         return true;
-    return deviceId.trimmed().compare(cfgDevice, Qt::CaseInsensitive) == 0;
+
+    const QStringList cfgDevices = cfgDevice.split(QRegularExpression(QStringLiteral("[\\s,;|]+")), Qt::SkipEmptyParts);
+    if (cfgDevices.isEmpty())
+        return deviceId.trimmed().compare(cfgDevice, Qt::CaseInsensitive) == 0;
+
+    const QString normalized = deviceId.trimmed();
+    for (const QString &candidate : cfgDevices) {
+        if (normalized.compare(candidate.trimmed(), Qt::CaseInsensitive) == 0)
+            return true;
+    }
+    return false;
 }
 
 bool ModbusRtuDataSource::readPollingEnabled() const

@@ -366,6 +366,10 @@ void MainWindow::setupDataWorkspace()
     ui->treeView->viewport()->installEventFilter(this);
     m_modbusConfigs.clear();
     m_modbusConfigs.push_back(m_serialDataSource->config());
+    m_activeModbusConfigRow = 0;
+
+    m_multiModbusTimer.setSingleShot(false);
+    connect(&m_multiModbusTimer, &QTimer::timeout, this, &MainWindow::switchToNextModbusDataSource);
 
     connect(ui->treeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]() {
         updateDataSourceActionButtons();
@@ -430,13 +434,32 @@ void MainWindow::setupDataWorkspace()
 
     connect(ui->pushButton_2, &QPushButton::clicked, this, &MainWindow::showSerialConfigDialog);
     connect(ui->pushButton_8, &QPushButton::clicked, this, [this]() {
+        if (!m_modbusDataSource)
+            return;
+
+        if (!m_modbusConfigs.isEmpty()) {
+            m_activeModbusConfigRow = qBound(0, m_activeModbusConfigRow, m_modbusConfigs.size() - 1);
+            const SerialPortConfig cfg = m_modbusConfigs.at(m_activeModbusConfigRow);
+            if (m_serialDataSource)
+                m_serialDataSource->setConfig(cfg);
+            m_modbusDataSource->setConfig(cfg);
+        }
+
         if (!m_modbusDataSource->open())
             return;
-        if (currentDataSourceMode() == QStringLiteral("Modbus RTU"))
+
+        if (currentDataSourceMode() == QStringLiteral("Modbus RTU")) {
             m_modbusDataSource->startPolling();
+            const int switchIntervalMs = qMax(200, m_modbusDataSource->config().pollIntervalMs);
+            if (m_modbusConfigs.size() > 1)
+                m_multiModbusTimer.start(switchIntervalMs);
+            else
+                m_multiModbusTimer.stop();
+        }
         refreshDataSourceTreeDeferred();
     });
     connect(ui->pushButton_9, &QPushButton::clicked, this, [this]() {
+        m_multiModbusTimer.stop();
         m_modbusDataSource->close();
         refreshDataSourceTreeDeferred();
     });
@@ -445,6 +468,7 @@ void MainWindow::setupDataWorkspace()
         if (row < 0 || row >= m_modbusConfigs.size())
             return;
 
+        m_multiModbusTimer.stop();
         m_modbusDataSource->close();
         m_modbusConfigs.removeAt(row);
         if (m_modbusConfigs.isEmpty()) {
@@ -457,6 +481,7 @@ void MainWindow::setupDataWorkspace()
             }
         } else {
             const int nextRow = qBound(0, row, m_modbusConfigs.size() - 1);
+            m_activeModbusConfigRow = nextRow;
             const SerialPortConfig cfg = m_modbusConfigs.at(nextRow);
             m_serialDataSource->setConfig(cfg);
             m_modbusDataSource->setConfig(cfg);
@@ -894,9 +919,12 @@ void MainWindow::applyDataSourceMode()
             m_runtimeSimulator->stop();
         if (m_modbusDataSource && m_modbusDataSource->isOpen())
             m_modbusDataSource->startPolling();
+        if (m_modbusDataSource && m_modbusDataSource->isOpen() && m_modbusConfigs.size() > 1)
+            m_multiModbusTimer.start(qMax(200, m_modbusDataSource->config().pollIntervalMs));
     } else {
         if (m_modbusDataSource)
             m_modbusDataSource->setWriteEnabled(false);
+        m_multiModbusTimer.stop();
         if (m_modbusDataSource)
             m_modbusDataSource->stopPolling();
         if (m_runtimeSimulator && !m_runtimeSimulator->isRunning())
@@ -1204,6 +1232,27 @@ void MainWindow::refreshDataSourceTree()
 void MainWindow::refreshDataSourceTreeDeferred()
 {
     QMetaObject::invokeMethod(this, [this]() { refreshDataSourceTree(); }, Qt::QueuedConnection);
+}
+
+void MainWindow::switchToNextModbusDataSource()
+{
+    if (!m_modbusDataSource || m_modbusConfigs.size() <= 1 || !m_modbusDataSource->isOpen())
+        return;
+
+    m_activeModbusConfigRow = (m_activeModbusConfigRow + 1) % m_modbusConfigs.size();
+    const SerialPortConfig cfg = m_modbusConfigs.at(m_activeModbusConfigRow);
+    if (m_serialDataSource)
+        m_serialDataSource->setConfig(cfg);
+
+    const bool wasPolling = m_modbusDataSource->isPolling();
+    m_modbusDataSource->close();
+    m_modbusDataSource->setConfig(cfg);
+    if (!m_modbusDataSource->open())
+        return;
+    if (wasPolling && currentDataSourceMode() == QStringLiteral("Modbus RTU"))
+        m_modbusDataSource->startPolling();
+
+    refreshDataSourceTreeDeferred();
 }
 
 void MainWindow::prepareImeForTransientEditor()
@@ -2047,6 +2096,7 @@ bool MainWindow::restoreProjectData(const ProjectData &project, QString *errorTe
     const SerialPortConfig cfg = configs.first();
     m_modbusConfigs.clear();
     m_modbusConfigs = configs;
+    m_activeModbusConfigRow = 0;
     if (m_serialDataSource)
         m_serialDataSource->setConfig(cfg);
     if (m_modbusDataSource)
