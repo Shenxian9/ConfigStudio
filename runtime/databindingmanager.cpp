@@ -137,6 +137,16 @@ bool DataBindingManager::currentValue(const QString& varId, QVariant* outValue) 
     return m_model->valueById(varId.trimmed(), outValue);
 }
 
+QString DataBindingManager::variableType(const QString& varId) const
+{
+    if (!m_model)
+        return QString();
+    const int row = m_model->rowById(varId.trimmed());
+    if (row < 0)
+        return QString();
+    return m_model->variableAt(row).type.trimmed();
+}
+
 void DataBindingManager::onVariableChanged(const QString& varId, const QVariant& value)
 {
     auto it = m_bindings.find(varId);

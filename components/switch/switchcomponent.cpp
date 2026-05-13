@@ -1,4 +1,5 @@
 #include "switchcomponent.h"
+#include "runtime/databindingmanager.h"
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
@@ -103,6 +104,12 @@ SwitchComponent::SwitchComponent(QWidget *parent)
 
     m_switch = new SwitchVisual(this);
     m_switch->setChecked(false);
+
+    connect(m_switch, &SwitchVisual::toggled, this, [this](bool checked) {
+        if (m_updatingFromBinding || !m_bindingMgr || m_varId.isEmpty())
+            return;
+        m_bindingMgr->publishValue(m_varId, valueForPublish(checked));
+    });
 }
 
 QVariantMap SwitchComponent::properties() const
@@ -110,6 +117,7 @@ QVariantMap SwitchComponent::properties() const
     QVariantMap map;
     map["title"]   = m_title->text();
     map["checked"] = m_switch->isChecked();
+    map["varId"] = m_varId;
     return map;
 }
 
@@ -119,8 +127,34 @@ void SwitchComponent::setPropertyValue(const QString& key, const QVariant& v)
         m_title->setText(v.toString());
     }
     else if (key == "checked") {
+        m_updatingFromBinding = true;
         m_switch->setChecked(v.toBool());
+        m_updatingFromBinding = false;
     }
+    else if (key == "varId") {
+        const QString newVarId = v.toString().trimmed();
+        if (newVarId == m_varId)
+            return;
+
+        if (!m_varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->unbind(m_varId, this, "checked");
+
+        m_varId = newVarId;
+
+        if (!m_varId.isEmpty() && m_bindingMgr)
+            m_bindingMgr->bind(m_varId, this, "checked");
+    }
+}
+
+QVariant SwitchComponent::valueForPublish(bool checked) const
+{
+    if (!m_bindingMgr || m_varId.isEmpty())
+        return checked;
+
+    const QString type = m_bindingMgr->variableType(m_varId).toLower();
+    if (type == "bool")
+        return checked;
+    return checked ? 1 : 0;
 }
 
 void SwitchComponent::resizeEvent(QResizeEvent *event)

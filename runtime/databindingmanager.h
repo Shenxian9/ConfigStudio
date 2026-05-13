@@ -28,6 +28,7 @@ public:
     void setWriteBackend(IVariableWriteBackend *backend) { m_writeBackend = backend; }
     bool publishValue(const QString& varId, const QVariant& value);
     bool currentValue(const QString& varId, QVariant* outValue) const;
+    QString variableType(const QString& varId) const;
 
 private slots:
     void onVariableChanged(const QString& varId, const QVariant& value);

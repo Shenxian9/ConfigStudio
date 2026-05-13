@@ -5,6 +5,7 @@
 #include "canvas/canvasitem.h"
 #include <QLabel>
 #include <QWidget>
+#include <QString>
 class QMouseEvent;
 
 class SwitchVisual : public QWidget
@@ -39,8 +40,12 @@ public:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
-    QLabel     *m_title;
+    QLabel *m_title;
     SwitchVisual *m_switch;
+    QString m_varId;
+    bool m_updatingFromBinding = false;
+
+    QVariant valueForPublish(bool checked) const;
 };
 
 #endif
