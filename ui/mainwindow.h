@@ -16,6 +16,7 @@
 #include <QSize>
 #include <QSpinBox>
 #include <QStandardItemModel>
+#include <QTimer>
 #include <QString>
 #include <QVector>
 #include <QWidget>
@@ -78,6 +79,7 @@ private slots:
     void applyVariableFromPanel();
     void updateVariableActionButtons();
     void applyDataSourceMode();
+    void switchToNextModbusDataSource();
 
 private:
     void setupInitialWindowState();
@@ -174,6 +176,8 @@ private:
     QSet<QString> m_loggedFirstReadVarIds;
     QVector<SerialPortConfig> m_modbusConfigs;
     int m_editingDataSourceRow = -1;
+    QTimer m_multiModbusTimer;
+    int m_activeModbusConfigRow = 0;
 
     QWidget *m_serialConfigPanel = nullptr;
     QLineEdit *m_serialPortEdit = nullptr;
