@@ -343,6 +343,7 @@ void MainWindow::setupDataWorkspace()
     m_modbusDataSource = new ModbusRtuDataSource(this);
     m_modbusDataSource->setVariableModel(m_variableModel);
     m_modbusDataSource->setConfig(m_serialDataSource->config());
+    m_modbusDataSource->setConfigs(m_modbusConfigs);
     m_bindingMgr->setWriteBackend(m_modbusDataSource);
     m_dataSourceTreeModel = new QStandardItemModel(this);
 
@@ -366,6 +367,7 @@ void MainWindow::setupDataWorkspace()
     ui->treeView->viewport()->installEventFilter(this);
     m_modbusConfigs.clear();
     m_modbusConfigs.push_back(m_serialDataSource->config());
+    m_modbusDataSource->setConfigs(m_modbusConfigs);
 
     connect(ui->treeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]() {
         updateDataSourceActionButtons();
@@ -447,10 +449,12 @@ void MainWindow::setupDataWorkspace()
 
         m_modbusDataSource->close();
         m_modbusConfigs.removeAt(row);
+        m_modbusDataSource->setConfigs(m_modbusConfigs);
         if (m_modbusConfigs.isEmpty()) {
             const SerialPortConfig emptyCfg;
             m_serialDataSource->setConfig(emptyCfg);
             m_modbusDataSource->setConfig(emptyCfg);
+            m_modbusDataSource->setConfigs(m_modbusConfigs);
             if (ui->treeView && ui->treeView->selectionModel()) {
                 ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(), QItemSelectionModel::Clear);
                 ui->treeView->selectionModel()->clearSelection();
@@ -460,6 +464,7 @@ void MainWindow::setupDataWorkspace()
             const SerialPortConfig cfg = m_modbusConfigs.at(nextRow);
             m_serialDataSource->setConfig(cfg);
             m_modbusDataSource->setConfig(cfg);
+            m_modbusDataSource->setConfigs(m_modbusConfigs);
             if (ui->treeView && ui->treeView->selectionModel()) {
                 const QModelIndex idx = m_dataSourceTreeModel->index(nextRow, 0);
                 ui->treeView->selectionModel()->setCurrentIndex(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
@@ -1496,8 +1501,10 @@ void MainWindow::applySerialConfigFromPanel()
     }
 
     m_serialDataSource->setConfig(nextCfg);
-    if (m_modbusDataSource)
+    if (m_modbusDataSource) {
         m_modbusDataSource->setConfig(nextCfg);
+        m_modbusDataSource->setConfigs(m_modbusConfigs);
+    }
 
     if (ui->treeView && ui->treeView->selectionModel()) {
         const QModelIndex idx = m_dataSourceTreeModel->index(m_editingDataSourceRow, 0);
@@ -2049,8 +2056,10 @@ bool MainWindow::restoreProjectData(const ProjectData &project, QString *errorTe
     m_modbusConfigs = configs;
     if (m_serialDataSource)
         m_serialDataSource->setConfig(cfg);
-    if (m_modbusDataSource)
+    if (m_modbusDataSource) {
         m_modbusDataSource->setConfig(cfg);
+        m_modbusDataSource->setConfigs(m_modbusConfigs);
+    }
     applySerialConfigToPanels(cfg);
     refreshDataSourceTreeDeferred();
 

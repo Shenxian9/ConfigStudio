@@ -35,6 +35,16 @@ void ModbusRtuDataSource::setConfig(const SerialPortConfig &config)
     }
 }
 
+
+void ModbusRtuDataSource::setConfigs(const QVector<SerialPortConfig> &configs)
+{
+    m_configs = configs;
+    if (m_configs.isEmpty())
+        m_configs.push_back(m_config);
+    if (!m_configs.isEmpty())
+        m_config = m_configs.first();
+}
+
 void ModbusRtuDataSource::setVariableModel(VariableModel *model)
 {
     m_model = model;
@@ -42,26 +52,7 @@ void ModbusRtuDataSource::setVariableModel(VariableModel *model)
 
 bool ModbusRtuDataSource::open()
 {
-    if (m_serial.isOpen())
-        return true;
-
-    m_serial.setPortName(m_config.portName);
-    m_serial.setBaudRate(m_config.baudRate);
-    m_serial.setDataBits(m_config.dataBits);
-    m_serial.setParity(m_config.parity);
-    m_serial.setStopBits(m_config.stopBits);
-    m_serial.setFlowControl(m_config.flowControl);
-
-    if (!m_serial.open(QIODevice::ReadWrite)) {
-        emit errorOccurred(tr("Open serial failed: %1").arg(m_serial.errorString()));
-        emit statusChanged(false);
-        return false;
-    }
-
-    m_consecutivePollFailures = 0;
-    m_pollPauseUntilMs = 0;
-    emit statusChanged(true);
-    return true;
+    return ensureSerialForConfig(m_config);
 }
 
 void ModbusRtuDataSource::close()
@@ -131,10 +122,62 @@ bool ModbusRtuDataSource::readPollingEnabledForTest() const
 
 bool ModbusRtuDataSource::deviceMatchesConfig(const QString &deviceId) const
 {
-    const QString cfgDevice = m_config.deviceId.trimmed();
-    if (cfgDevice.isEmpty())
+    const QString target = deviceId.trimmed();
+    if (target.isEmpty())
         return true;
-    return deviceId.trimmed().compare(cfgDevice, Qt::CaseInsensitive) == 0;
+    for (const SerialPortConfig &cfg : m_configs.isEmpty() ? QVector<SerialPortConfig>{m_config} : m_configs) {
+        const QString cfgDevice = cfg.deviceId.trimmed();
+        if (!cfgDevice.isEmpty() && cfgDevice.compare(target, Qt::CaseInsensitive) == 0)
+            return true;
+    }
+    return false;
+}
+
+SerialPortConfig ModbusRtuDataSource::configForDevice(const QString &deviceId) const
+{
+    const QVector<SerialPortConfig> configs = m_configs.isEmpty() ? QVector<SerialPortConfig>{m_config} : m_configs;
+    const QString target = deviceId.trimmed();
+    if (!target.isEmpty()) {
+        for (const SerialPortConfig &cfg : configs) {
+            if (cfg.deviceId.trimmed().compare(target, Qt::CaseInsensitive) == 0)
+                return cfg;
+        }
+    }
+    return configs.first();
+}
+
+bool ModbusRtuDataSource::ensureSerialForConfig(const SerialPortConfig &config)
+{
+    const bool samePort = m_serial.isOpen() && m_serial.portName() == config.portName
+                          && m_config.baudRate == config.baudRate
+                          && m_config.dataBits == config.dataBits
+                          && m_config.parity == config.parity
+                          && m_config.stopBits == config.stopBits
+                          && m_config.flowControl == config.flowControl;
+    m_config = config;
+    if (samePort)
+        return true;
+
+    if (m_serial.isOpen())
+        m_serial.close();
+
+    m_serial.setPortName(m_config.portName);
+    m_serial.setBaudRate(m_config.baudRate);
+    m_serial.setDataBits(m_config.dataBits);
+    m_serial.setParity(m_config.parity);
+    m_serial.setStopBits(m_config.stopBits);
+    m_serial.setFlowControl(m_config.flowControl);
+
+    if (!m_serial.open(QIODevice::ReadWrite)) {
+        emit errorOccurred(tr("Open serial failed: %1").arg(m_serial.errorString()));
+        emit statusChanged(false);
+        return false;
+    }
+
+    m_consecutivePollFailures = 0;
+    m_pollPauseUntilMs = 0;
+    emit statusChanged(true);
+    return true;
 }
 
 bool ModbusRtuDataSource::readPollingEnabled() const
@@ -154,6 +197,9 @@ bool ModbusRtuDataSource::processReadResultForTest(const QString &varId, const Q
         return false;
     }
     const Variable &var = m_model->variableAt(row);
+    const SerialPortConfig cfg = configForDevice(var.deviceId);
+    if (!ensureSerialForConfig(cfg))
+        return false;
     bool ok = false;
     QString err;
     const QVariant decoded = decodeRegisters(var, registers, &ok, &err);
@@ -335,6 +381,9 @@ bool ModbusRtuDataSource::writeVariable(const QString &varId, const QVariant &va
         return false;
     }
     const Variable &var = m_model->variableAt(row);
+    const SerialPortConfig cfg = configForDevice(var.deviceId);
+    if (!ensureSerialForConfig(cfg))
+        return false;
     if (!deviceMatchesConfig(var.deviceId)) {
         const QString err = tr("device mismatch: var=%1 config=%2")
                                 .arg(var.deviceId, m_config.deviceId);
@@ -542,6 +591,9 @@ bool ModbusRtuDataSource::readVariableAtRow(int row)
         return false;
 
     const Variable &var = m_model->variableAt(row);
+    const SerialPortConfig cfg = configForDevice(var.deviceId);
+    if (!ensureSerialForConfig(cfg))
+        return false;
     const quint8 fc = (var.area == RegisterArea::HoldingRegister) ? 0x03 : 0x04;
     const quint16 address = static_cast<quint16>(var.address);
     const quint16 quantity = static_cast<quint16>(qMax(1, var.count));
