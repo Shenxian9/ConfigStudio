@@ -18,6 +18,7 @@ public:
     explicit ModbusRtuDataSource(QObject *parent = nullptr);
 
     void setConfig(const SerialPortConfig &config);
+    void setConfigs(const QVector<SerialPortConfig> &configs);
     SerialPortConfig config() const { return m_config; }
 
     void setVariableModel(VariableModel *model);
@@ -54,6 +55,8 @@ private slots:
 private:
     static quint16 crc16(const QByteArray &payload);
     bool deviceMatchesConfig(const QString &deviceId) const;
+    SerialPortConfig configForDevice(const QString &deviceId) const;
+    bool ensureSerialForConfig(const SerialPortConfig &config);
     bool readPollingEnabled() const;
     bool readVariableAtRow(int row);
     bool encodeWriteRegisters(const Variable &var, const QVariant &value, QVector<quint16> *encoded, QString *errorText) const;
@@ -69,6 +72,7 @@ private:
     int m_nextRowCursor = 0;
     int m_consecutivePollFailures = 0;
     qint64 m_pollPauseUntilMs = 0;
+    QVector<SerialPortConfig> m_configs;
 };
 
 #endif // MODBUSRTUDATASOURCE_H
