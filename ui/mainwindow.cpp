@@ -342,6 +342,8 @@ void MainWindow::setupDataWorkspace()
     m_serialDataSource = new SerialDataSource(this);
     m_modbusDataSource = new ModbusRtuDataSource(this);
     m_modbusDataSource->setVariableModel(m_variableModel);
+    m_modbusDataSources.clear();
+    m_modbusDataSources.push_back(m_modbusDataSource);
     m_modbusDataSource->setConfig(m_serialDataSource->config());
     m_bindingMgr->setWriteBackend(m_modbusDataSource);
     m_dataSourceTreeModel = new QStandardItemModel(this);
@@ -430,14 +432,30 @@ void MainWindow::setupDataWorkspace()
 
     connect(ui->pushButton_2, &QPushButton::clicked, this, &MainWindow::showSerialConfigDialog);
     connect(ui->pushButton_8, &QPushButton::clicked, this, [this]() {
-        if (!m_modbusDataSource->open())
+        bool anyOpened = false;
+        for (int i = 0; i < m_modbusConfigs.size(); ++i) {
+            ModbusRtuDataSource *ds = (i < m_modbusDataSources.size()) ? m_modbusDataSources.at(i) : nullptr;
+            if (!ds) {
+                ds = new ModbusRtuDataSource(this);
+                ds->setVariableModel(m_variableModel);
+                m_modbusDataSources.push_back(ds);
+            }
+            ds->setConfig(m_modbusConfigs.at(i));
+            if (!ds->open())
+                continue;
+            anyOpened = true;
+            if (currentDataSourceMode() == QStringLiteral("Modbus RTU"))
+                ds->startPolling();
+        }
+        if (!anyOpened)
             return;
-        if (currentDataSourceMode() == QStringLiteral("Modbus RTU"))
-            m_modbusDataSource->startPolling();
         refreshDataSourceTreeDeferred();
     });
     connect(ui->pushButton_9, &QPushButton::clicked, this, [this]() {
-        m_modbusDataSource->close();
+        for (ModbusRtuDataSource *ds : m_modbusDataSources) {
+            if (ds)
+                ds->close();
+        }
         refreshDataSourceTreeDeferred();
     });
     connect(ui->pushButton_7, &QPushButton::clicked, this, [this]() {
@@ -445,7 +463,12 @@ void MainWindow::setupDataWorkspace()
         if (row < 0 || row >= m_modbusConfigs.size())
             return;
 
-        m_modbusDataSource->close();
+        if (row < m_modbusDataSources.size() && m_modbusDataSources.at(row)) {
+            m_modbusDataSources.at(row)->close();
+            if (m_modbusDataSources.at(row) != m_modbusDataSource)
+                m_modbusDataSources.at(row)->deleteLater();
+            m_modbusDataSources.removeAt(row);
+        }
         m_modbusConfigs.removeAt(row);
         if (m_modbusConfigs.isEmpty()) {
             const SerialPortConfig emptyCfg;
@@ -854,9 +877,11 @@ void MainWindow::performSafeExit()
     if (m_touchInputPanel)
         m_touchInputPanel->hide();
 
-    if (m_modbusDataSource) {
-        m_modbusDataSource->stopPolling();
-        m_modbusDataSource->close();
+    for (ModbusRtuDataSource *ds : m_modbusDataSources) {
+        if (!ds)
+            continue;
+        ds->stopPolling();
+        ds->close();
     }
     if (m_runtimeSimulator)
         m_runtimeSimulator->stop();
@@ -892,13 +917,17 @@ void MainWindow::applyDataSourceMode()
             m_modbusDataSource->setWriteEnabled(true);
         if (m_runtimeSimulator)
             m_runtimeSimulator->stop();
-        if (m_modbusDataSource && m_modbusDataSource->isOpen())
-            m_modbusDataSource->startPolling();
+        for (ModbusRtuDataSource *ds : m_modbusDataSources) {
+            if (ds && ds->isOpen())
+                ds->startPolling();
+        }
     } else {
         if (m_modbusDataSource)
             m_modbusDataSource->setWriteEnabled(false);
-        if (m_modbusDataSource)
-            m_modbusDataSource->stopPolling();
+        for (ModbusRtuDataSource *ds : m_modbusDataSources) {
+            if (ds)
+                ds->stopPolling();
+        }
         if (m_runtimeSimulator && !m_runtimeSimulator->isRunning())
             m_runtimeSimulator->start(300);
     }
@@ -1495,7 +1524,15 @@ void MainWindow::applySerialConfigFromPanel()
         m_editingDataSourceRow = m_modbusConfigs.size() - 1;
     }
 
+    while (m_modbusDataSources.size() < m_modbusConfigs.size()) {
+        auto *ds = new ModbusRtuDataSource(this);
+        ds->setVariableModel(m_variableModel);
+        m_modbusDataSources.push_back(ds);
+    }
+
     m_serialDataSource->setConfig(nextCfg);
+    if (m_editingDataSourceRow >= 0 && m_editingDataSourceRow < m_modbusDataSources.size() && m_modbusDataSources.at(m_editingDataSourceRow))
+        m_modbusDataSources.at(m_editingDataSourceRow)->setConfig(nextCfg);
     if (m_modbusDataSource)
         m_modbusDataSource->setConfig(nextCfg);
 

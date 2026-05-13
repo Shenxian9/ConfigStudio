@@ -167,6 +167,7 @@ private:
 
     SerialDataSource *m_serialDataSource = nullptr;
     ModbusRtuDataSource *m_modbusDataSource = nullptr;
+    QVector<ModbusRtuDataSource *> m_modbusDataSources;
     QStandardItemModel *m_dataSourceTreeModel = nullptr;
     RuntimeSimulator *m_runtimeSimulator = nullptr;
     QPushButton *m_dataSourceModeCombo = nullptr;
