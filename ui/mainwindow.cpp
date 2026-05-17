@@ -371,6 +371,39 @@ void MainWindow::setupDataWorkspace()
 
     connect(ui->treeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]() {
         updateDataSourceActionButtons();
+
+        const int row = selectedDataSourceRow();
+        if (row < 0 || row >= m_modbusConfigs.size() || !m_serialDataSource)
+            return;
+
+        const SerialPortConfig selectedCfg = m_modbusConfigs.at(row);
+        const bool changed = (selectedCfg.deviceId != m_serialDataSource->config().deviceId)
+                             || (selectedCfg.portName != m_serialDataSource->config().portName)
+                             || (selectedCfg.baudRate != m_serialDataSource->config().baudRate)
+                             || (selectedCfg.dataBits != m_serialDataSource->config().dataBits)
+                             || (selectedCfg.parity != m_serialDataSource->config().parity)
+                             || (selectedCfg.stopBits != m_serialDataSource->config().stopBits)
+                             || (selectedCfg.slaveId != m_serialDataSource->config().slaveId)
+                             || (selectedCfg.timeoutMs != m_serialDataSource->config().timeoutMs)
+                             || (selectedCfg.retryCount != m_serialDataSource->config().retryCount)
+                             || (selectedCfg.pollIntervalMs != m_serialDataSource->config().pollIntervalMs)
+                             || (selectedCfg.defaultFunctionCode != m_serialDataSource->config().defaultFunctionCode);
+        if (!changed)
+            return;
+
+        const bool reopen = m_modbusDataSource && m_modbusDataSource->isOpen();
+        const bool resumePolling = reopen && m_modbusDataSource->isPolling();
+        if (m_modbusDataSource)
+            m_modbusDataSource->close();
+
+        m_serialDataSource->setConfig(selectedCfg);
+        if (m_modbusDataSource)
+            m_modbusDataSource->setConfig(selectedCfg);
+
+        if (reopen && m_modbusDataSource && m_modbusDataSource->open() && resumePolling)
+            m_modbusDataSource->startPolling();
+
+        refreshDataSourceTreeDeferred();
     });
 
     connect(m_modbusDataSource, &ModbusRtuDataSource::statusChanged, this, [this](bool opened) {
